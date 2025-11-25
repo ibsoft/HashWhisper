@@ -5,6 +5,9 @@ const state = {
   secrets: {},
   keyCache: {},
   seen: {},
+  messages: {},
+  notifications: { count: 0, mention: false },
+  emojiPickerReady: false,
 };
 
 let refreshTimer = null;
@@ -47,6 +50,15 @@ function getCsrfToken() {
 function getUserTimezone() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.getAttribute('data-user-tz')) || 'UTC';
+}
+
+function getCurrentUsername() {
+  const shell = document.querySelector('.chat-shell');
+  return (shell?.getAttribute('data-username')) || '';
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function formatTime(ts) {
@@ -119,6 +131,89 @@ async function decryptText(payload, secret, groupId) {
   }
 }
 
+function highlightMentions(html) {
+  const username = getCurrentUsername();
+  if (!username) return html;
+  const escaped = escapeRegex(username);
+  const regex = new RegExp(`@${escaped}(?![\\w@])`, 'gi');
+  return html.replace(regex, (match) => `<span class="mention">${match}</span>`);
+}
+
+function messageMentionsUser(text) {
+  const username = getCurrentUsername();
+  if (!username) return false;
+  const escaped = escapeRegex(username);
+  const regex = new RegExp(`@${escaped}(?![\\w@])`, 'i');
+  return regex.test(text || '');
+}
+
+function loadPersistedSecrets() {
+  try {
+    const raw = sessionStorage.getItem('hw-secrets');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      state.secrets = { ...parsed, ...state.secrets };
+    }
+  } catch (e) {
+    // ignore parse errors
+  }
+}
+
+function persistSecret(groupId, secret) {
+  const gid = Number(groupId);
+  if (!gid || !secret) return;
+  try {
+    const raw = sessionStorage.getItem('hw-secrets');
+    const parsed = raw ? JSON.parse(raw) : {};
+    parsed[gid] = secret;
+    sessionStorage.setItem('hw-secrets', JSON.stringify(parsed));
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
+function removePersistedSecret(groupId) {
+  const gid = Number(groupId);
+  if (!gid) return;
+  try {
+    const raw = sessionStorage.getItem('hw-secrets');
+    const parsed = raw ? JSON.parse(raw) : {};
+    delete parsed[gid];
+    sessionStorage.setItem('hw-secrets', JSON.stringify(parsed));
+  } catch (e) {
+    // ignore storage errors
+  }
+}
+
+function updateNotificationIcon(delta = 0, mention = false) {
+  state.notifications.count = Math.max(0, state.notifications.count + delta);
+  state.notifications.mention = state.notifications.mention || mention;
+  const badge = document.getElementById('info-count');
+  const dot = document.getElementById('info-dot');
+  const btn = document.getElementById('info-indicator');
+  if (badge) {
+    if (state.notifications.count > 0) {
+      badge.textContent = state.notifications.count;
+      badge.classList.remove('d-none');
+    } else {
+      badge.classList.add('d-none');
+    }
+  }
+  if (dot) dot.classList.toggle('d-none', state.notifications.count === 0);
+  if (btn) {
+    btn.classList.toggle('btn-outline-warning', state.notifications.mention);
+    btn.title = state.notifications.count
+      ? `${state.notifications.count} new ${state.notifications.mention ? ' (mentions highlighted)' : ''}`.trim()
+      : 'No new notifications';
+  }
+}
+
+function resetNotifications() {
+  state.notifications = { count: 0, mention: false };
+  updateNotificationIcon(0, false);
+}
+
 async function encryptFile(file, secret, groupId) {
   const key = await deriveKey(secret, groupId);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -164,11 +259,33 @@ async function renderMessage(container, msg, self, groupId) {
       dlBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
       dlBtn.addEventListener('click', () => decryptMedia(msg, meta, { download: true, groupId }));
       actions.appendChild(dlBtn);
+      if ((meta.mime || '').toLowerCase().startsWith('image/')) {
+        const copyImgBtn = document.createElement('button');
+        copyImgBtn.className = 'btn btn-sm reaction-download align-self-start';
+        copyImgBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+        copyImgBtn.title = 'Copy image';
+        copyImgBtn.addEventListener('click', () => copyImageFromMeta(msg, meta, groupId));
+        actions.appendChild(copyImgBtn);
+      } else if ((meta.mime || '').toLowerCase().startsWith('video/')) {
+        const copyLinkBtn = document.createElement('button');
+        copyLinkBtn.className = 'btn btn-sm reaction-download align-self-start';
+        copyLinkBtn.innerHTML = '<i class="fa-solid fa-link"></i>';
+        copyLinkBtn.title = 'Copy video link';
+        copyLinkBtn.addEventListener('click', () => copyMediaLink(meta, msg, groupId));
+        actions.appendChild(copyLinkBtn);
+      }
     }
     body.appendChild(preview);
   } else {
     const text = msg.plaintext || '[cipher]';
-    body.innerHTML = linkify(text);
+    const html = highlightMentions(linkify(text)).replace(/\n/g, '<br>');
+    body.innerHTML = html;
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-sm reaction-download align-self-start mt-2';
+    copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+    copyBtn.title = 'Copy text';
+    copyBtn.addEventListener('click', () => copyTextToClipboard(text));
+    actions.appendChild(copyBtn);
     const yt = text.match(/https?:\/\/[^\s]+/);
     if (yt && isYouTube(yt[0])) {
       body.insertAdjacentHTML('beforeend', youtubeEmbed(yt[0]));
@@ -287,31 +404,46 @@ function ensureSecret(groupId) {
 }
 
 async function loadMessages(groupId, opts = {}) {
-  const { skipSecretPrompt = false } = opts;
+  const { skipSecretPrompt = false, notify = true } = opts;
   const list = document.getElementById('message-list');
-  list.innerHTML = '';
+  if (!state.messages[groupId]) state.messages[groupId] = [];
+  const hasExisting = state.messages[groupId].length > 0;
   if (!state.secrets[groupId]) {
     if (skipSecretPrompt) return;
     await ensureSecret(groupId);
   }
   const res = await fetch(`/api/messages?group_id=${groupId}`);
   const data = await res.json();
+  const lastMsg = data[data.length - 1];
+  const lastSeen = state.seen[groupId] || 0;
+  const newMessages = hasExisting
+    ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
+    : data;
+  if (hasExisting && newMessages.length === 0) return;
+  if (!hasExisting) list.innerHTML = '';
   const secret = state.secrets[groupId];
-  for (const msg of data) {
+  for (const msg of newMessages) {
     let plaintext = '[encrypted]';
     if (secret && msg.ciphertext) {
       plaintext = await decryptText(msg, secret, groupId);
     }
     msg.plaintext = plaintext;
-    await renderMessage(list, msg, msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId), groupId);
+    const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
+    await renderMessage(list, msg, isSelf, groupId);
+    state.messages[groupId].push(msg.id);
+    if (notify && !isSelf) {
+      const mentionHit = messageMentionsUser(plaintext);
+      updateNotificationIcon(1, mentionHit);
+    }
   }
   if (list.lastElementChild) {
     list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
   // mark latest seen
-  const lastMsg = data[data.length - 1];
   if (lastMsg) {
     state.seen[groupId] = new Date(lastMsg.created_at).getTime();
+  } else {
+    state.seen[groupId] = 0;
   }
 }
 
@@ -345,7 +477,7 @@ async function sendMessage() {
   });
   if (resp.ok) {
     input.value = '';
-    await loadMessages(state.currentGroup);
+    await loadMessages(state.currentGroup, { notify: false });
     startAutoRefresh();
   }
 }
@@ -374,7 +506,7 @@ async function sendFile(file) {
   const resp = await fetch('/api/upload', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }, body: form });
   toggleUploadSpinner(false);
   if (resp.ok) {
-    await loadMessages(state.currentGroup);
+    await loadMessages(state.currentGroup, { notify: false });
     startAutoRefresh();
   }
 }
@@ -385,8 +517,54 @@ function toggleUploadSpinner(show) {
   spinner.classList.toggle('d-none', !show);
 }
 
+async function copyTextToClipboard(text) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showInfoModal('Copied', 'Content copied to clipboard.');
+  } catch (err) {
+    showInfoModal('Copy failed', 'Could not copy to clipboard in this browser.');
+  }
+}
+
+async function copyImageFromMeta(msg, meta, groupId) {
+  try {
+    if (!meta.renderedUrl) {
+      await decryptMedia(msg, meta, { inline: false, groupId });
+    }
+    if (!meta.renderedUrl) {
+      showInfoModal('Copy failed', 'No image available to copy.');
+      return;
+    }
+    const resp = await fetch(meta.renderedUrl);
+    const blob = await resp.blob();
+    await navigator.clipboard.write([
+      new ClipboardItem({ [blob.type]: blob })
+    ]);
+    showInfoModal('Copied', 'Image copied to clipboard.');
+  } catch (err) {
+    showInfoModal('Copy failed', 'Could not copy image to clipboard.');
+  }
+}
+
+async function copyMediaLink(meta, msg, groupId) {
+  try {
+    if (!meta.renderedUrl) {
+      await decryptMedia(msg, meta, { inline: false, groupId });
+    }
+    if (!meta.renderedUrl) {
+      showInfoModal('Copy failed', 'No media link available.');
+      return;
+    }
+    await copyTextToClipboard(meta.renderedUrl);
+  } catch (err) {
+    showInfoModal('Copy failed', 'Could not copy link.');
+  }
+}
+
 function bindUI() {
   const list = document.getElementById('message-list');
+  loadPersistedSecrets();
   document.getElementById('send-btn')?.addEventListener('click', sendMessage);
   document.getElementById('message-input')?.addEventListener('keyup', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -405,32 +583,11 @@ function bindUI() {
     e.target.value = '';
   });
 
-  document.querySelectorAll('[data-group-id]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      state.currentGroup = Number(btn.getAttribute('data-group-id'));
-      document.getElementById('chat-title').textContent = btn.textContent.trim();
-      await ensureSecret(state.currentGroup);
-      await loadMessages(state.currentGroup);
-      loadGroupUsers(state.currentGroup);
-      startAutoRefresh();
-    });
-  });
+  initEmojiPicker();
 
-  document.querySelectorAll('.delete-group').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const groupId = Number(btn.getAttribute('data-delete-group'));
-      const name = btn.getAttribute('data-group-name') || 'this group';
-      if (!groupId) return;
-      pendingDeleteGroupId = groupId;
-      const nameEl = document.getElementById('delete-group-name');
-      if (nameEl) nameEl.textContent = name;
-      if (!deleteModalInstance) {
-        deleteModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteGroupModal'));
-      }
-      deleteModalInstance.show();
-    });
-  });
+  document.querySelectorAll('[data-group-id]').forEach(attachGroupButtonHandler);
+
+  document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
 
   document.getElementById('join-btn')?.addEventListener('click', async () => {
     const secret = document.getElementById('join-secret').value.trim();
@@ -444,7 +601,14 @@ function bindUI() {
     if (resp.ok) {
       const data = await resp.json();
       state.secrets[data.group_id] = secret;
-      location.reload();
+      const list = document.querySelector('.contact-list');
+      if (list && !list.querySelector(`[data-group-id="${data.group_id}"]`)) {
+        addGroupToSidebar(data.group_id, groupName);
+      }
+      setCurrentGroup(data.group_id, groupName);
+      document.getElementById('join-secret').value = '';
+      const nameInput = document.getElementById('join-group-name');
+      if (nameInput) nameInput.value = '';
     } else {
       showInfoModal('Join failed', 'Unable to join this group with the provided secret.');
     }
@@ -456,6 +620,7 @@ function bindUI() {
     document.getElementById('secret-save')?.addEventListener('click', () => {
       const gid = Number(document.getElementById('secret-group-id').value);
       const val = (document.getElementById('secret-input').value || '').trim();
+      const remember = document.getElementById('remember-secret')?.checked;
       const errorEl = document.getElementById('secret-error');
       if (!val) {
         errorEl.classList.remove('d-none');
@@ -463,6 +628,11 @@ function bindUI() {
       }
       errorEl.classList.add('d-none');
       state.secrets[gid] = val;
+      if (remember) {
+        persistSecret(gid, val);
+      } else {
+        removePersistedSecret(gid);
+      }
       if (secretResolver) {
         secretResolver(val);
         secretResolver = null;
@@ -474,6 +644,8 @@ function bindUI() {
         secretResolver(null);
         secretResolver = null;
       }
+      const remember = document.getElementById('remember-secret');
+      if (remember) remember.checked = false;
     });
   }
 
@@ -487,7 +659,13 @@ function bindUI() {
         headers: { 'X-CSRFToken': getCsrfToken() },
       });
       if (resp.ok) {
-        location.reload();
+        removeGroupFromSidebar(pendingDeleteGroupId);
+        if (state.currentGroup === pendingDeleteGroupId) {
+          state.currentGroup = null;
+          document.getElementById('chat-title').textContent = 'Select a group';
+          const listEl = document.getElementById('message-list');
+          if (listEl) listEl.innerHTML = '';
+        }
       } else {
         showInfoModal('Delete failed', 'Could not delete this group.');
       }
@@ -524,6 +702,13 @@ function bindUI() {
     });
   }
 
+  const infoBtn = document.getElementById('info-indicator');
+  if (infoBtn) {
+    infoBtn.addEventListener('click', () => {
+      resetNotifications();
+    });
+  }
+
   setInterval(checkGroupNotifications, 10000);
   startAutoRefresh();
 }
@@ -536,7 +721,8 @@ function connectPresence() {
     if (!event.data) return;
     const data = JSON.parse(event.data);
     if (data.type === 'ping') return;
-    label.textContent = `Presence: user ${data.user_id} is ${data.status}`;
+    const name = data.username || `user ${data.user_id}`;
+    label.textContent = `Presence: ${name} is ${data.status}`;
     typingIndicator.classList.toggle('d-none', !data.typing);
   };
 }
@@ -565,7 +751,7 @@ function loadGroupUsers(groupId) {
       users.forEach((u) => {
         const item = document.createElement('button');
         item.className = 'list-group-item list-group-item-action bg-transparent text-start text-light border-0';
-        item.textContent = u.username;
+        item.innerHTML = `<i class="fa-solid fa-user me-2"></i><span class="username">${u.username}</span>`;
         item.addEventListener('click', () => openDmModal(u.id));
         userList.appendChild(item);
       });
@@ -671,5 +857,111 @@ function startAutoRefresh() {
     if (state.currentGroup && state.secrets[state.currentGroup]) {
       loadMessages(state.currentGroup, { skipSecretPrompt: true });
     }
-  }, 7000);
+  }, 20000);
+}
+
+async function setCurrentGroup(groupId, groupName) {
+  state.currentGroup = Number(groupId);
+  document.getElementById('chat-title').textContent = groupName || 'Chat';
+  state.messages[state.currentGroup] = [];
+  const list = document.getElementById('message-list');
+  if (list) list.innerHTML = '';
+  await ensureSecret(state.currentGroup);
+  await loadMessages(state.currentGroup, { notify: false });
+  loadGroupUsers(state.currentGroup);
+  startAutoRefresh();
+}
+
+function initEmojiPicker() {
+  const btn = document.getElementById('emoji-btn');
+  const picker = document.getElementById('emoji-picker');
+  const input = document.getElementById('message-input');
+  if (!btn || !picker || !input) return;
+  const emojis = [
+    '😀','😁','😂','🤣','😅','😊','😍','😘','😎','🤩','😇','😉','🙃','😜','🤔','🤨','😐','😑','😶','🙄',
+    '😏','😴','🤯','🥳','😤','😢','😭','😡','🤬','🤢','🤮','🤧','🥶','🥵','🤒','🤕','🤑','🤠','😈','👻',
+    '💀','🤖','🎃','🙈','🙉','🙊','👀','👋','👍','👎','👏','🙌','🙏','💪','💯','🔥','✨','💫','🎉',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕','💖','💗','💓','💞','💢','💤','💥','💨','💦',
+    '🍀','☀️','🌙','⭐','⚡','☁️','🌈','❄️','☂️'
+  ];
+  const render = () => {
+    if (state.emojiPickerReady) return;
+    picker.innerHTML = '';
+    emojis.forEach((emoji) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = emoji;
+      b.addEventListener('click', () => {
+        const cursor = input.selectionStart || input.value.length;
+        const before = input.value.slice(0, cursor);
+        const after = input.value.slice(cursor);
+        input.value = `${before}${emoji}${after}`;
+        input.focus();
+        toggleEmojiPicker(false);
+      });
+      picker.appendChild(b);
+    });
+    state.emojiPickerReady = true;
+  };
+  const toggleEmojiPicker = (force) => {
+    render();
+    const show = typeof force === 'boolean' ? force : picker.classList.contains('d-none');
+    picker.classList.toggle('d-none', !show);
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleEmojiPicker();
+  });
+  document.addEventListener('click', (e) => {
+    if (!picker.classList.contains('d-none') && !picker.contains(e.target) && e.target !== btn) {
+      toggleEmojiPicker(false);
+    }
+  });
+}
+
+function attachGroupButtonHandler(btn) {
+  btn.addEventListener('click', async () => {
+    const gid = Number(btn.getAttribute('data-group-id'));
+    const label = btn.querySelector('span')?.textContent.trim() || 'Chat';
+    await setCurrentGroup(gid, label);
+    resetNotifications();
+  });
+}
+
+function attachDeleteGroupHandler(btn) {
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const groupId = Number(btn.getAttribute('data-delete-group'));
+    const name = btn.getAttribute('data-group-name') || 'this group';
+    if (!groupId) return;
+    pendingDeleteGroupId = groupId;
+    const nameEl = document.getElementById('delete-group-name');
+    if (nameEl) nameEl.textContent = name;
+    if (!deleteModalInstance) {
+      deleteModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteGroupModal'));
+    }
+    deleteModalInstance.show();
+  });
+}
+
+function addGroupToSidebar(groupId, groupName) {
+  const container = document.querySelector('.contact-list');
+  if (!container) return;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0';
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-link text-start text-light flex-grow-1 position-relative';
+  btn.setAttribute('data-group-id', groupId);
+  btn.innerHTML = `<span>${groupName}</span>
+    <span class="status-dot status-offline ms-2" data-group-status="${groupId}"></span>
+    <span class="group-badge d-none ms-2"></span>`;
+  attachGroupButtonHandler(btn);
+  wrapper.appendChild(btn);
+  container.appendChild(wrapper);
+}
+
+function removeGroupFromSidebar(groupId) {
+  const btn = document.querySelector(`[data-group-id="${groupId}"]`);
+  const wrapper = btn?.closest('.list-group-item');
+  if (wrapper) wrapper.remove();
 }

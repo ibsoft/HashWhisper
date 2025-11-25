@@ -14,7 +14,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class BasePresenceBus:
-    def publish(self, user_id: int, status: str, typing: bool = False):  # pragma: no cover - interface
+    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):  # pragma: no cover - interface
         raise NotImplementedError
 
     def stream(self):  # pragma: no cover - interface
@@ -28,11 +28,12 @@ class InMemoryPresenceBus(BasePresenceBus):
         self.listeners: list[queue.Queue] = []
         self.lock = threading.Lock()
 
-    def publish(self, user_id: int, status: str, typing: bool = False):
+    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):
         payload = {
             "user_id": user_id,
             "status": status,
             "typing": typing,
+            "username": username,
             "at": datetime.utcnow().isoformat(),
         }
         with self.lock:
@@ -83,11 +84,12 @@ class RedisPresenceBus(BasePresenceBus):
         self.channel = channel
         self.hash_key = f"{channel}:status"
 
-    def publish(self, user_id: int, status: str, typing: bool = False):
+    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):
         payload = {
             "user_id": user_id,
             "status": status,
             "typing": typing,
+            "username": username,
             "at": datetime.utcnow().isoformat(),
         }
         data = json.dumps(payload)

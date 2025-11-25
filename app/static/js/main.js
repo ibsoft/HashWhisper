@@ -13,6 +13,19 @@
   }
 })();
 
+// Clear stored secrets on logout to force re-entry
+(() => {
+  document.querySelectorAll('[data-logout]').forEach((link) => {
+    link.addEventListener('click', () => {
+      try {
+        sessionStorage.removeItem('hw-secrets');
+      } catch (e) {
+        // ignore
+      }
+    });
+  });
+})();
+
 // Register service worker for PWA/installable experience
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

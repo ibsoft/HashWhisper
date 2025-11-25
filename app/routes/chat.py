@@ -2,7 +2,7 @@ import base64
 import io
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import qrcode
@@ -227,7 +227,7 @@ def list_messages():
                 "meta": m.meta,
                 "sender_id": m.sender_id,
                 "sender_name": getattr(m.sender, "username", "user"),
-                "created_at": m.created_at.isoformat(),
+                "created_at": m.created_at.replace(tzinfo=timezone.utc).isoformat(),
                 "likes": likes,
                 "dislikes": dislikes,
                 "liked_by": like_usernames,
@@ -304,23 +304,24 @@ def upload_blob():
     base_path.mkdir(parents=True, exist_ok=True)
     stored_path = base_path / random_name
     file.save(stored_path)
+    file_size = stored_path.stat().st_size
     message = Message(
         group_id=group_id,
         sender_id=current_user.id,
         ciphertext=b"",
         nonce=str(nonce)[:64],
         auth_tag=str(auth_tag)[:64],
-        meta=raw_meta[:255],
+        meta="",
         expires_at=datetime.utcnow() + timedelta(days=current_app.config["MESSAGE_RETENTION_DAYS"]),
     )
     db.session.add(message)
-    db.session.commit()
+    db.session.flush()
     blob = MediaBlob(
         message_id=message.id,
         stored_path=str(stored_path),
         original_name=sanitized_name,
         mime_type=file.mimetype,
-        size_bytes=stored_path.stat().st_size,
+        size_bytes=file_size,
     )
     db.session.add(blob)
     db.session.flush()
@@ -328,6 +329,27 @@ def upload_blob():
         meta_json = json.loads(raw_meta) if raw_meta else {}
     except ValueError:
         meta_json = {}
+    # Keep meta JSON short enough for the column and always retain blob_id
+    meta_json.update(
+        {
+            "type": "media",
+            "name": (sanitized_name or "blob")[:120],
+            "size": file_size,
+            "mime": (file.mimetype or "application/octet-stream")[:64],
+            "blob_id": blob.id,
+        }
+    )
+    meta_str = json.dumps(meta_json)
+    if len(meta_str) > 255:
+        minimal = {
+            "type": "media",
+            "name": meta_json.get("name", "blob")[:60],
+            "size": file_size,
+            "mime": meta_json.get("mime", "application/octet-stream"),
+            "blob_id": blob.id,
+        }
+        meta_json = minimal
+        meta_str = json.dumps(meta_json)
     meta_json.update(
         {
             "type": "media",
@@ -337,7 +359,7 @@ def upload_blob():
             "blob_id": blob.id,
         }
     )
-    message.meta = json.dumps(meta_json)[:255]
+    message.meta = meta_str
     db.session.commit()
     return jsonify({"id": blob.id, "message_id": message.id, "meta": meta_json})
 
@@ -405,7 +427,7 @@ def update_presence():
     status = data.get("status", "online")
     typing = bool(data.get("typing", False))
     bus = get_presence_bus()
-    bus.publish(current_user.id, status, typing)
+    bus.publish(current_user.id, status, typing, username=current_user.username)
     PresenceEvent.touch(current_user.id, status, typing)
     return jsonify({"ok": True})
 

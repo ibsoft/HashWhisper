@@ -44,7 +44,6 @@ class SettingsForm(FlaskForm):
     preferred_theme = SelectField("Theme", choices=[("system", "System"), ("light", "Light"), ("dark", "Dark")])
     language = SelectField("Language", choices=[("en", "English"), ("es", "Español"), ("fr", "Français")])
     notifications_enabled = BooleanField("Enable notifications")
-    privacy_mode = BooleanField("Privacy mode")
     timezone = SelectField(
         "Time zone",
         choices=[

@@ -27,7 +27,6 @@ class User(UserMixin, db.Model):
     preferred_theme = db.Column(db.String(16), default="system")
     language = db.Column(db.String(8), default="en")
     notifications_enabled = db.Column(db.Boolean, default=True)
-    privacy_mode = db.Column(db.Boolean, default=False)
     timezone = db.Column(db.String(64), default="UTC")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login_at = db.Column(db.DateTime)

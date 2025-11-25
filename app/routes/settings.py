@@ -15,7 +15,6 @@ def settings():
         current_user.preferred_theme = form.preferred_theme.data
         current_user.language = form.language.data
         current_user.notifications_enabled = form.notifications_enabled.data
-        current_user.privacy_mode = form.privacy_mode.data
         current_user.timezone = form.timezone.data
         db.session.commit()
         flash("Settings updated", "success")
