@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card card-glass p-4">
+      <h2 class="mb-3">Create account</h2>
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">{{ form.username.label(class='form-label') }}{{ form.username(class='form-control', autocomplete='username') }}</div>
+        <div class="mb-3">{{ form.email.label(class='form-label') }}{{ form.email(class='form-control', autocomplete='email') }}</div>
+        <div class="mb-3">{{ form.password.label(class='form-label') }}{{ form.password(class='form-control', autocomplete='new-password') }}</div>
+        <div class="mb-3">{{ form.confirm.label(class='form-label') }}{{ form.confirm(class='form-control', autocomplete='new-password') }}</div>
+        <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
+      </form>
+      <div class="alert alert-info mt-3">Strong password + TOTP are mandatory.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="chat-shell" data-user-id="{{ current_user.id }}" data-max-bytes="{{ config.MAX_CONTENT_LENGTH }}" data-user-tz="{{ current_user.timezone or 'UTC' }}">
+  <div class="collapse d-lg-block" id="groupSidebar">
+    <div class="card card-glass p-3 sidebar-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Spaces</h5>
+        <div class="btn-group">
+          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}"><i class="fa-solid fa-plus"></i></a>
+        </div>
+      </div>
+      <div class="contact-list list-group list-group-flush">
+        {% for g in groups %}
+          <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0">
+            <button class="btn btn-link text-start text-light flex-grow-1 position-relative" data-group-id="{{ g.id }}">
+              <span>{{ g.name }}</span>
+              <span class="status-dot status-offline ms-2" data-group-status="{{ g.id }}"></span>
+              <span class="group-badge d-none ms-2"></span>
+            </button>
+            {% if g.created_by == current_user.id %}
+            <button class="btn btn-outline-danger btn-sm delete-group" data-delete-group="{{ g.id }}" data-group-name="{{ g.name }}" title="Delete group">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+            {% endif %}
+          </div>
+        {% else %}
+          <p class="text-muted">No groups yet. Create or join using a secret hash.</p>
+        {% endfor %}
+      </div>
+      <div class="mt-3">
+        <label class="form-label">Join via secret hash</label>
+        <input type="text" class="form-control" id="join-secret" placeholder="Paste shared secret">
+        <input type="text" class="form-control mt-2" id="join-group-name" placeholder="Group name">
+        <button class="btn btn-outline-light w-100 mt-2" id="join-btn">Join securely</button>
+      </div>
+      <hr class="text-secondary">
+      <div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Users</h6>
+        </div>
+        <div class="contact-list list-group list-group-flush" id="user-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-glass p-3" id="chat-panel">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-light d-lg-none" data-bs-toggle="collapse" data-bs-target="#groupSidebar">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div>
+          <h5 class="mb-0" id="chat-title">Select a group</h5>
+          <small class="text-muted" id="presence-label"><i class="fa-solid fa-signal"></i> waiting</small>
+        </div>
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-dark"><i class="fa-solid fa-shield-halved"></i> AES-GCM</span>
+        <button class="btn btn-sm btn-outline-light" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
+      </div>
+    </div>
+    <div class="message-list" id="message-list"></div>
+    <div class="card card-glass input-card mt-3 p-2">
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-outline-light btn-sm" id="attach-btn"><i class="fa-solid fa-paperclip"></i></button>
+        <input type="file" id="file-input" class="d-none" accept="image/*,video/*,audio/*">
+        <textarea class="form-control flex-grow-1" rows="2" id="message-input" placeholder="Type an encrypted whisper..." maxlength="500"></textarea>
+        <div id="upload-spinner" class="spinner-border spinner-border-sm text-info d-none" role="status"></div>
+        <button class="btn btn-soft" id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
+        <span><i class="fa-regular fa-face-smile"></i> Emoji-friendly • <i class="fa-solid fa-lock"></i> Client-side crypto</span>
+        <span id="typing-indicator" class="text-info d-none"><i class="fa-solid fa-pen"></i> typing...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared secret modal -->
+<div class="modal fade" id="secretModal" tabindex="-1" aria-labelledby="secretModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="secretModalLabel">Enter shared secret</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-2">This secret never leaves your device. It is required to decrypt and send messages in this group.</p>
+        <input type="hidden" id="secret-group-id">
+        <input type="password" class="form-control" id="secret-input" placeholder="Shared secret" autocomplete="off">
+        <div class="text-danger small mt-2 d-none" id="secret-error">Secret is required.</div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-soft" id="secret-save">Save secret</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete group modal -->
+<div class="modal fade" id="deleteGroupModal" tabindex="-1" aria-labelledby="deleteGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="deleteGroupModalLabel">Delete group</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">This will delete the group and all encrypted data for <span id="delete-group-name" class="fw-semibold"></span>.</p>
+        <p class="text-danger small mb-0">Action is irreversible.</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-group">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DM modal -->
+<div class="modal fade" id="dmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Start private chat</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Enter a shared secret for this private conversation. It will be used to derive your E2EE key.</p>
+        <input type="hidden" id="dm-user-id">
+        <div class="mb-3">
+          <label class="form-label">Secret</label>
+          <input type="password" class="form-control" id="dm-secret" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-soft" id="dm-start-btn">Start</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Media modal -->
+<div class="modal fade" id="mediaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-body text-center" id="mediaModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Info modal -->
+<div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="infoModalTitle">Notice</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="infoModalBody"></div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

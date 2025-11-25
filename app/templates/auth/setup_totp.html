@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card card-glass p-4 text-center">
+      <h3 class="mb-3">Secure your account</h3>
+      <p class="text-muted">Scan this QR with Google Authenticator (or any TOTP app). Two-factor is mandatory from first login.</p>
+      <img class="img-fluid rounded border border-1 mb-3" src="{{ url_for('auth.totp_qr', user_id=user.id) }}" alt="TOTP QR">
+      <p class="text-muted">Secret: <code>{{ secret }}</code></p>
+      <a class="btn btn-soft" href="{{ url_for('auth.login') }}">Proceed to sign in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

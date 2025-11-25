@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card card-glass p-4 text-center">
+      <h1 class="mb-3">HashWhisper</h1>
+      <p class="text-muted mb-4">End-to-end encrypted group chat. Only those who share the hash can hear the whisper.</p>
+      <div class="d-grid gap-3">
+        <a class="btn btn-soft btn-lg" href="{{ url_for('auth.register') }}">Create secure account</a>
+        <a class="btn btn-outline-light" href="{{ url_for('auth.login') }}">Sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

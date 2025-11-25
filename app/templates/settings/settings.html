@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card card-glass p-4">
+      <h3 class="mb-3">Preferences</h3>
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="mb-3">{{ form.preferred_theme.label(class='form-label') }}{{ form.preferred_theme(class='form-select') }}</div>
+        <div class="mb-3">{{ form.language.label(class='form-label') }}{{ form.language(class='form-select') }}</div>
+        <div class="form-check mb-2">{{ form.notifications_enabled(class='form-check-input') }}{{ form.notifications_enabled.label(class='form-check-label') }}</div>
+        <div class="form-check mb-3">{{ form.privacy_mode(class='form-check-input') }}{{ form.privacy_mode.label(class='form-check-label') }}</div>
+        <div class="mb-3">{{ form.timezone.label(class='form-label') }}{{ form.timezone(class='form-select') }}</div>
+        <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
+      </form>
+      <div class="alert alert-info mt-3">Themes and notifications are stored server-side without sensitive content.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
