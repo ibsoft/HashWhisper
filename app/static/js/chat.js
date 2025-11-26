@@ -865,6 +865,13 @@ function bindUI() {
   if (sidebarEl) {
     const collapseInst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
     collapseInst.hide();
+    const sidebarToggle = document.querySelector('[data-bs-target="#groupSidebar"]');
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        collapseInst.toggle();
+      });
+    }
     sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
     sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; startAutoRefresh(); });
   }
@@ -1066,7 +1073,10 @@ function connectPresence() {
         return;
       }
       if (payload.event === 'message') {
-        scheduleMessageRefresh(payload.group_id, { notify: true });
+        scheduleMessageRefresh(payload.group_id, { notify: true, forceRefresh: true });
+      }
+      if (payload.event === 'reaction') {
+        scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true });
       }
     };
   } catch (err) {
@@ -1225,20 +1235,14 @@ connectPresence();
 
 function startAutoRefresh() {
   clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => {
-    if (state.freezeRefresh) return;
-    if (presenceSource) return;
-    if (state.currentGroup && state.secrets[state.currentGroup]) {
-      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: false });
-    }
-  }, 10000);
+  // Refresh is now event-driven via SSE; polling disabled.
 }
 
-function scheduleMessageRefresh(groupId, { notify = true } = {}) {
+function scheduleMessageRefresh(groupId, { notify = true, forceRefresh = false } = {}) {
   if (!groupId || groupId !== state.currentGroup) return;
   if (sseRefreshDebounce) return;
   sseRefreshDebounce = setTimeout(() => {
-    loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh: false });
+    loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh });
     sseRefreshDebounce = null;
   }, 250);
 }
