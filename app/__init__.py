@@ -18,6 +18,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    limiter.default_limits = [app.config.get("RATELIMIT_DEFAULT", "1000 per hour")]
     limiter.init_app(app)
     app.extensions["presence_bus"] = create_presence_bus(app)
 

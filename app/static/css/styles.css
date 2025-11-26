@@ -125,6 +125,7 @@ html, body {
 .reaction-download { color: #6fd3ff; border-color: #6fd3ff; }
 .media-preview img, .media-preview video { max-height: 240px; border-radius: 12px; object-fit: cover; }
 .media-preview iframe { border: none; border-radius: 12px; }
+.media-preview { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .media-preview audio {
   width: 100%;
   margin-top: 6px;
@@ -143,6 +144,11 @@ html, body {
 }
 
 .input-card { border-radius: 18px; }
+.sticky-input {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
 .input-row { align-items: stretch !important; }
 .send-btn {
   display: flex;

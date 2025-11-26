@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, flash, jsonify, render_templ
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 
-from ..extensions import db
+from ..extensions import db, limiter
 from ..forms import GroupForm
 from ..models import (
     Group,
@@ -122,6 +122,7 @@ def start_dm():
 
 @chat_bp.route("/api/users")
 @login_required
+@limiter.exempt
 def list_users():
     group_id = request.args.get("group_id", type=int)
     if not group_id:
@@ -139,6 +140,7 @@ def list_users():
 
 @chat_bp.route("/api/groups/summary")
 @login_required
+@limiter.exempt
 def groups_summary():
     results = []
     memberships = GroupMembership.query.filter_by(user_id=current_user.id).all()
@@ -190,6 +192,7 @@ def delete_group(group_id: int):
 
 @chat_bp.route("/api/messages", methods=["GET"])
 @login_required
+@limiter.exempt
 def list_messages():
     group_id = request.args.get("group_id", type=int)
     if not group_id:

@@ -713,6 +713,17 @@ function bindUI() {
 
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
 
+  const joinToggle = document.getElementById('join-secret-toggle');
+  if (joinToggle) {
+    joinToggle.addEventListener('click', () => {
+      const input = document.getElementById('join-secret');
+      if (!input) return;
+      const isHidden = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isHidden ? 'text' : 'password');
+      joinToggle.innerHTML = isHidden ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    });
+  }
+
   document.getElementById('join-btn')?.addEventListener('click', async () => {
     const secret = document.getElementById('join-secret').value.trim();
     const groupName = (document.getElementById('join-group-name')?.value || '').trim();

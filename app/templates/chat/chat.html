@@ -25,10 +25,15 @@
           {% else %}
             <p class="text-muted">No groups yet. Create or join using a secret hash.</p>
           {% endfor %}
-        </div>
+      </div>
       <div class="mt-3" id="join-inline">
         <label class="form-label">Join via secret hash</label>
-        <input type="text" class="form-control" id="join-secret" placeholder="Paste shared secret">
+        <div class="input-group">
+          <input type="password" class="form-control" id="join-secret" placeholder="Paste shared secret" autocomplete="off">
+          <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="Show secret">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
         <input type="text" class="form-control mt-2" id="join-group-name" placeholder="Group name">
         <button class="btn btn-outline-light w-100 mt-2" id="join-btn">Join securely</button>
       </div>
