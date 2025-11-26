@@ -18,7 +18,10 @@
 <body class="bg-gradient">
 <nav class="navbar navbar-dark navbar-glass sticky-top">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{{ url_for('chat.chat') }}">{{ config.APP_TITLE }}</a>
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('chat.chat') }}">
+      <img src="{{ url_for('static', filename='img/icon.svg') }}" alt="Logo" class="brand-logo">
+      <span class="brand-text">{{ config.APP_TITLE }}</span>
+    </a>
     <div class="d-flex gap-2 align-items-center">
       {% if current_user.is_authenticated %}
       <span class="badge bg-success d-flex align-items-center gap-1"><i class="fa-solid fa-lock"></i> E2EE</span>

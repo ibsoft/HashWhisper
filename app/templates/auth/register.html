@@ -3,16 +3,57 @@
 <div class="row justify-content-center">
   <div class="col-lg-6">
     <div class="card card-glass p-4">
-      <h2 class="mb-3">Create account</h2>
+      <div class="text-center mb-2">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="HashWhisper" class="register-logo">
+      </div>
+      <h2 class="mb-3 text-center">Create account</h2>
       <form method="post" novalidate>
         {{ form.hidden_tag() }}
-        <div class="mb-3">{{ form.username.label(class='form-label') }}{{ form.username(class='form-control', autocomplete='username') }}</div>
-        <div class="mb-3">{{ form.email.label(class='form-label') }}{{ form.email(class='form-control', autocomplete='email') }}</div>
-        <div class="mb-3">{{ form.password.label(class='form-label') }}{{ form.password(class='form-control', autocomplete='new-password') }}</div>
-        <div class="mb-3">{{ form.confirm.label(class='form-label') }}{{ form.confirm(class='form-control', autocomplete='new-password') }}</div>
+        {% if form.errors %}
+        <div class="alert alert-danger">
+          Please fix the issues below:
+          <ul class="mb-0 mt-2">
+            {% for field, errors in form.errors.items() %}
+              {% for error in errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        <div class="mb-3">
+          {{ form.username.label(class='form-label') }}
+          {{ form.username(class='form-control ' + ('is-invalid' if form.username.errors else ''), autocomplete='username') }}
+          {% if form.username.errors %}
+            <div class="invalid-feedback">{{ form.username.errors[0] }}</div>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          {{ form.email.label(class='form-label') }}
+          {{ form.email(class='form-control ' + ('is-invalid' if form.email.errors else ''), autocomplete='email') }}
+          {% if form.email.errors %}
+            <div class="invalid-feedback">{{ form.email.errors[0] }}</div>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          {{ form.password.label(class='form-label') }}
+          {{ form.password(class='form-control ' + ('is-invalid' if form.password.errors else ''), autocomplete='new-password') }}
+          {% if form.password.errors %}
+            <div class="invalid-feedback">{{ form.password.errors[0] }}</div>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          {{ form.confirm.label(class='form-label') }}
+          {{ form.confirm(class='form-control ' + ('is-invalid' if form.confirm.errors else ''), autocomplete='new-password') }}
+          {% if form.confirm.errors %}
+            <div class="invalid-feedback">{{ form.confirm.errors[0] }}</div>
+          {% endif %}
+        </div>
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
+      {% if config.REQUIRE_TOTP %}
       <div class="alert alert-info mt-3">Strong password + TOTP are mandatory.</div>
+      {% endif %}
     </div>
   </div>
 </div>

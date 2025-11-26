@@ -69,7 +69,8 @@ def login():
             return render_template("auth/login.html", form=form)
         user.reset_failures()
         db.session.commit()
-        if current_app.config.get("REQUIRE_TOTP", True):
+        require_totp = current_app.config.get("REQUIRE_TOTP", True)
+        if require_totp or user.totp_confirmed:
             session["pending_2fa"] = user.id
             session["remember_me"] = form.remember.data
             flash("Enter your authenticator code", "info")

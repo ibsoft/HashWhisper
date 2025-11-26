@@ -826,7 +826,7 @@ function bindUI() {
   const sidebarEl = document.getElementById('groupSidebar');
   if (sidebarEl) {
     sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
-    sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; });
+    sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; startAutoRefresh(); });
   }
 
   const joinToggle = document.getElementById('join-secret-toggle');
@@ -1221,9 +1221,11 @@ function attachGroupButtonHandler(btn) {
     resetNotifications();
     persistLastGroup(gid);
     const sidebarEl = document.getElementById('groupSidebar');
-    if (sidebarEl && window.innerWidth < 992) {
+    if (sidebarEl) {
       const inst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
       inst.hide();
+      state.freezeRefresh = false;
+      setTimeout(() => { state.freezeRefresh = false; }, 300);
     }
   });
 }
