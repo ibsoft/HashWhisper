@@ -163,6 +163,25 @@ function loadPersistedSecrets() {
   }
 }
 
+function loadLastGroup() {
+  try {
+    const raw = sessionStorage.getItem('hw-last-group');
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function persistLastGroup(groupId) {
+  try {
+    sessionStorage.setItem('hw-last-group', String(groupId));
+  } catch (e) {
+    // ignore
+  }
+}
+
 function persistSecret(groupId, secret) {
   const gid = Number(groupId);
   if (!gid || !secret) return;
@@ -490,7 +509,10 @@ async function sendFile(file) {
     showInfoModal('Select a group', 'Choose a group or DM before uploading.');
     return;
   }
-  if (!file) return;
+  if (!file) {
+    showInfoModal('No file selected', 'Pick a file or record a voice note to upload.');
+    return;
+  }
   const maxBytes = Number(document.querySelector('.chat-shell').dataset.maxBytes || 0);
   if (maxBytes && file.size > maxBytes) {
     showInfoModal('Upload blocked', 'File exceeds maximum encrypted upload size.');
@@ -531,11 +553,18 @@ async function toggleRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     recordChunks = [];
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    const mimeOptions = ['audio/webm', 'audio/mp4', 'audio/ogg'];
+    let chosen = '';
+    for (const m of mimeOptions) {
+      if (MediaRecorder.isTypeSupported(m)) { chosen = m; break; }
+    }
+    mediaRecorder = new MediaRecorder(stream, chosen ? { mimeType: chosen } : undefined);
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.push(e.data); };
     mediaRecorder.onstop = async () => {
-      const blob = new Blob(recordChunks, { type: 'audio/webm' });
-      const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+      const type = chosen || 'audio/webm';
+      const blob = new Blob(recordChunks, { type });
+      const ext = type.split('/')[1] || 'webm';
+      const file = new File([blob], `voice-${Date.now()}.${ext}`, { type });
       await sendFile(file);
       stream.getTracks().forEach((t) => t.stop());
     };
@@ -623,6 +652,7 @@ function bindUI() {
 
   document.querySelectorAll('[data-group-id]').forEach(attachGroupButtonHandler);
   updateSecretDots();
+  restoreLastGroup();
 
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
 
@@ -795,6 +825,16 @@ function loadGroupUsers(groupId) {
     .catch(() => {
       userList.innerHTML = '<div class="text-muted small">Unable to load members.</div>';
     });
+}
+
+async function restoreLastGroup() {
+  const last = loadLastGroup();
+  if (!last) return;
+  const btn = document.querySelector(`[data-group-id="${last}"]`);
+  const label = btn?.getAttribute('data-group-name') || btn?.querySelector('.group-name')?.textContent.trim();
+  if (btn && label) {
+    await setCurrentGroup(last, label);
+  }
 }
 
 function updateSecretDots() {
@@ -971,6 +1011,7 @@ function attachGroupButtonHandler(btn) {
     const label = btn.getAttribute('data-group-name') || btn.querySelector('.group-name')?.textContent.trim() || 'Chat';
     await setCurrentGroup(gid, label);
     resetNotifications();
+    persistLastGroup(gid);
   });
 }
 
