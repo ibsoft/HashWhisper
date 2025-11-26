@@ -30,6 +30,7 @@ class Config:
         "audio/ogg",
         "audio/webm",
         "audio/wav",
+        "audio/mp4",
     }
     
     SECURITY_CSP = {
