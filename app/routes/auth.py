@@ -35,9 +35,15 @@ def register():
         db.session.add(user)
         db.session.commit()
         current_app.logger.info("New user registered", extra={"user": user.username, "ip": request.remote_addr})
-        session["setup_user_id"] = user.id
-        flash("Account created. Enroll TOTP immediately.", "info")
-        return redirect(url_for("auth.setup_totp", user_id=user.id))
+        if current_app.config.get("REQUIRE_TOTP", True):
+            session["setup_user_id"] = user.id
+            flash("Account created. Enroll TOTP immediately.", "info")
+            return redirect(url_for("auth.setup_totp", user_id=user.id))
+        # Optional TOTP: mark confirmed and go to login
+        user.totp_confirmed = True
+        db.session.commit()
+        flash("Account created. You can enable TOTP later in settings.", "info")
+        return redirect(url_for("auth.login"))
     return render_template("auth/register.html", form=form)
 
 
@@ -63,10 +69,18 @@ def login():
             return render_template("auth/login.html", form=form)
         user.reset_failures()
         db.session.commit()
-        session["pending_2fa"] = user.id
-        session["remember_me"] = form.remember.data
-        flash("Enter your authenticator code", "info")
-        return redirect(url_for("auth.two_factor"))
+        if current_app.config.get("REQUIRE_TOTP", True):
+            session["pending_2fa"] = user.id
+            session["remember_me"] = form.remember.data
+            flash("Enter your authenticator code", "info")
+            return redirect(url_for("auth.two_factor"))
+        # TOTP optional: log in directly
+        login_user(user, remember=form.remember.data, fresh=True)
+        regenerate_session(session)
+        user.totp_confirmed = True
+        user.last_login_at = datetime.utcnow()
+        db.session.commit()
+        return redirect(url_for("chat.chat"))
     return render_template("auth/login.html", form=form)
 
 

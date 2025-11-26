@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, jsonify, request
+from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
 from .config import Config
 from .extensions import db, login_manager, csrf, migrate, limiter
@@ -39,6 +40,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     with app.app_context():
         db.create_all()
+
+    @app.errorhandler(RateLimitExceeded)
+    def handle_ratelimit(e):  # pragma: no cover - small UX helper
+        message = "You’ve hit the request limit. Please wait a moment and try again."
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": "rate_limited", "message": message}), 429
+        return message, 429
 
     @app.cli.command("purge-expired")
     def purge_expired():

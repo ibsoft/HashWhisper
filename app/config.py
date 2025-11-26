@@ -9,7 +9,10 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     REDIS_URL = os.environ.get("HASHWHISPER_REDIS_URL")
-    RATELIMIT_STORAGE_URI = os.environ.get("HASHWHISPER_RATELIMIT_URI", REDIS_URL or "memory://")
+    _rl_storage = os.environ.get("HASHWHISPER_RATELIMIT_URI")
+    if _rl_storage and _rl_storage.strip().startswith("$"):
+        _rl_storage = None
+    RATELIMIT_STORAGE_URI = _rl_storage or REDIS_URL or "memory://"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = True
@@ -62,3 +65,5 @@ class Config:
     PRESENCE_BROADCAST_TTL = 30
 
     QR_ISSUER = "HashWhisper"
+    REQUIRE_TOTP = os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
+    APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")

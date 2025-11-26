@@ -5,6 +5,8 @@ const state = {
   secrets: {},
   keyCache: {},
   seen: {},
+  oldest: {},
+  loadingOlder: {},
   messages: {},
   notifications: { count: 0, mention: false },
   emojiPickerReady: false,
@@ -12,6 +14,7 @@ const state = {
 };
 
 let refreshTimer = null;
+let audioCtx = null;
 
 let secretResolver = null;
 let secretModalInstance = null;
@@ -262,6 +265,51 @@ function resetNotifications() {
   updateNotificationIcon(0, false);
 }
 
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      audioCtx = null;
+    }
+  }
+  return audioCtx;
+}
+
+function playSound(kind) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const freqMap = {
+    like: 880,
+    dislike: 220,
+    inbound: 660,
+    outbound: 520,
+  };
+  const duration = 0.12;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = freqMap[kind] || 480;
+  gain.gain.setValueAtTime(0.05, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function updateBubbleReactions(bubble, msg) {
+  if (!bubble) return;
+  const likeEl = bubble.querySelector('.like-count');
+  const dislikeEl = bubble.querySelector('.dislike-count');
+  if (likeEl) likeEl.textContent = msg.likes ?? 0;
+  if (dislikeEl) dislikeEl.textContent = msg.dislikes ?? 0;
+  const likeBtn = bubble.querySelector('.reaction-like');
+  const dislikeBtn = bubble.querySelector('.reaction-dislike');
+  if (likeBtn) likeBtn.title = msg.liked_by?.length ? `Liked by ${msg.liked_by.join(', ')}` : 'No likes yet';
+  if (dislikeBtn) dislikeBtn.title = msg.disliked_by?.length ? `Disliked by ${msg.disliked_by.join(', ')}` : 'No dislikes yet';
+  const likedByEl = bubble.querySelector('.text-muted.small');
+  if (likedByEl) likedByEl.textContent = msg.liked_by?.length ? `Liked by ${msg.liked_by.join(', ')}` : '';
+}
+
 async function encryptFile(file, secret, groupId) {
   const key = await deriveKey(secret, groupId);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -277,9 +325,11 @@ async function encryptFile(file, secret, groupId) {
   return { cipher, nonce: toHex(iv), tag: toHex(tag) };
 }
 
-async function renderMessage(container, msg, self, groupId) {
+async function renderMessage(container, msg, self, groupId, opts = {}) {
+  const { prepend = false } = opts;
   const bubble = document.createElement('div');
   bubble.className = `bubble ${self ? 'self' : 'other'}`;
+  bubble.setAttribute('data-message-id', msg.id);
   let meta = {};
   try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
   const body = document.createElement('div');
@@ -360,8 +410,12 @@ async function renderMessage(container, msg, self, groupId) {
   bubble.appendChild(metaLine);
   bubble.appendChild(actions);
   if (likedBy.textContent) bubble.appendChild(likedBy);
-  container.appendChild(bubble);
-  container.scrollTop = container.scrollHeight;
+  if (prepend && container.firstChild) {
+    container.insertBefore(bubble, container.firstChild);
+  } else {
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+  }
 }
 
 async function decryptMedia(msg, meta, opts = {}) {
@@ -452,17 +506,21 @@ function ensureSecret(groupId) {
 }
 
 async function loadMessages(groupId, opts = {}) {
-  const { skipSecretPrompt = false, notify = true } = opts;
+  const { skipSecretPrompt = false, notify = true, forceRefresh = false, before = null, prepend = false } = opts;
   const list = document.getElementById('message-list');
   if (!state.messages[groupId]) state.messages[groupId] = [];
-  const hasExisting = state.messages[groupId].length > 0;
+  if (!state.oldest[groupId]) state.oldest[groupId] = null;
+  const hasExisting = state.messages[groupId].length > 0 && !forceRefresh;
   if (!state.secrets[groupId] && !skipSecretPrompt) {
     await ensureSecret(groupId);
   }
 
   let data = [];
   try {
-    const res = await fetch(`/api/messages?group_id=${groupId}`);
+    const url = new URL(`/api/messages`, window.location.origin);
+    url.searchParams.set('group_id', groupId);
+    if (before) url.searchParams.set('before', before);
+    const res = await fetch(url.toString());
     if (!res.ok) {
       const text = await res.text();
       showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
@@ -482,34 +540,59 @@ async function loadMessages(groupId, opts = {}) {
   }
   const lastMsg = data[data.length - 1];
   const lastSeen = state.seen[groupId] || 0;
-  const newMessages = hasExisting
-    ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
-    : data;
-  if (hasExisting && newMessages.length === 0) return;
-  if (!hasExisting) list.innerHTML = '';
+  const newMessages = forceRefresh
+    ? data
+    : hasExisting
+      ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
+      : data;
+  if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) return;
+  if (!hasExisting || forceRefresh) {
+    if (!forceRefresh) {
+      list.innerHTML = '';
+      state.messages[groupId] = [];
+    }
+  }
   const secret = state.secrets[groupId];
-  for (const msg of newMessages) {
+  let playedInbound = false;
+  const targetMessages = newMessages;
+  for (const msg of targetMessages) {
+    const bubble = list.querySelector(`[data-message-id="${msg.id}"]`);
+    if (forceRefresh && bubble) {
+      updateBubbleReactions(bubble, msg);
+      continue;
+    }
+    if (state.messages[groupId].includes(msg.id) && prepend) continue;
     let plaintext = '[encrypted]';
     if (secret && msg.ciphertext) {
       plaintext = await decryptText(msg, secret, groupId);
     }
     msg.plaintext = plaintext;
     const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
-    await renderMessage(list, msg, isSelf, groupId);
-    state.messages[groupId].push(msg.id);
+    await renderMessage(list, msg, isSelf, groupId, { prepend });
+    if (!state.messages[groupId].includes(msg.id)) {
+      state.messages[groupId].push(msg.id);
+    }
     if (notify && !isSelf) {
       const mentionHit = messageMentionsUser(plaintext);
       updateNotificationIcon(1, mentionHit);
       showBrowserNotification('New message', plaintext.slice(0, 80) || 'Encrypted message');
+      if (!playedInbound) {
+        playSound('inbound');
+        playedInbound = true;
+      }
     }
   }
-  if (list.lastElementChild) {
+  if (!prepend && list.lastElementChild) {
     list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
   // mark latest seen
   if (lastMsg) {
     state.seen[groupId] = new Date(lastMsg.created_at).getTime();
-  } else {
+  }
+  if (newMessages.length) {
+    const oldest = newMessages[0];
+    state.oldest[groupId] = oldest.created_at;
+  } else if (!prepend) {
     state.seen[groupId] = 0;
   }
 }
@@ -546,6 +629,7 @@ async function sendMessage() {
     input.value = '';
     await loadMessages(state.currentGroup, { notify: false });
     startAutoRefresh();
+    playSound('outbound');
   }
 }
 
@@ -680,8 +764,6 @@ function bindUI() {
     signalTyping();
   });
 
-  requestNotificationPermission();
-
   document.getElementById('attach-btn')?.addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
@@ -721,6 +803,19 @@ function bindUI() {
       const isHidden = input.getAttribute('type') === 'password';
       input.setAttribute('type', isHidden ? 'text' : 'password');
       joinToggle.innerHTML = isHidden ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    });
+  }
+
+  const msgList = document.getElementById('message-list');
+  if (msgList) {
+    msgList.addEventListener('scroll', () => {
+      const gid = state.currentGroup;
+      if (!gid || state.loadingOlder[gid]) return;
+      if (msgList.scrollTop < 20 && state.oldest[gid]) {
+        state.loadingOlder[gid] = true;
+        loadMessages(gid, { before: state.oldest[gid], prepend: true, notify: false, skipSecretPrompt: true })
+          .finally(() => { state.loadingOlder[gid] = false; });
+      }
     });
   }
 
@@ -840,6 +935,7 @@ function bindUI() {
   const infoBtn = document.getElementById('info-indicator');
   if (infoBtn) {
     infoBtn.addEventListener('click', () => {
+      requestNotificationPermission();
       resetNotifications();
     });
   }
@@ -984,6 +1080,10 @@ async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
   const likedByEl = container?.querySelector('.text-muted.small');
   if (likedByEl) likedByEl.textContent = likedBy.length ? `Liked by ${likedBy.join(', ')}` : '';
   // update dislike tooltip in meta if needed
+  if (state.currentGroup) {
+    loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true });
+  }
+  playSound(value === 'like' ? 'like' : 'dislike');
 }
 
 let typingTimeout;
@@ -1010,7 +1110,7 @@ function startAutoRefresh() {
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
     if (state.currentGroup && state.secrets[state.currentGroup]) {
-      loadMessages(state.currentGroup, { skipSecretPrompt: true });
+      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true });
     }
   }, 45000);
 }

@@ -195,17 +195,22 @@ def delete_group(group_id: int):
 @limiter.exempt
 def list_messages():
     group_id = request.args.get("group_id", type=int)
+    before_raw = request.args.get("before")
+    before_dt = None
+    if before_raw:
+        try:
+            before_dt = datetime.fromisoformat(before_raw.replace("Z", "+00:00"))
+        except ValueError:
+            before_dt = None
     if not group_id:
         return jsonify([])
     membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
     if not membership:
         return jsonify({"error": "forbidden"}), 403
-    messages = (
-        Message.query.filter_by(group_id=group_id)
-        .order_by(Message.created_at.desc())
-        .limit(50)
-        .all()
-    )
+    query = Message.query.filter_by(group_id=group_id)
+    if before_dt:
+        query = query.filter(Message.created_at < before_dt)
+    messages = query.order_by(Message.created_at.desc()).limit(50).all()
     serialized = []
     for m in reversed(messages):
         reactions = MessageReaction.query.filter_by(message_id=m.id).all()
