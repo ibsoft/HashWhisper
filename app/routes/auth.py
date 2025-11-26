@@ -39,8 +39,8 @@ def register():
             session["setup_user_id"] = user.id
             flash("Account created. Enroll TOTP immediately.", "info")
             return redirect(url_for("auth.setup_totp", user_id=user.id))
-        # Optional TOTP: mark confirmed and go to login
-        user.totp_confirmed = True
+        # Optional TOTP: keep disabled by default and go to login
+        user.totp_confirmed = False
         db.session.commit()
         flash("Account created. You can enable TOTP later in settings.", "info")
         return redirect(url_for("auth.login"))
