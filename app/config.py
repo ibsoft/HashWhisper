@@ -38,7 +38,7 @@ class Config:
         "media-src": ["'self'", "blob:"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
         "style-src": ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "script-src": ["'self'", "https://cdn.jsdelivr.net"],
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         "connect-src": ["'self'"],
         "frame-src": ["'self'", "https://www.youtube.com"],
         "frame-ancestors": ["'none'"],

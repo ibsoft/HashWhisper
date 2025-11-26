@@ -18,6 +18,9 @@ let deleteModalInstance = null;
 let pendingDeleteGroupId = null;
 const secretState = { groupId: null };
 let infoModalInstance = null;
+let mediaRecorder = null;
+let recordChunks = [];
+let isRecording = false;
 
 function linkify(text) {
   if (!text) return '';
@@ -517,6 +520,35 @@ function toggleUploadSpinner(show) {
   spinner.classList.toggle('d-none', !show);
 }
 
+async function toggleRecording() {
+  if (isRecording) {
+    mediaRecorder.stop();
+    isRecording = false;
+    document.getElementById('recording-indicator')?.classList.add('d-none');
+    document.getElementById('record-btn')?.classList.remove('btn-danger');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordChunks, { type: 'audio/webm' });
+      const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+      await sendFile(file);
+      stream.getTracks().forEach((t) => t.stop());
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    document.getElementById('recording-indicator')?.classList.remove('d-none');
+    document.getElementById('record-btn')?.classList.add('btn-danger');
+  } catch (err) {
+    console.error('Recording failed', err);
+    showInfoModal('Microphone blocked', 'Allow microphone access to record a voice note.');
+  }
+}
+
 async function copyTextToClipboard(text) {
   if (!text) return;
   try {
@@ -583,9 +615,14 @@ function bindUI() {
     e.target.value = '';
   });
 
+  document.getElementById('record-btn')?.addEventListener('click', toggleRecording);
+
   initEmojiPicker();
 
+  // join handled inline
+
   document.querySelectorAll('[data-group-id]').forEach(attachGroupButtonHandler);
+  updateSecretDots();
 
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
 
@@ -716,15 +753,14 @@ function bindUI() {
 function connectPresence() {
   const label = document.getElementById('presence-label');
   const typingIndicator = document.getElementById('typing-indicator');
-  const es = new EventSource('/events/presence');
-  es.onmessage = (event) => {
-    if (!event.data) return;
-    const data = JSON.parse(event.data);
-    if (data.type === 'ping') return;
-    const name = data.username || `user ${data.user_id}`;
-    label.textContent = `Presence: ${name} is ${data.status}`;
-    typingIndicator.classList.toggle('d-none', !data.typing);
-  };
+  startPresencePoll(label, typingIndicator);
+}
+
+function startPresencePoll(label, typingIndicator) {
+  setInterval(() => {
+    label.textContent = 'Presence: online';
+    typingIndicator.classList.add('d-none');
+  }, 15000);
 }
 
 function openDmModal(userId) {
@@ -759,6 +795,14 @@ function loadGroupUsers(groupId) {
     .catch(() => {
       userList.innerHTML = '<div class="text-muted small">Unable to load members.</div>';
     });
+}
+
+function updateSecretDots() {
+  document.querySelectorAll('[data-secret-dot]').forEach((el) => {
+    const gid = Number(el.getAttribute('data-secret-dot'));
+    const on = !!state.secrets[gid];
+    el.classList.toggle('on', on);
+  });
 }
 
 async function checkGroupNotifications() {
@@ -857,18 +901,20 @@ function startAutoRefresh() {
     if (state.currentGroup && state.secrets[state.currentGroup]) {
       loadMessages(state.currentGroup, { skipSecretPrompt: true });
     }
-  }, 20000);
+  }, 7000);
 }
 
 async function setCurrentGroup(groupId, groupName) {
   state.currentGroup = Number(groupId);
   document.getElementById('chat-title').textContent = groupName || 'Chat';
   state.messages[state.currentGroup] = [];
+  state.seen[state.currentGroup] = 0;
   const list = document.getElementById('message-list');
   if (list) list.innerHTML = '';
   await ensureSecret(state.currentGroup);
   await loadMessages(state.currentGroup, { notify: false });
   loadGroupUsers(state.currentGroup);
+  updateSecretDots();
   startAutoRefresh();
 }
 
@@ -922,7 +968,7 @@ function initEmojiPicker() {
 function attachGroupButtonHandler(btn) {
   btn.addEventListener('click', async () => {
     const gid = Number(btn.getAttribute('data-group-id'));
-    const label = btn.querySelector('span')?.textContent.trim() || 'Chat';
+    const label = btn.getAttribute('data-group-name') || btn.querySelector('.group-name')?.textContent.trim() || 'Chat';
     await setCurrentGroup(gid, label);
     resetNotifications();
   });
@@ -952,9 +998,9 @@ function addGroupToSidebar(groupId, groupName) {
   const btn = document.createElement('button');
   btn.className = 'btn btn-link text-start text-light flex-grow-1 position-relative';
   btn.setAttribute('data-group-id', groupId);
-  btn.innerHTML = `<span>${groupName}</span>
-    <span class="status-dot status-offline ms-2" data-group-status="${groupId}"></span>
-    <span class="group-badge d-none ms-2"></span>`;
+  btn.setAttribute('data-group-name', groupName);
+  btn.innerHTML = `<i class="fa-solid fa-hashtag me-2"></i><span class="group-name">${groupName}</span>
+    <span class="secret-dot ms-2" data-secret-dot="${groupId}"></span>`;
   attachGroupButtonHandler(btn);
   wrapper.appendChild(btn);
   container.appendChild(wrapper);

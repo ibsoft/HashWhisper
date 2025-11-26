@@ -6,28 +6,27 @@
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>Spaces</h5>
         <div class="btn-group">
-          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}"><i class="fa-solid fa-plus"></i></a>
+          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="Create group"><i class="fa-solid fa-plus"></i></a>
         </div>
       </div>
-      <div class="contact-list list-group list-group-flush">
-        {% for g in groups %}
-          <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0">
-            <button class="btn btn-link text-start text-light flex-grow-1 position-relative" data-group-id="{{ g.id }}">
-              <i class="fa-solid fa-hashtag me-2"></i><span>{{ g.name }}</span>
-              <span class="status-dot status-offline ms-2" data-group-status="{{ g.id }}"></span>
-              <span class="group-badge d-none ms-2"></span>
-            </button>
-            {% if g.created_by == current_user.id %}
-            <button class="btn btn-outline-danger btn-sm delete-group" data-delete-group="{{ g.id }}" data-group-name="{{ g.name }}" title="Delete group">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-            {% endif %}
-          </div>
-        {% else %}
-          <p class="text-muted">No groups yet. Create or join using a secret hash.</p>
-        {% endfor %}
-      </div>
-      <div class="mt-3">
+        <div class="contact-list list-group list-group-flush">
+          {% for g in groups %}
+            <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0">
+              <button class="btn btn-link text-start text-light flex-grow-1 position-relative" data-group-id="{{ g.id }}" data-group-name="{{ g.name }}">
+                <i class="fa-solid fa-hashtag me-2"></i><span class="group-name">{{ g.name }}</span>
+                <span class="secret-dot ms-2" data-secret-dot="{{ g.id }}"></span>
+              </button>
+              {% if g.created_by == current_user.id %}
+              <button class="btn btn-outline-danger btn-sm delete-group" data-delete-group="{{ g.id }}" data-group-name="{{ g.name }}" title="Delete group">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+              {% endif %}
+            </div>
+          {% else %}
+            <p class="text-muted">No groups yet. Create or join using a secret hash.</p>
+          {% endfor %}
+        </div>
+      <div class="mt-3" id="join-inline">
         <label class="form-label">Join via secret hash</label>
         <input type="text" class="form-control" id="join-secret" placeholder="Paste shared secret">
         <input type="text" class="form-control mt-2" id="join-group-name" placeholder="Group name">
@@ -70,12 +69,14 @@
         <div class="d-flex flex-column gap-2 align-items-center button-stack">
           <button class="btn btn-outline-light btn-sm" id="attach-btn"><i class="fa-solid fa-paperclip"></i></button>
           <button class="btn btn-outline-light btn-sm" id="emoji-btn" title="Insert emoji"><i class="fa-regular fa-face-smile"></i></button>
+          <button class="btn btn-outline-light btn-sm" id="record-btn" title="Record voice note"><i class="fa-solid fa-microphone"></i></button>
         </div>
         <input type="file" id="file-input" class="d-none" accept="image/*,video/*,audio/*">
         <textarea class="form-control flex-grow-1" rows="2" id="message-input" placeholder="Type an encrypted whisper..." maxlength="5000"></textarea>
         <div id="upload-spinner" class="spinner-border spinner-border-sm text-info d-none" role="status"></div>
         <button class="btn btn-soft send-btn" id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
+      <div class="text-danger small mt-2 d-none" id="recording-indicator">Recording… click mic to stop.</div>
       <div class="emoji-picker d-none" id="emoji-picker" aria-label="Emoji picker"></div>
       <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
         <span><i class="fa-solid fa-lock"></i> Client-side crypto</span>
