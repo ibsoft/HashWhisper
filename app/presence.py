@@ -14,7 +14,17 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class BasePresenceBus:
-    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):  # pragma: no cover - interface
+    def publish(
+        self,
+        user_id: int,
+        status: str,
+        typing: bool = False,
+        username: str | None = None,
+        event: str = "presence",
+        group_id: int | None = None,
+        message_id: int | None = None,
+        created_at: str | None = None,
+    ):  # pragma: no cover - interface
         raise NotImplementedError
 
     def stream(self):  # pragma: no cover - interface
@@ -28,16 +38,31 @@ class InMemoryPresenceBus(BasePresenceBus):
         self.listeners: list[queue.Queue] = []
         self.lock = threading.Lock()
 
-    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):
+    def publish(
+        self,
+        user_id: int,
+        status: str,
+        typing: bool = False,
+        username: str | None = None,
+        event: str = "presence",
+        group_id: int | None = None,
+        message_id: int | None = None,
+        created_at: str | None = None,
+    ):
         payload = {
+            "event": event,
             "user_id": user_id,
             "status": status,
             "typing": typing,
             "username": username,
+            "group_id": group_id,
+            "message_id": message_id,
+            "created_at": created_at,
             "at": datetime.utcnow().isoformat(),
         }
         with self.lock:
-            self.status[user_id] = payload
+            if event == "presence":
+                self.status[user_id] = payload
             for listener in list(self.listeners):
                 try:
                     listener.put_nowait(payload)
@@ -84,17 +109,32 @@ class RedisPresenceBus(BasePresenceBus):
         self.channel = channel
         self.hash_key = f"{channel}:status"
 
-    def publish(self, user_id: int, status: str, typing: bool = False, username: str | None = None):
+    def publish(
+        self,
+        user_id: int,
+        status: str,
+        typing: bool = False,
+        username: str | None = None,
+        event: str = "presence",
+        group_id: int | None = None,
+        message_id: int | None = None,
+        created_at: str | None = None,
+    ):
         payload = {
+            "event": event,
             "user_id": user_id,
             "status": status,
             "typing": typing,
             "username": username,
+            "group_id": group_id,
+            "message_id": message_id,
+            "created_at": created_at,
             "at": datetime.utcnow().isoformat(),
         }
         data = json.dumps(payload)
-        self.redis.hset(self.hash_key, user_id, data)
-        self.redis.expire(self.hash_key, self.ttl * 2)
+        if event == "presence":
+            self.redis.hset(self.hash_key, user_id, data)
+            self.redis.expire(self.hash_key, self.ttl * 2)
         self.redis.publish(self.channel, data)
 
     def stream(self):

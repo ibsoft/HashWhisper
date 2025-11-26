@@ -11,7 +11,12 @@
         <div class="mb-3">{{ form.language.label(class='form-label') }}{{ form.language(class='form-select') }}</div>
         <div class="form-check mb-2">{{ form.notifications_enabled(class='form-check-input') }}{{ form.notifications_enabled.label(class='form-check-label') }}</div>
         <div class="mb-3">{{ form.timezone.label(class='form-label') }}{{ form.timezone(class='form-select') }}</div>
-        {% if not require_totp %}
+        {% if totp_disabled %}
+        <div class="mb-3">
+          <label class="form-label">Two-factor authentication</label>
+          <div class="alert alert-secondary mb-0">TOTP has been disabled by configuration.</div>
+        </div>
+        {% elif not require_totp %}
         <div class="form-check mb-3">
           {{ form.enable_totp(class='form-check-input') }}
           {{ form.enable_totp.label(class='form-check-label') }}
@@ -31,7 +36,7 @@
   </div>
 </div>
 
-{% if not require_totp %}
+{% if not require_totp and not totp_disabled %}
 <!-- TOTP setup modal -->
 <div class="modal fade" id="totpModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -60,7 +65,7 @@
 
 {% block scripts %}
 {{ super() }}
-{% if not require_totp %}
+{% if not require_totp and not totp_disabled %}
 <script>
   (() => {
     const checkbox = document.getElementById('{{ form.enable_totp.id }}');

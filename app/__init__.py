@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+import click
 from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
 from .config import Config
@@ -53,5 +54,24 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         """Delete expired messages and blobs."""
         purge_expired_messages()
         print("Expired encrypted payloads purged")
+
+    @app.cli.command("list-users")
+    def list_users():
+        """Print all users with id, username, email, and TOTP status."""
+        users = User.query.order_by(User.id).all()
+        for user in users:
+            print(f"{user.id}\t{user.username}\t{user.email}\tTOTP={'yes' if user.totp_confirmed else 'no'}")
+
+    @app.cli.command("delete-user")
+    @click.argument("user_id", type=int)
+    def delete_user(user_id: int):
+        """Delete a user by id."""
+        user = User.query.get(user_id)
+        if not user:
+            print(f"No user with id={user_id}")
+            return
+        db.session.delete(user)
+        db.session.commit()
+        print(f"Deleted user {user_id}")
 
     return app

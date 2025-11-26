@@ -279,7 +279,7 @@ def post_message():
     db.session.add(message)
     db.session.commit()
     bus = get_presence_bus()
-    bus.publish(current_user.id, "online", typing=False)
+    bus.publish(current_user.id, "online", typing=False, username=current_user.username, event="message", group_id=group_id, message_id=message.id, created_at=message.created_at.isoformat())
     return jsonify({
         "id": message.id,
         "created_at": message.created_at.isoformat(),
@@ -369,6 +369,8 @@ def upload_blob():
     )
     message.meta = meta_str
     db.session.commit()
+    bus = get_presence_bus()
+    bus.publish(current_user.id, "online", typing=False, username=current_user.username, event="message", group_id=group_id, message_id=message.id, created_at=message.created_at.isoformat())
     return jsonify({"id": blob.id, "message_id": message.id, "meta": meta_json})
 
 
