@@ -8,6 +8,7 @@ const state = {
   messages: {},
   notifications: { count: 0, mention: false },
   emojiPickerReady: false,
+  notificationsAllowed: false,
 };
 
 let refreshTimer = null;
@@ -228,6 +229,31 @@ function updateNotificationIcon(delta = 0, mention = false) {
     btn.title = state.notifications.count
       ? `${state.notifications.count} new ${state.notifications.mention ? ' (mentions highlighted)' : ''}`.trim()
       : 'No new notifications';
+  }
+}
+
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    state.notificationsAllowed = true;
+    return;
+  }
+  if (Notification.permission === 'default') {
+    try {
+      const res = await Notification.requestPermission();
+      state.notificationsAllowed = res === 'granted';
+    } catch (e) {
+      state.notificationsAllowed = false;
+    }
+  }
+}
+
+function showBrowserNotification(title, body) {
+  if (!state.notificationsAllowed || !('Notification' in window)) return;
+  try {
+    new Notification(title, { body, silent: false });
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -456,6 +482,7 @@ async function loadMessages(groupId, opts = {}) {
     if (notify && !isSelf) {
       const mentionHit = messageMentionsUser(plaintext);
       updateNotificationIcon(1, mentionHit);
+      showBrowserNotification('New message', plaintext.slice(0, 80) || 'Encrypted message');
     }
   }
   if (list.lastElementChild) {
@@ -634,6 +661,8 @@ function bindUI() {
     }
     signalTyping();
   });
+
+  requestNotificationPermission();
 
   document.getElementById('attach-btn')?.addEventListener('click', () => {
     document.getElementById('file-input').click();
