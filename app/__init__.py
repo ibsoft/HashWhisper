@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 import click
+from sqlalchemy import text
 from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
 from .config import Config
@@ -73,5 +74,27 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         db.session.delete(user)
         db.session.commit()
         print(f"Deleted user {user_id}")
+
+    @app.cli.command("wipe-data")
+    @click.option("--yes", is_flag=True, help="Confirm destructive wipe.")
+    def wipe_data(yes: bool):
+        """Danger: truncate all tables and reset ids (Postgres)."""
+        if not yes:
+            print("Add --yes to confirm wipe.")
+            return
+        tables = [
+            "media_blobs",
+            "message_reactions",
+            "presence_events",
+            "integrity_chain",
+            "messages",
+            "group_memberships",
+            '"group"',
+            '"user"',
+        ]
+        sql = f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY CASCADE;"
+        with db.engine.begin() as conn:
+            conn.execute(text(sql))
+        print("All data wiped (database only). Delete storage folder separately if needed.")
 
     return app

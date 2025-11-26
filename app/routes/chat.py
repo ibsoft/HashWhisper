@@ -418,6 +418,17 @@ def react_message(message_id: int):
     message.likes = likes
     message.dislikes = dislikes
     db.session.commit()
+    bus = get_presence_bus()
+    bus.publish(
+        current_user.id,
+        "online",
+        typing=False,
+        username=current_user.username,
+        event="reaction",
+        group_id=message.group_id,
+        message_id=message.id,
+        created_at=datetime.utcnow().isoformat(),
+    )
     return jsonify({
         "likes": likes,
         "dislikes": dislikes,
