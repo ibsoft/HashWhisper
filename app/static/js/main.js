@@ -32,3 +32,26 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/static/js/sw.js').catch(() => {});
   });
 }
+
+// Mobile PWA install prompt
+(() => {
+  let deferredPrompt = null;
+  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // prompt only on user action to satisfy browser requirements
+  });
+
+  function showPwaPrompt() {
+    if (!deferredPrompt) return;
+    const shouldInstall = confirm('Install HashWhisper as an app?');
+    if (!shouldInstall) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.finally(() => {
+      deferredPrompt = null;
+    });
+  }
+})();

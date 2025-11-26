@@ -24,13 +24,17 @@ class Config:
         "image/png",
         "image/webp",
         "image/gif",
+        "image/heic",
+        "image/heif",
         "video/mp4",
         "video/webm",
+        "video/quicktime",
         "audio/mpeg",
         "audio/ogg",
         "audio/webm",
         "audio/wav",
         "audio/mp4",
+        "audio/aac",
     }
     
     SECURITY_CSP = {
@@ -46,10 +50,10 @@ class Config:
     }
 
     # Rate limiting
-    RATELIMIT_DEFAULT = "200/hour"
+    RATELIMIT_DEFAULT = "1000 per hour"
     RATELIMIT_STRATEGY = "fixed-window"
-    RATELIMIT_LOGIN = "5 per minute"
-    RATELIMIT_REGISTER = "3 per minute"
+    RATELIMIT_LOGIN = "30 per minute"
+    RATELIMIT_REGISTER = "10 per minute"
 
     # AES-GCM client side requirements
     CLIENT_AAD = "HashWhisper:v1"

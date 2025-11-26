@@ -7,10 +7,38 @@
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="HashWhisper logo" class="login-logo">
       </div>
       <h2 class="mb-3 text-center">Sign in</h2>
+      {% if form.errors %}
+      <div class="alert alert-danger small">
+        Please fix the errors below:
+        <ul class="mb-0 mt-1">
+          {% for field, errors in form.errors.items() %}
+            {% for err in errors %}
+              <li>{{ err }}</li>
+            {% endfor %}
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
       <form method="post" novalidate>
         {{ form.hidden_tag() }}
-        <div class="mb-3">{{ form.username.label(class='form-label') }}{{ form.username(class='form-control', autocomplete='username') }}</div>
-        <div class="mb-3">{{ form.password.label(class='form-label') }}{{ form.password(class='form-control', autocomplete='current-password') }}</div>
+        <div class="mb-3">
+          {{ form.username.label(class='form-label') }}
+          {{ form.username(class='form-control ' + ('is-invalid' if form.username.errors else ''), autocomplete='username') }}
+          {% if form.username.errors %}
+            <div class="invalid-feedback">
+              {{ form.username.errors[0] }}
+            </div>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          {{ form.password.label(class='form-label') }}
+          {{ form.password(class='form-control ' + ('is-invalid' if form.password.errors else ''), autocomplete='current-password') }}
+          {% if form.password.errors %}
+            <div class="invalid-feedback">
+              {{ form.password.errors[0] }}
+            </div>
+          {% endif %}
+        </div>
         <div class="form-check mb-3">{{ form.remember(class='form-check-input') }}{{ form.remember.label(class='form-check-label') }}</div>
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
