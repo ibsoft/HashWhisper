@@ -59,4 +59,5 @@ class SettingsForm(FlaskForm):
         ],
         default="UTC",
     )
+    enable_totp = BooleanField("Enable TOTP (authenticator app)")
     submit = SubmitField("Save settings")

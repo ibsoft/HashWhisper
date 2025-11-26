@@ -11,10 +11,81 @@
         <div class="mb-3">{{ form.language.label(class='form-label') }}{{ form.language(class='form-select') }}</div>
         <div class="form-check mb-2">{{ form.notifications_enabled(class='form-check-input') }}{{ form.notifications_enabled.label(class='form-check-label') }}</div>
         <div class="mb-3">{{ form.timezone.label(class='form-label') }}{{ form.timezone(class='form-select') }}</div>
+        {% if not require_totp %}
+        <div class="form-check mb-3">
+          {{ form.enable_totp(class='form-check-input') }}
+          {{ form.enable_totp.label(class='form-check-label') }}
+          <div class="form-text text-muted">Use an authenticator app (TOTP). Click setup to view the QR/code.</div>
+        </div>
+        <button type="button" class="btn btn-outline-light w-100 mb-3" id="totp-setup-btn" data-bs-toggle="modal" data-bs-target="#totpModal" {% if not form.enable_totp.data %}disabled{% endif %}>Setup TOTP</button>
+        {% else %}
+        <div class="mb-3">
+          <label class="form-label">Two-factor authentication</label>
+          <div class="alert alert-success mb-0">TOTP is required and enforced.</div>
+        </div>
+        {% endif %}
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
       <div class="alert alert-info mt-3">Themes and notifications are stored server-side without sensitive content.</div>
     </div>
   </div>
 </div>
+
+{% if not require_totp %}
+<!-- TOTP setup modal -->
+<div class="modal fade" id="totpModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Set up TOTP</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p class="text-muted small">Scan this QR with your authenticator app, or copy the code below.</p>
+        <img src="{{ url_for('settings.settings_totp_qr') }}" alt="TOTP QR" class="img-fluid mb-3" style="max-width: 220px;">
+        <div class="input-group">
+          <input type="text" class="form-control" value="{{ totp_uri }}" readonly>
+          <button class="btn btn-outline-light" type="button" id="copy-totp">Copy</button>
+        </div>
+        <div class="text-muted small mt-2">After scanning, save settings to enable.</div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if not require_totp %}
+<script>
+  (() => {
+    const checkbox = document.getElementById('{{ form.enable_totp.id }}');
+    const btn = document.getElementById('totp-setup-btn');
+    if (checkbox && btn) {
+      const toggle = () => { btn.disabled = !checkbox.checked; };
+      checkbox.addEventListener('change', toggle);
+      toggle();
+    }
+    const copyBtn = document.getElementById('copy-totp');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        const input = copyBtn.previousElementSibling;
+        if (!input) return;
+        try {
+          await navigator.clipboard.writeText(input.value);
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+        } catch (e) {
+          copyBtn.textContent = 'Failed';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+        }
+      });
+    }
+  })();
+</script>
+{% endif %}
 {% endblock %}

@@ -18,7 +18,7 @@
         {% endif %}
         <div class="mb-3">{{ form.name.label(class='form-label') }}{{ form.name(class='form-control') }}</div>
         <div class="mb-3">{{ form.secret.label(class='form-label') }}{{ form.secret(class='form-control', autocomplete='off') }}
-          <small class="text-muted">This shared secret never leaves clients. Distribute out-of-band.</small>
+          <small class="text-muted">Use a strong secret (16+ characters recommended). This shared secret never leaves clients—distribute out-of-band.</small>
         </div>
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
