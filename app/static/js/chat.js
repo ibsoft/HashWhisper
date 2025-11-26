@@ -69,9 +69,9 @@ function formatTime(ts) {
   try {
     const userTz = getUserTimezone();
     const dt = new Date(ts);
-    return dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: userTz });
+    return dt.toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: userTz, month: 'short', day: 'numeric' });
   } catch (err) {
-    return new Date(ts).toLocaleTimeString();
+    return new Date(ts).toLocaleString();
   }
 }
 
@@ -456,12 +456,30 @@ async function loadMessages(groupId, opts = {}) {
   const list = document.getElementById('message-list');
   if (!state.messages[groupId]) state.messages[groupId] = [];
   const hasExisting = state.messages[groupId].length > 0;
-  if (!state.secrets[groupId]) {
-    if (skipSecretPrompt) return;
+  if (!state.secrets[groupId] && !skipSecretPrompt) {
     await ensureSecret(groupId);
   }
-  const res = await fetch(`/api/messages?group_id=${groupId}`);
-  const data = await res.json();
+
+  let data = [];
+  try {
+    const res = await fetch(`/api/messages?group_id=${groupId}`);
+    if (!res.ok) {
+      const text = await res.text();
+      showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
+      return;
+    }
+    data = await res.json();
+  } catch (err) {
+    showInfoModal('Load failed', 'Could not load messages.');
+    console.error('loadMessages error', err);
+    return;
+  }
+
+  if (!Array.isArray(data)) {
+    showInfoModal('Load failed', data.error || 'Unable to load messages.');
+    console.error('loadMessages response', data);
+    return;
+  }
   const lastMsg = data[data.length - 1];
   const lastSeen = state.seen[groupId] || 0;
   const newMessages = hasExisting
@@ -683,6 +701,16 @@ function bindUI() {
   updateSecretDots();
   restoreLastGroup();
 
+  (async () => {
+    if (state.currentGroup) return;
+    const first = document.querySelector('[data-group-id]');
+    if (first) {
+      const gid = Number(first.getAttribute('data-group-id'));
+      const label = first.getAttribute('data-group-name') || first.querySelector('.group-name')?.textContent.trim();
+      await setCurrentGroup(gid, label || 'Chat');
+    }
+  })();
+
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
 
   document.getElementById('join-btn')?.addEventListener('click', async () => {
@@ -805,7 +833,7 @@ function bindUI() {
     });
   }
 
-  setInterval(checkGroupNotifications, 10000);
+  // checkGroupNotifications disabled to reduce rate limits
   startAutoRefresh();
 }
 
@@ -875,18 +903,21 @@ function updateSecretDots() {
 }
 
 async function checkGroupNotifications() {
-  const res = await fetch('/api/groups/summary');
-  if (!res.ok) return;
-  const data = await res.json();
-  data.forEach((g) => {
-    const latest = g.latest ? new Date(g.latest).getTime() : 0;
-    const seen = state.seen[g.group_id] || 0;
-    const badge = document.querySelector(`[data-group-id="${g.group_id}"] .group-badge`);
-    if (badge) {
+  try {
+    const res = await fetch('/api/groups/summary');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    data.forEach((g) => {
+      const latest = g.latest ? new Date(g.latest).getTime() : 0;
+      const seen = state.seen[g.group_id] || 0;
       const hasNew = latest > seen;
-      badge.classList.toggle('d-none', !hasNew);
-    }
-  });
+      const dot = document.querySelector(`[data-secret-dot="${g.group_id}"]`);
+      if (dot) dot.classList.toggle('on', hasNew || !!state.secrets[g.group_id]);
+    });
+  } catch (err) {
+    // swallow notification errors to avoid breaking UI
+  }
 }
 
 function openMediaModal(meta) {
@@ -970,7 +1001,7 @@ function startAutoRefresh() {
     if (state.currentGroup && state.secrets[state.currentGroup]) {
       loadMessages(state.currentGroup, { skipSecretPrompt: true });
     }
-  }, 7000);
+  }, 45000);
 }
 
 async function setCurrentGroup(groupId, groupName) {
