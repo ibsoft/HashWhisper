@@ -26,6 +26,28 @@ let infoModalInstance = null;
 let mediaRecorder = null;
 let recordChunks = [];
 let isRecording = false;
+let presenceSource = null;
+let sseRetryDelay = 1000;
+let sseRefreshDebounce = null;
+
+function isNearBottom(listEl, threshold = 120) {
+  if (!listEl) return true;
+  const distance = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
+  return distance < threshold;
+}
+
+function scrollToBottom(listEl) {
+  if (!listEl) return;
+  const go = () => {
+    listEl.scrollTop = listEl.scrollHeight;
+    if (listEl.lastElementChild) {
+      listEl.lastElementChild.scrollIntoView({ block: 'end' });
+    }
+  };
+  go();
+  requestAnimationFrame(go);
+  setTimeout(go, 80);
+}
 
 function linkify(text) {
   if (!text) return '';
@@ -527,8 +549,18 @@ function ensureSecret(groupId) {
 }
 
 async function loadMessages(groupId, opts = {}) {
-  const { skipSecretPrompt = false, notify = true, forceRefresh = false, before = null, prepend = false } = opts;
+  const {
+    skipSecretPrompt = false,
+    notify = true,
+    forceRefresh = false,
+    before = null,
+    prepend = false,
+    forceLatest = false,
+  } = opts;
   const list = document.getElementById('message-list');
+  const wasNearBottom = isNearBottom(list);
+  const prevHeight = list?.scrollHeight || 0;
+  const prevScrollTop = list?.scrollTop || 0;
   if (!state.messages[groupId]) state.messages[groupId] = [];
   if (!state.oldest[groupId]) state.oldest[groupId] = null;
   const hasExisting = state.messages[groupId].length > 0 && !forceRefresh;
@@ -603,7 +635,13 @@ async function loadMessages(groupId, opts = {}) {
       }
     }
   }
-  if (!prepend && list.lastElementChild) {
+  if (prepend && list) {
+    const newHeight = list.scrollHeight;
+    const delta = newHeight - prevHeight;
+    list.scrollTop = prevScrollTop + delta;
+  } else if (forceLatest && list) {
+    [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+  } else if (wasNearBottom && !prepend && list?.lastElementChild) {
     list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
   // mark latest seen
@@ -817,7 +855,7 @@ function bindUI() {
     if (first) {
       const gid = Number(first.getAttribute('data-group-id'));
       const label = first.getAttribute('data-group-name') || first.querySelector('.group-name')?.textContent.trim();
-      await setCurrentGroup(gid, label || 'Chat');
+      await setCurrentGroup(gid, label || 'Chat', { forceLatest: true });
     }
   })();
 
@@ -825,6 +863,8 @@ function bindUI() {
 
   const sidebarEl = document.getElementById('groupSidebar');
   if (sidebarEl) {
+    const collapseInst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
+    collapseInst.hide();
     sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
     sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; startAutoRefresh(); });
   }
@@ -869,7 +909,7 @@ function bindUI() {
       if (list && !list.querySelector(`[data-group-id="${data.group_id}"]`)) {
         addGroupToSidebar(data.group_id, groupName);
       }
-      setCurrentGroup(data.group_id, groupName);
+      setCurrentGroup(data.group_id, groupName, { forceLatest: true });
       document.getElementById('join-secret').value = '';
       const nameInput = document.getElementById('join-group-name');
       if (nameInput) nameInput.value = '';
@@ -957,12 +997,19 @@ function bindUI() {
       if (resp.ok) {
         const data = await resp.json();
         state.secrets[data.group_id] = secret;
-        state.currentGroup = data.group_id;
-        document.getElementById('chat-title').textContent = data.name;
-        await loadMessages(data.group_id);
+        const list = document.querySelector('.contact-list');
+        if (list && !list.querySelector(`[data-group-id="${data.group_id}"]`)) {
+          addGroupToSidebar(data.group_id, data.name || 'DM', { deletable: true });
+          updateSecretDots();
+        }
+        await setCurrentGroup(data.group_id, data.name || 'Chat', { forceLatest: true });
         document.getElementById('dm-secret').value = '';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('dmModal')).hide();
-        startAutoRefresh();
+        const sidebarEl = document.getElementById('groupSidebar');
+        if (sidebarEl) {
+          const inst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
+          inst.hide();
+        }
       }
     });
   }
@@ -982,14 +1029,49 @@ function bindUI() {
 function connectPresence() {
   const label = document.getElementById('presence-label');
   const typingIndicator = document.getElementById('typing-indicator');
-  startPresencePoll(label, typingIndicator);
-}
-
-function startPresencePoll(label, typingIndicator) {
-  setInterval(() => {
-    label.textContent = 'Presence: online';
-    typingIndicator.classList.add('d-none');
-  }, 15000);
+  if (presenceSource) {
+    presenceSource.close();
+  }
+  try {
+    const source = new EventSource('/events/presence');
+    presenceSource = source;
+    source.onopen = () => {
+      sseRetryDelay = 1000;
+      if (label) label.textContent = 'Live updates';
+    };
+    source.onerror = () => {
+      source.close();
+      presenceSource = null;
+      if (label) label.textContent = 'Reconnecting…';
+      setTimeout(connectPresence, Math.min(sseRetryDelay, 30000));
+      sseRetryDelay = Math.min(sseRetryDelay * 2, 30000);
+      startAutoRefresh();
+    };
+    source.onmessage = (event) => {
+      let payload = null;
+      try {
+        payload = JSON.parse(event.data);
+      } catch (err) {
+        return;
+      }
+      if (!payload || payload.type === 'ping') return;
+      if (!payload.event || payload.event === 'presence') {
+        if (label && payload.status) {
+          label.textContent = `Presence: ${payload.status}`;
+        }
+        if (typingIndicator) {
+          const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
+          typingIndicator.classList.toggle('d-none', !payload.typing || isSelf);
+        }
+        return;
+      }
+      if (payload.event === 'message') {
+        scheduleMessageRefresh(payload.group_id, { notify: true });
+      }
+    };
+  } catch (err) {
+    startAutoRefresh();
+  }
 }
 
 function openDmModal(userId) {
@@ -1032,7 +1114,7 @@ async function restoreLastGroup() {
   const btn = document.querySelector(`[data-group-id="${last}"]`);
   const label = btn?.getAttribute('data-group-name') || btn?.querySelector('.group-name')?.textContent.trim();
   if (btn && label) {
-    await setCurrentGroup(last, label);
+    await setCurrentGroup(last, label, { forceLatest: true });
   }
 }
 
@@ -1145,13 +1227,23 @@ function startAutoRefresh() {
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
     if (state.freezeRefresh) return;
+    if (presenceSource) return;
     if (state.currentGroup && state.secrets[state.currentGroup]) {
-      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true });
+      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: false });
     }
   }, 10000);
 }
 
-async function setCurrentGroup(groupId, groupName) {
+function scheduleMessageRefresh(groupId, { notify = true } = {}) {
+  if (!groupId || groupId !== state.currentGroup) return;
+  if (sseRefreshDebounce) return;
+  sseRefreshDebounce = setTimeout(() => {
+    loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh: false });
+    sseRefreshDebounce = null;
+  }, 250);
+}
+
+async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) {
   state.currentGroup = Number(groupId);
   document.getElementById('chat-title').textContent = groupName || 'Chat';
   state.messages[state.currentGroup] = [];
@@ -1159,7 +1251,10 @@ async function setCurrentGroup(groupId, groupName) {
   const list = document.getElementById('message-list');
   if (list) list.innerHTML = '';
   await ensureSecret(state.currentGroup);
-  await loadMessages(state.currentGroup, { notify: false });
+  await loadMessages(state.currentGroup, { notify: false, forceLatest });
+  if (forceLatest && list) {
+    [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+  }
   loadGroupUsers(state.currentGroup);
   updateSecretDots();
   startAutoRefresh();
@@ -1217,7 +1312,7 @@ function attachGroupButtonHandler(btn) {
   btn.addEventListener('click', async () => {
     const gid = Number(btn.getAttribute('data-group-id'));
     const label = btn.getAttribute('data-group-name') || btn.querySelector('.group-name')?.textContent.trim() || 'Chat';
-    await setCurrentGroup(gid, label);
+    await setCurrentGroup(gid, label, { forceLatest: true });
     resetNotifications();
     persistLastGroup(gid);
     const sidebarEl = document.getElementById('groupSidebar');
@@ -1246,7 +1341,7 @@ function attachDeleteGroupHandler(btn) {
   });
 }
 
-function addGroupToSidebar(groupId, groupName) {
+function addGroupToSidebar(groupId, groupName, { deletable = false } = {}) {
   const container = document.querySelector('.contact-list');
   if (!container) return;
   const wrapper = document.createElement('div');
@@ -1259,6 +1354,15 @@ function addGroupToSidebar(groupId, groupName) {
     <span class="secret-dot ms-2" data-secret-dot="${groupId}"></span>`;
   attachGroupButtonHandler(btn);
   wrapper.appendChild(btn);
+  if (deletable) {
+    const del = document.createElement('button');
+    del.className = 'btn btn-outline-danger btn-sm delete-group';
+    del.setAttribute('data-delete-group', groupId);
+    del.setAttribute('data-group-name', groupName);
+    del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    attachDeleteGroupHandler(del);
+    wrapper.appendChild(del);
+  }
   container.appendChild(wrapper);
 }
 

@@ -15,19 +15,25 @@ settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
 @login_required
 def settings():
     form = SettingsForm(obj=current_user)
+    totp_disabled = current_app.config.get("DISABLE_TOTP", False)
+    base_require_totp = current_app.config.get("REQUIRE_TOTP", True)
+    require_totp = (not totp_disabled) and base_require_totp
     # If TOTP is mandatory, hide the toggle and ensure enable_totp is true
-    if current_app.config.get("REQUIRE_TOTP", True):
+    if require_totp:
         form.enable_totp.data = True
     else:
         # For optional TOTP, default checkbox reflects current status on GET
         if not form.is_submitted():
             form.enable_totp.data = bool(current_user.totp_confirmed)
+    if totp_disabled:
+        form.enable_totp.data = False
+        form.enable_totp.render_kw = {**(form.enable_totp.render_kw or {}), "disabled": True}
     if form.validate_on_submit():
         current_user.preferred_theme = form.preferred_theme.data
         current_user.language = form.language.data
         current_user.notifications_enabled = form.notifications_enabled.data
         current_user.timezone = form.timezone.data
-        if not current_app.config.get("REQUIRE_TOTP", True):
+        if not require_totp and not totp_disabled:
             want_totp = form.enable_totp.data
             if want_totp:
                 current_user.totp_confirmed = True
@@ -44,7 +50,8 @@ def settings():
     return render_template(
         "settings/settings.html",
         form=form,
-        require_totp=current_app.config.get("REQUIRE_TOTP", True),
+        require_totp=require_totp,
+        totp_disabled=totp_disabled,
         totp_uri=totp_uri,
     )
 
@@ -52,6 +59,8 @@ def settings():
 @settings_bp.route("/totp/qr")
 @login_required
 def settings_totp_qr():
+    if current_app.config.get("DISABLE_TOTP", False):
+        return "TOTP disabled", 403
     totp_uri = pyotp.totp.TOTP(current_user.totp_secret).provisioning_uri(
         name=current_user.email,
         issuer_name=current_app.config.get("QR_ISSUER", "HashWhisper"),

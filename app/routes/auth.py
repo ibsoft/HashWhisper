@@ -20,6 +20,8 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for("chat.chat"))
+    totp_disabled = current_app.config.get("DISABLE_TOTP", False)
+    require_totp = (not totp_disabled) and current_app.config.get("REQUIRE_TOTP", True)
     form = RegistrationForm()
     if form.validate_on_submit():
         if User.query.filter(or_(User.username == form.username.data.lower(), User.email == form.email.data.lower())).first():
@@ -35,16 +37,16 @@ def register():
         db.session.add(user)
         db.session.commit()
         current_app.logger.info("New user registered", extra={"user": user.username, "ip": request.remote_addr})
-        if current_app.config.get("REQUIRE_TOTP", True):
+        if require_totp:
             session["setup_user_id"] = user.id
             flash("Account created. Enroll TOTP immediately.", "info")
             return redirect(url_for("auth.setup_totp", user_id=user.id))
-        # Optional TOTP: keep disabled by default and go to login
+        # Optional or disabled TOTP: keep disabled by default and go to login
         user.totp_confirmed = False
         db.session.commit()
         flash("Account created. You can enable TOTP later in settings.", "info")
         return redirect(url_for("auth.login"))
-    return render_template("auth/register.html", form=form)
+    return render_template("auth/register.html", form=form, totp_disabled=totp_disabled, require_totp=require_totp)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -52,6 +54,8 @@ def register():
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("chat.chat"))
+    totp_disabled = current_app.config.get("DISABLE_TOTP", False)
+    base_require_totp = current_app.config.get("REQUIRE_TOTP", True)
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter(
@@ -69,8 +73,8 @@ def login():
             return render_template("auth/login.html", form=form)
         user.reset_failures()
         db.session.commit()
-        require_totp = current_app.config.get("REQUIRE_TOTP", True)
-        if require_totp or user.totp_confirmed:
+        require_totp = (not totp_disabled) and (base_require_totp or user.totp_confirmed)
+        if require_totp:
             session["pending_2fa"] = user.id
             session["remember_me"] = form.remember.data
             flash("Enter your authenticator code", "info")
@@ -118,6 +122,9 @@ def two_factor():
 
 @auth_bp.route("/setup-totp/<int:user_id>")
 def setup_totp(user_id):
+    if current_app.config.get("DISABLE_TOTP", False):
+        flash("TOTP is disabled by configuration.", "warning")
+        return redirect(url_for("auth.login"))
     if session.get("setup_user_id") != user_id:
         flash("Not authorized", "danger")
         return redirect(url_for("auth.login"))
@@ -136,6 +143,8 @@ def setup_totp(user_id):
 
 @auth_bp.route("/totp/qr/<int:user_id>")
 def totp_qr(user_id):
+    if current_app.config.get("DISABLE_TOTP", False):
+        return "TOTP disabled", 403
     if session.get("setup_user_id") != user_id:
         return "Unauthorized", 403
     user = User.query.get_or_404(user_id)

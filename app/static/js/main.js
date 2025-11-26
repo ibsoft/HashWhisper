@@ -13,6 +13,16 @@
   }
 })();
 
+// Auto-dismiss flash alerts after a short delay
+(() => {
+  document.querySelectorAll('.alert').forEach((el) => {
+    const inst = bootstrap.Alert.getOrCreateInstance(el);
+    setTimeout(() => {
+      try { inst.close(); } catch (e) { /* ignore */ }
+    }, 3000);
+  });
+})();
+
 // Clear stored secrets on logout to force re-entry
 (() => {
   document.querySelectorAll('[data-logout]').forEach((link) => {

@@ -65,5 +65,6 @@ class Config:
     PRESENCE_BROADCAST_TTL = 30
 
     QR_ISSUER = "HashWhisper"
-    REQUIRE_TOTP = os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
+    DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
+    REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
     APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
