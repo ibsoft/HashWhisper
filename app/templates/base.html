@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#0a0f1c">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="icon" href="{{ url_for('static', filename='img/icon.svg') }}">
-  <title>HashWhisper</title>
+  <title>{{ config.APP_TITLE }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
 <body class="bg-gradient">
 <nav class="navbar navbar-dark navbar-glass sticky-top">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{{ url_for('chat.chat') }}">HashWhisper</a>
+    <a class="navbar-brand fw-bold" href="{{ url_for('chat.chat') }}">{{ config.APP_TITLE }}</a>
     <div class="d-flex gap-2 align-items-center">
       {% if current_user.is_authenticated %}
       <span class="badge bg-success d-flex align-items-center gap-1"><i class="fa-solid fa-lock"></i> E2EE</span>
