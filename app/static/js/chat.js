@@ -11,6 +11,7 @@ const state = {
   notifications: { count: 0, mention: false },
   emojiPickerReady: false,
   notificationsAllowed: false,
+  freezeRefresh: false,
 };
 
 let refreshTimer = null;
@@ -156,9 +157,9 @@ function messageMentionsUser(text) {
 
 function loadPersistedSecrets() {
   try {
-    const raw = sessionStorage.getItem('hw-secrets');
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
+    const rawSession = sessionStorage.getItem('hw-secrets');
+    const rawLocal = localStorage.getItem('hw-secrets');
+    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
     if (parsed && typeof parsed === 'object') {
       state.secrets = { ...parsed, ...state.secrets };
     }
@@ -169,7 +170,9 @@ function loadPersistedSecrets() {
 
 function loadLastGroup() {
   try {
-    const raw = sessionStorage.getItem('hw-last-group');
+    const rawSession = sessionStorage.getItem('hw-last-group');
+    const rawLocal = localStorage.getItem('hw-last-group');
+    const raw = rawSession || rawLocal;
     if (!raw) return null;
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : null;
@@ -181,6 +184,7 @@ function loadLastGroup() {
 function persistLastGroup(groupId) {
   try {
     sessionStorage.setItem('hw-last-group', String(groupId));
+    localStorage.setItem('hw-last-group', String(groupId));
   } catch (e) {
     // ignore
   }
@@ -190,10 +194,13 @@ function persistSecret(groupId, secret) {
   const gid = Number(groupId);
   if (!gid || !secret) return;
   try {
-    const raw = sessionStorage.getItem('hw-secrets');
-    const parsed = raw ? JSON.parse(raw) : {};
+    const rawSession = sessionStorage.getItem('hw-secrets');
+    const rawLocal = localStorage.getItem('hw-secrets');
+    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
     parsed[gid] = secret;
-    sessionStorage.setItem('hw-secrets', JSON.stringify(parsed));
+    const serialized = JSON.stringify(parsed);
+    sessionStorage.setItem('hw-secrets', serialized);
+    localStorage.setItem('hw-secrets', serialized);
   } catch (e) {
     // ignore storage errors
   }
@@ -276,9 +283,23 @@ function ensureAudio() {
   return audioCtx;
 }
 
+async function resumeAudio() {
+  const ctx = ensureAudio();
+  if (ctx && ctx.state === 'suspended') {
+    try {
+      await ctx.resume();
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
 function playSound(kind) {
   const ctx = ensureAudio();
   if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
   const freqMap = {
     like: 880,
     dislike: 220,
@@ -520,7 +541,7 @@ async function loadMessages(groupId, opts = {}) {
     const url = new URL(`/api/messages`, window.location.origin);
     url.searchParams.set('group_id', groupId);
     if (before) url.searchParams.set('before', before);
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { cache: 'no-store' });
     if (!res.ok) {
       const text = await res.text();
       showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
@@ -755,7 +776,10 @@ async function copyMediaLink(meta, msg, groupId) {
 function bindUI() {
   const list = document.getElementById('message-list');
   loadPersistedSecrets();
-  document.getElementById('send-btn')?.addEventListener('click', sendMessage);
+  document.getElementById('send-btn')?.addEventListener('click', (e) => {
+    resumeAudio();
+    sendMessage();
+  });
   document.getElementById('message-input')?.addEventListener('keyup', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -765,6 +789,7 @@ function bindUI() {
   });
 
   document.getElementById('attach-btn')?.addEventListener('click', () => {
+    resumeAudio();
     document.getElementById('file-input').click();
   });
   document.getElementById('file-input')?.addEventListener('change', (e) => {
@@ -773,7 +798,10 @@ function bindUI() {
     e.target.value = '';
   });
 
-  document.getElementById('record-btn')?.addEventListener('click', toggleRecording);
+  document.getElementById('record-btn')?.addEventListener('click', () => {
+    resumeAudio();
+    toggleRecording();
+  });
 
   initEmojiPicker();
 
@@ -794,6 +822,12 @@ function bindUI() {
   })();
 
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
+
+  const sidebarEl = document.getElementById('groupSidebar');
+  if (sidebarEl) {
+    sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
+    sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; });
+  }
 
   const joinToggle = document.getElementById('join-secret-toggle');
   if (joinToggle) {
@@ -896,6 +930,7 @@ function bindUI() {
           const listEl = document.getElementById('message-list');
           if (listEl) listEl.innerHTML = '';
         }
+        deleteModalInstance.hide();
       } else {
         showInfoModal('Delete failed', 'Could not delete this group.');
       }
@@ -1109,10 +1144,11 @@ connectPresence();
 function startAutoRefresh() {
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => {
+    if (state.freezeRefresh) return;
     if (state.currentGroup && state.secrets[state.currentGroup]) {
       loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true });
     }
-  }, 45000);
+  }, 10000);
 }
 
 async function setCurrentGroup(groupId, groupName) {
@@ -1127,6 +1163,7 @@ async function setCurrentGroup(groupId, groupName) {
   loadGroupUsers(state.currentGroup);
   updateSecretDots();
   startAutoRefresh();
+  persistLastGroup(state.currentGroup);
 }
 
 function initEmojiPicker() {
@@ -1183,6 +1220,11 @@ function attachGroupButtonHandler(btn) {
     await setCurrentGroup(gid, label);
     resetNotifications();
     persistLastGroup(gid);
+    const sidebarEl = document.getElementById('groupSidebar');
+    if (sidebarEl && window.innerWidth < 992) {
+      const inst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
+      inst.hide();
+    }
   });
 }
 

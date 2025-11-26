@@ -35,11 +35,17 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+[data-bs-theme="light"] body {
+  background: #f6f8fb;
+}
 
 .navbar-glass {
   background-color: rgba(10, 15, 25, 0.8);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+}
+[data-bs-theme="light"] .navbar-glass {
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .card-glass {
@@ -63,6 +69,12 @@ html, body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text);
+}
+[data-bs-theme="light"] .form-control,
+[data-bs-theme="light"] .form-select {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b1a2d;
+  border-color: rgba(0,0,0,0.08);
 }
 
 .chat-shell {
@@ -109,6 +121,8 @@ html, body {
 
 .bubble.self { margin-left: auto; background: linear-gradient(135deg, rgba(158,242,176,0.16), rgba(111,211,255,0.16)); color: #f3f7ff; border: 1px solid rgba(158,242,176,0.35); }
 .bubble.other { margin-right: auto; background: rgba(16,24,40,0.7); color: #f3f7ff; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.05); }
+[data-bs-theme="light"] .bubble.self { color: #0b1a2d; border-color: rgba(47,128,237,0.35); }
+[data-bs-theme="light"] .bubble.other { background: rgba(255,255,255,0.9); color: #0b1a2d; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 10px 15px rgba(0,0,0,0.08); }
 
 .bubble .meta { font-size: 0.8rem; color: var(--muted); }
 .bubble .actions button {
