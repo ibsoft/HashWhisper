@@ -49,8 +49,6 @@ html, body {
 }
 .navbar-glass .navbar-brand { color: #fff !important; }
 [data-bs-theme="light"] .navbar-glass .navbar-brand { color: #fff !important; }
-.brand-logo { height: 34px; width: 34px; display: inline-block; }
-.brand-text { font-size: 1rem; line-height: 1; }
 
 .card-glass {
   background: var(--glass);
