@@ -462,27 +462,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   actions.className = 'd-flex align-items-center gap-3 mt-2 actions';
   const actionMeta = deriveActionFromText(meta, msg.plaintext);
   const isAction = actionMeta && (actionMeta.action || (msg.plaintext || '').startsWith('/'));
-  if (isAction) {
-    body.className = 'action-box';
-    body.innerHTML = '';
-    const iconLine = document.createElement('div');
-    iconLine.className = 'action-icon text-center';
-    const actIcon = actionMeta.icon || (actionMeta.action === 'slap' ? '🤚🐟' : actionMeta.action === 'wave' ? '👋' : actionMeta.action === 'shrug' ? '🤷' : '✨');
-    iconLine.textContent = actIcon;
-    const textLine = document.createElement('div');
-    textLine.className = 'text-center w-100';
-    const actText = actionMeta.act_text || actionMeta.text || msg.plaintext || '';
-    textLine.textContent = `${actIcon} ${actText}`;
-    body.appendChild(iconLine);
-    body.appendChild(textLine);
-    if (actionMeta.action === 'slap') {
-      const gif = document.createElement('img');
-      gif.src = `${window.location.origin}/static/img/slap.gif`;
-      gif.alt = 'slap';
-      gif.className = 'action-gif mt-2';
-      body.appendChild(gif);
-    }
-  }
+
   if (meta.type === 'media') {
     body.className = 'd-flex flex-column gap-2';
     const preview = document.createElement('div');
@@ -560,10 +540,44 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
       }
     }
     body.appendChild(preview);
+  } else if (isAction) {
+    body.className = 'action-box';
+    body.innerHTML = '';
+    const iconLine = document.createElement('div');
+    iconLine.className = 'action-icon text-center';
+    const actIcon = actionMeta.icon || (actionMeta.action === 'slap' ? '🤚🐟' : actionMeta.action === 'wave' ? '👋' : actionMeta.action === 'shrug' ? '🤷' : '✨');
+    iconLine.textContent = actIcon;
+    const textLine = document.createElement('div');
+    textLine.className = 'text-center w-100';
+    const actText = actionMeta.act_text || actionMeta.text || msg.plaintext || '';
+    let displayText = actText;
+    if (actionMeta.icon && displayText.startsWith(actionMeta.icon)) {
+      const regex = new RegExp(`^${escapeRegex(actionMeta.icon)}\\s*`);
+      displayText = displayText.replace(regex, '');
+    }
+    textLine.textContent = displayText;
+    body.appendChild(iconLine);
+    body.appendChild(textLine);
+    const actionGifs = {
+      slap: 'slap.gif',
+      wave: 'wave.gif',
+      shrug: 'shrug.gif',
+    };
+    if (actionMeta.action && actionGifs[actionMeta.action]) {
+      const gif = document.createElement('img');
+      gif.src = `${window.location.origin}/static/img/${actionGifs[actionMeta.action]}`;
+      gif.alt = actionMeta.action;
+      gif.className = 'action-gif mt-2';
+      body.appendChild(gif);
+    }
   } else {
     const text = msg.plaintext || '[cipher]';
     const html = highlightMentions(linkify(text)).replace(/\n/g, '<br>');
     body.innerHTML = html;
+    const contentLength = Number.isFinite(meta?.len) ? meta.len : text.length;
+    if (contentLength > 240 || text.split(/\s+/).some((word) => word.length > 42)) {
+      bubble.classList.add('long-text');
+    }
     const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyTextToClipboard(text));
     copyBtn.classList.add('mt-2');
     actions.appendChild(copyBtn);
@@ -790,6 +804,10 @@ async function loadMessages(groupId, opts = {}) {
       }
     }
     if (prepend && list) {
+      const newHeight = list.scrollHeight;
+      const delta = newHeight - prevHeight;
+      list.scrollTop = prevScrollTop + delta;
+    } else if (forceRefresh && list && !forceLatest) {
       const newHeight = list.scrollHeight;
       const delta = newHeight - prevHeight;
       list.scrollTop = prevScrollTop + delta;
@@ -1406,16 +1424,15 @@ async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
   const dislikeEl = dislikeBtn.querySelector('.dislike-count');
   if (likeEl) likeEl.textContent = likeCount;
   if (dislikeEl) dislikeEl.textContent = dislikeCount;
+  msg.likes = likeCount;
+  msg.dislikes = dislikeCount;
   likeBtn.title = likedBy.length ? `Liked by ${likedBy.join(', ')}` : 'No likes yet';
   dislikeBtn.title = dislikedBy.length ? `Disliked by ${dislikedBy.join(', ')}` : 'No dislikes yet';
   // update liked-by text if present
   const container = likeBtn.closest('.bubble');
   const likedByEl = container?.querySelector('.text-muted.small');
   if (likedByEl) likedByEl.textContent = likedBy.length ? `Liked by ${likedBy.join(', ')}` : '';
-  // update dislike tooltip in meta if needed
-  if (state.currentGroup) {
-    loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true });
-  }
+  // keep scroll position by avoiding full list reloads
   playSound(value === 'like' ? 'like' : 'dislike');
 }
 
