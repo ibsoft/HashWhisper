@@ -8,6 +8,7 @@ const state = {
   oldest: {},
   loadingOlder: {},
   loadingMessages: {},
+  copyCounts: {},
   mediaCache: new Map(),
   messages: {},
   notifications: { count: 0, mention: false },
@@ -94,6 +95,25 @@ function getCurrentUserId() {
 function getCurrentUsername() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.getAttribute('data-username')) || '';
+}
+
+function makeCopyButton(messageId, title, onCopy) {
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-sm reaction-download align-self-start copy-btn';
+  btn.title = title || 'Copy';
+  const icon = document.createElement('i');
+  icon.className = 'fa-solid fa-copy';
+  const countSpan = document.createElement('span');
+  countSpan.className = 'copy-count ms-1';
+  countSpan.textContent = state.copyCounts[messageId] || 0;
+  btn.appendChild(icon);
+  btn.appendChild(countSpan);
+  btn.addEventListener('click', async () => {
+    await onCopy();
+    state.copyCounts[messageId] = (state.copyCounts[messageId] || 0) + 1;
+    countSpan.textContent = state.copyCounts[messageId];
+  });
+  return btn;
 }
 
 function parseChatCommand(text) {
@@ -535,11 +555,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
       dlBtn.addEventListener('click', () => decryptMedia(msg, meta, { download: true, groupId }));
       actions.appendChild(dlBtn);
       if (mime.startsWith('image/')) {
-        const copyImgBtn = document.createElement('button');
-        copyImgBtn.className = 'btn btn-sm reaction-download align-self-start';
-        copyImgBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
-        copyImgBtn.title = 'Copy image';
-        copyImgBtn.addEventListener('click', () => copyImageFromMeta(msg, meta, groupId));
+        const copyImgBtn = makeCopyButton(msg.id, 'Copy image', () => copyImageFromMeta(msg, meta, groupId));
         actions.appendChild(copyImgBtn);
       }
     }
@@ -548,11 +564,8 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     const text = msg.plaintext || '[cipher]';
     const html = highlightMentions(linkify(text)).replace(/\n/g, '<br>');
     body.innerHTML = html;
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn btn-sm reaction-download align-self-start mt-2';
-    copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
-    copyBtn.title = 'Copy text';
-    copyBtn.addEventListener('click', () => copyTextToClipboard(text));
+    const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyTextToClipboard(text));
+    copyBtn.classList.add('mt-2');
     actions.appendChild(copyBtn);
     const yt = text.match(/https?:\/\/[^\s]+/);
     if (yt && isYouTube(yt[0])) {

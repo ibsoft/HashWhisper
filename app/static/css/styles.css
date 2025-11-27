@@ -153,36 +153,53 @@ html, body {
 .bubble .meta { font-size: 0.8rem; color: var(--muted); }
 .bubble .actions button {
   border-radius: 999px;
-  min-width: 42px;
-  height: 34px;
+  min-width: 40px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  font-size: 0.9rem;
+  padding: 0 8px;
+  font-size: 0.85rem;
+}
+.bubble .actions .copy-btn {
+  margin-top: 0 !important;
+  align-self: center;
 }
 .bubble .actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   width: 100%;
+  align-items: center;
 }
 @media (max-width: 480px) {
   .bubble .actions button {
     min-width: 32px;
-    height: 30px;
-    padding: 0 8px;
-    flex: 0 1 auto;
+    height: 28px;
+    padding: 0 6px;
+    flex: 0 0 auto;
     font-size: 0.8rem;
   }
   .bubble .actions {
     gap: 4px;
     flex-wrap: nowrap;
+    justify-content: flex-start;
   }
 }
 .reaction-like { color: #ff6fa2; border-color: #ff6fa2; }
 .reaction-dislike { color: #7dd3ff; border-color: #7dd3ff; }
 .reaction-download { color: #6fd3ff; border-color: #6fd3ff; }
+.copy-count { font-size: 0.85rem; }
+.reaction-download i,
+.reaction-like i,
+.reaction-dislike i,
+.copy-count,
+.like-count,
+.dislike-count {
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
 .media-preview img, .media-preview video { max-height: 240px; border-radius: 12px; object-fit: cover; }
 .media-preview iframe { border: none; border-radius: 12px; }
 .media-preview { display: flex; align-items: center; justify-content: center; gap: 8px; }
