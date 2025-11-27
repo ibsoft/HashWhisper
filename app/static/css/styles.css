@@ -287,8 +287,8 @@ html, body {
   object-fit: contain;
 }
 .landing-logo {
-  width: 140px;
-  height: 140px;
+  width: 120px;
+  height: auto;
   display: inline-block;
   object-fit: contain;
 }
