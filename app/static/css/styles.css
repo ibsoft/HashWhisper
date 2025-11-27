@@ -160,6 +160,20 @@ html, body {
   justify-content: center;
   padding: 0 12px;
 }
+.bubble .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+@media (max-width: 480px) {
+  .bubble .actions button {
+    min-width: 36px;
+    height: 34px;
+    padding: 0 10px;
+    flex: 1 1 30%;
+  }
+}
 .reaction-like { color: #ff6fa2; border-color: #ff6fa2; }
 .reaction-dislike { color: #7dd3ff; border-color: #7dd3ff; }
 .reaction-download { color: #6fd3ff; border-color: #6fd3ff; }
@@ -172,6 +186,11 @@ html, body {
 }
 .media-preview.media-audio audio {
   width: 100%;
+}
+.filename-row {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 .media-preview audio {
   width: 100%;

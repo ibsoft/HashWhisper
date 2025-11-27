@@ -7,6 +7,7 @@ const state = {
   seen: {},
   oldest: {},
   loadingOlder: {},
+  loadingMessages: {},
   mediaCache: new Map(),
   messages: {},
   notifications: { count: 0, mention: false },
@@ -697,99 +698,105 @@ async function loadMessages(groupId, opts = {}) {
   const wasNearBottom = isNearBottom(list);
   const prevHeight = list?.scrollHeight || 0;
   const prevScrollTop = list?.scrollTop || 0;
-  if (!state.messages[groupId]) state.messages[groupId] = [];
-  if (!state.oldest[groupId]) state.oldest[groupId] = null;
-  const hasExisting = state.messages[groupId].length > 0 && !forceRefresh;
-  if (!state.secrets[groupId] && !skipSecretPrompt) {
-    await ensureSecret(groupId);
-    if (!state.secrets[groupId]) return; // user cancelled
-  }
-
-  let data = [];
+  if (state.loadingMessages[groupId]) return;
+  state.loadingMessages[groupId] = true;
   try {
-    const url = new URL(`/api/messages`, window.location.origin);
-    url.searchParams.set('group_id', groupId);
-    if (before) url.searchParams.set('before', before);
-    const res = await fetch(url.toString(), { cache: 'no-store' });
-    if (!res.ok) {
-      const text = await res.text();
-      showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
+    if (!state.messages[groupId]) state.messages[groupId] = [];
+    if (!state.oldest[groupId]) state.oldest[groupId] = null;
+    const hasExisting = state.messages[groupId].length > 0 && !forceRefresh;
+    if (!state.secrets[groupId] && !skipSecretPrompt) {
+      await ensureSecret(groupId);
+      if (!state.secrets[groupId]) return; // user cancelled
+    }
+
+    let data = [];
+    try {
+      const url = new URL(`/api/messages`, window.location.origin);
+      url.searchParams.set('group_id', groupId);
+      if (before) url.searchParams.set('before', before);
+      const res = await fetch(url.toString(), { cache: 'no-store' });
+      if (!res.ok) {
+        const text = await res.text();
+        showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
+        return;
+      }
+      data = await res.json();
+    } catch (err) {
+      showInfoModal('Load failed', 'Could not load messages.');
+      console.error('loadMessages error', err);
       return;
     }
-    data = await res.json();
-  } catch (err) {
-    showInfoModal('Load failed', 'Could not load messages.');
-    console.error('loadMessages error', err);
-    return;
-  }
 
-  if (!Array.isArray(data)) {
-    showInfoModal('Load failed', data.error || 'Unable to load messages.');
-    console.error('loadMessages response', data);
-    return;
-  }
-  const lastMsg = data[data.length - 1];
-  const lastSeen = state.seen[groupId] || 0;
-  const newMessages = forceRefresh
-    ? data
-    : hasExisting
-      ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
-      : data;
-  if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) return;
-  if (!hasExisting || forceRefresh) {
-    if (!forceRefresh) {
-      list.innerHTML = '';
-      state.messages[groupId] = [];
+    if (!Array.isArray(data)) {
+      showInfoModal('Load failed', data.error || 'Unable to load messages.');
+      console.error('loadMessages response', data);
+      return;
     }
-  }
-  const secret = state.secrets[groupId];
-  let playedInbound = false;
-  const targetMessages = newMessages;
-  for (const msg of targetMessages) {
-    const bubble = list.querySelector(`[data-message-id="${msg.id}"]`);
-    if (forceRefresh && bubble) {
-      updateBubbleReactions(bubble, msg);
-      continue;
-    }
-    if (state.messages[groupId].includes(msg.id) && prepend) continue;
-    let plaintext = '[encrypted]';
-    if (secret && msg.ciphertext) {
-      plaintext = await decryptText(msg, secret, groupId);
-    }
-    msg.plaintext = plaintext;
-    const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
-    await renderMessage(list, msg, isSelf, groupId, { prepend });
-    if (!state.messages[groupId].includes(msg.id)) {
-      state.messages[groupId].push(msg.id);
-    }
-    if (notify && !isSelf) {
-      const mentionHit = messageMentionsUser(plaintext);
-      updateNotificationIcon(1, mentionHit);
-      showBrowserNotification('New message', plaintext.slice(0, 80) || 'Encrypted message');
-      if (!playedInbound) {
-        playSound('inbound');
-        playedInbound = true;
+    const lastMsg = data[data.length - 1];
+    const lastSeen = state.seen[groupId] || 0;
+    const newMessages = forceRefresh
+      ? data
+      : hasExisting
+        ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
+        : data;
+    if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) return;
+    if (!hasExisting || forceRefresh) {
+      if (!forceRefresh) {
+        list.innerHTML = '';
+        state.messages[groupId] = [];
       }
     }
-  }
-  if (prepend && list) {
-    const newHeight = list.scrollHeight;
-    const delta = newHeight - prevHeight;
-    list.scrollTop = prevScrollTop + delta;
-  } else if (forceLatest && list) {
-    [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
-  } else if (wasNearBottom && !prepend && list?.lastElementChild) {
-    list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }
-  // mark latest seen
-  if (lastMsg) {
-    state.seen[groupId] = new Date(lastMsg.created_at).getTime();
-  }
-  if (newMessages.length) {
-    const oldest = newMessages[0];
-    state.oldest[groupId] = oldest.created_at;
-  } else if (!prepend) {
-    state.seen[groupId] = 0;
+    const secret = state.secrets[groupId];
+    let playedInbound = false;
+    const targetMessages = newMessages;
+    for (const msg of targetMessages) {
+      const bubble = list.querySelector(`[data-message-id="${msg.id}"]`);
+      if (forceRefresh && bubble) {
+        updateBubbleReactions(bubble, msg);
+        continue;
+      }
+      if (state.messages[groupId].includes(msg.id) && prepend) continue;
+      let plaintext = '[encrypted]';
+      if (secret && msg.ciphertext) {
+        plaintext = await decryptText(msg, secret, groupId);
+      }
+      msg.plaintext = plaintext;
+      const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
+      await renderMessage(list, msg, isSelf, groupId, { prepend });
+      if (!state.messages[groupId].includes(msg.id)) {
+        state.messages[groupId].push(msg.id);
+      }
+      if (notify && !isSelf) {
+        const mentionHit = messageMentionsUser(plaintext);
+        updateNotificationIcon(1, mentionHit);
+        showBrowserNotification('New message', plaintext.slice(0, 80) || 'Encrypted message');
+        if (!playedInbound) {
+          playSound('inbound');
+          playedInbound = true;
+        }
+      }
+    }
+    if (prepend && list) {
+      const newHeight = list.scrollHeight;
+      const delta = newHeight - prevHeight;
+      list.scrollTop = prevScrollTop + delta;
+    } else if (forceLatest && list) {
+      [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+    } else if (wasNearBottom && !prepend && list?.lastElementChild) {
+      list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    // mark latest seen
+    if (lastMsg) {
+      state.seen[groupId] = new Date(lastMsg.created_at).getTime();
+    }
+    if (newMessages.length) {
+      const oldest = newMessages[0];
+      state.oldest[groupId] = oldest.created_at;
+    } else if (!prepend) {
+      state.seen[groupId] = 0;
+    }
+  } finally {
+    state.loadingMessages[groupId] = false;
   }
 }
 
