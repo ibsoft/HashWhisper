@@ -50,6 +50,15 @@ html, body {
 .navbar-glass .navbar-brand { color: #fff !important; }
 [data-bs-theme="light"] .navbar-glass .navbar-brand { color: #fff !important; }
 
+.navbar .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+}
+
 .card-glass {
   background: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -142,12 +151,12 @@ html, body {
 .bubble .meta { font-size: 0.8rem; color: var(--muted); }
 .bubble .actions button {
   border-radius: 999px;
-  min-width: 42px;
-  height: 34px;
+  min-width: 46px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 12px;
 }
 .reaction-like { color: #ff6fa2; border-color: #ff6fa2; }
 .reaction-dislike { color: #7dd3ff; border-color: #7dd3ff; }
@@ -155,6 +164,13 @@ html, body {
 .media-preview img, .media-preview video { max-height: 240px; border-radius: 12px; object-fit: cover; }
 .media-preview iframe { border: none; border-radius: 12px; }
 .media-preview { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.media-preview.media-audio {
+  flex-direction: column;
+  align-items: center;
+}
+.media-preview.media-audio audio {
+  width: 100%;
+}
 .media-preview audio {
   width: 100%;
   margin-top: 6px;
@@ -219,6 +235,25 @@ html, body {
 .secret-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #64748b; }
 .secret-dot.on { background: #4ade80; box-shadow: 0 0 12px rgba(74, 222, 128, 0.45); }
 .mention { background: rgba(159, 242, 176, 0.25); color: #043227; padding: 0 6px; border-radius: 999px; font-weight: 600; }
+.action-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-style: italic;
+  font-weight: 600;
+  color: var(--text);
+  flex-direction: column;
+}
+.action-box .action-icon {
+  font-size: 28px;
+  line-height: 1.1;
+}
+.action-gif {
+  max-width: 140px;
+  display: block;
+  margin: 6px auto 0;
+  border-radius: 8px;
+}
 .notification-dot {
   position: absolute;
   top: 6px;
@@ -241,14 +276,21 @@ html, body {
 }
 
 .login-logo {
-  width: 140px;
+  width: 64px;
   height: auto;
   display: inline-block;
 }
 .register-logo {
+  width: 64px;
+  height: 64px;
+  display: inline-block;
+  object-fit: contain;
+}
+.landing-logo {
   width: 140px;
   height: 140px;
   display: inline-block;
+  object-fit: contain;
 }
 
 /* Light theme overrides for visibility */

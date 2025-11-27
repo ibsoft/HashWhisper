@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -320,8 +321,16 @@ def upload_blob():
     if not file:
         return jsonify({"error": "missing_file"}), 400
     if file.mimetype not in current_app.config["ALLOWED_MIMETYPES"]:
-        return jsonify({"error": "blocked_mime"}), 400
-    sanitized_name = secure_filename(file.filename) or "blob"
+        return jsonify({"error": "blocked_mime", "reason": "Unsupported file type"}), 400
+    display_name = (file.filename or "blob").strip()
+    # truncate display name to fit VARCHAR(64) while preserving extension if present
+    base, ext = os.path.splitext(display_name)
+    max_len = 60  # leave room for multibyte chars and db limit
+    if len(ext) > max_len - 1:
+        ext = ext[: max_len // 2]
+    trimmed_base = base[: max_len - len(ext)]
+    display_name = f"{trimmed_base}{ext}" if ext else trimmed_base
+    mime_type = (file.mimetype or "application/octet-stream")[:60]
     random_name = secrets.token_hex(16)
     base_path = Path(current_app.config["UPLOAD_FOLDER"])
     base_path.mkdir(parents=True, exist_ok=True)
@@ -342,8 +351,8 @@ def upload_blob():
     blob = MediaBlob(
         message_id=message.id,
         stored_path=str(stored_path),
-        original_name=sanitized_name,
-        mime_type=file.mimetype,
+        original_name=display_name,
+        mime_type=mime_type,
         size_bytes=file_size,
     )
     db.session.add(blob)
@@ -356,9 +365,9 @@ def upload_blob():
     meta_json.update(
         {
             "type": "media",
-            "name": (sanitized_name or "blob")[:120],
+            "name": (display_name or "blob")[:120],
             "size": file_size,
-            "mime": (file.mimetype or "application/octet-stream")[:64],
+            "mime": mime_type,
             "blob_id": blob.id,
         }
     )
@@ -376,9 +385,9 @@ def upload_blob():
     meta_json.update(
         {
             "type": "media",
-            "name": sanitized_name,
+            "name": display_name,
             "size": stored_path.stat().st_size,
-            "mime": file.mimetype,
+            "mime": mime_type,
             "blob_id": blob.id,
         }
     )

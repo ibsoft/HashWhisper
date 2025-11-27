@@ -118,6 +118,14 @@ function parseChatCommand(text) {
   return null;
 }
 
+function deriveActionFromText(meta, plaintext) {
+  if (meta && meta.action) return meta;
+  if (!plaintext || !plaintext.startsWith('/')) return meta || {};
+  const cmd = parseChatCommand(plaintext);
+  if (!cmd) return meta || {};
+  return { action: cmd.action, icon: cmd.icon, act_text: cmd.text };
+}
+
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -431,18 +439,28 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   metaLine.textContent = `${formatTime(msg.created_at)}${uploadedBy}`;
   const actions = document.createElement('div');
   actions.className = 'd-flex align-items-center gap-3 mt-2 actions';
-  const isAction = meta.action && msg.plaintext;
+  const actionMeta = deriveActionFromText(meta, msg.plaintext);
+  const isAction = actionMeta && (actionMeta.action || (msg.plaintext || '').startsWith('/'));
   if (isAction) {
     body.className = 'action-box';
     body.innerHTML = '';
     const iconLine = document.createElement('div');
     iconLine.className = 'action-icon text-center';
-    iconLine.textContent = meta.icon || '✨';
+    const actIcon = actionMeta.icon || (actionMeta.action === 'slap' ? '🤚🐟' : actionMeta.action === 'wave' ? '👋' : actionMeta.action === 'shrug' ? '🤷' : '✨');
+    iconLine.textContent = actIcon;
     const textLine = document.createElement('div');
     textLine.className = 'text-center w-100';
-    textLine.textContent = msg.plaintext;
+    const actText = actionMeta.act_text || actionMeta.text || msg.plaintext || '';
+    textLine.textContent = `${actIcon} ${actText}`;
     body.appendChild(iconLine);
     body.appendChild(textLine);
+    if (actionMeta.action === 'slap') {
+      const gif = document.createElement('img');
+      gif.src = `${window.location.origin}/static/img/slap.gif`;
+      gif.alt = 'slap';
+      gif.className = 'action-gif mt-2';
+      body.appendChild(gif);
+    }
   }
   if (meta.type === 'media') {
     body.className = 'd-flex flex-column gap-2';
@@ -789,7 +807,7 @@ async function sendMessage() {
   const command = parseChatCommand(text);
   const secret = await ensureSecret(state.currentGroup);
   if (!secret) return;
-  const payloadText = command ? `${command.icon} ${command.text}` : text;
+  const payloadText = command ? `${command.icon || ''} ${command.text}`.trim() : text;
   const encrypted = await encryptText(payloadText, secret, state.currentGroup);
   const resp = await fetch('/api/messages', {
     method: 'POST',
