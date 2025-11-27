@@ -62,6 +62,21 @@ def create_group():
         return render_template("chat/group_created.html", group=group, qr_payload=qr_payload, qr_data=qr_data)
     return render_template("chat/create_group.html", form=form)
 
+@chat_bp.route("/api/groups/verify", methods=["POST"])
+@login_required
+def verify_group_secret():
+    data = request.get_json(silent=True) or {}
+    group_id = data.get("group_id")
+    secret = str(data.get("secret", "")).strip()
+    if not group_id or not secret:
+        return jsonify({"error": "missing"}), 400
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({"error": "not_found"}), 404
+    if hash_secret(secret) != group.secret_hash:
+        return jsonify({"error": "bad_secret"}), 403
+    return jsonify({"ok": True})
+
 
 @chat_bp.route("/groups/join", methods=["POST"])
 @login_required
