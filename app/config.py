@@ -29,7 +29,6 @@ class Config:
         "image/gif",
         "image/heic",
         "image/heif",
-        "video/mp4",
         "video/webm",
         "video/quicktime",
         "audio/mpeg",
@@ -38,6 +37,18 @@ class Config:
         "audio/wav",
         "audio/mp4",
         "audio/aac",
+        "audio/mp3",
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "application/json",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.oasis.opendocument.text",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "application/vnd.oasis.opendocument.presentation",
     }
     
     SECURITY_CSP = {
@@ -68,4 +79,4 @@ class Config:
     DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
     REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
     APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "v_2.0.1")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.1")
