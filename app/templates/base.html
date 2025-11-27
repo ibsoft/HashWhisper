@@ -48,14 +48,17 @@
   </div>
 </main>
 <footer class="text-center py-3 text-muted small">
-  <div>Built by IBSoft • <a href="https://github.com/ibsoft/HashWhisper" target="_blank" rel="noopener" class="text-decoration-none text-muted"><i class="fa-brands fa-github"></i> GitHub</a></div>
+  <div>
+    Built by IBSoft • <a href="https://github.com/ibsoft/HashWhisper" target="_blank" rel="noopener" class="text-decoration-none text-muted"><i class="fa-brands fa-github"></i> GitHub</a>
+    • Version {{ config.APP_VERSION }}
+  </div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <script>
   (() => {
     const userPref = "{{ current_user.preferred_theme if current_user.is_authenticated else 'system' }}";
     const saved = localStorage.getItem('hw-theme');
-    let theme = saved || userPref || 'system';
+    let theme = saved || userPref || 'dark';
     if (theme === 'system') {
       theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }

@@ -7,6 +7,7 @@ const state = {
   seen: {},
   oldest: {},
   loadingOlder: {},
+  mediaCache: new Map(),
   messages: {},
   notifications: { count: 0, mention: false },
   emojiPickerReady: false,
@@ -465,24 +466,33 @@ async function decryptMedia(msg, meta, opts = {}) {
   try {
     const secret = await ensureSecret(groupId);
     if (!secret) return;
-    const resp = await fetch(`/api/blob/${meta.blob_id}`);
-    if (!resp.ok) return showInfoModal('Download failed', 'Could not fetch the encrypted media.');
-    const cipherBuffer = await resp.arrayBuffer();
-    const key = await deriveKey(secret, groupId);
-    const nonce = new Uint8Array(fromHex(msg.nonce));
-    const tag = new Uint8Array(fromHex(msg.auth_tag));
-    const cipher = new Uint8Array(cipherBuffer);
-    const combined = new Uint8Array(cipher.length + tag.length);
-    combined.set(cipher);
-    combined.set(tag, cipher.length);
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: nonce, additionalData: encoder.encode('HashWhisper:v1') },
-      key,
-      combined
-    );
-    const blob = new Blob([plaintext], { type: meta.mime || 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    meta.renderedUrl = url;
+    // Use cached decrypted URL if available
+    const cached = state.mediaCache.get(meta.blob_id);
+    if (cached && cached.url) {
+      meta.renderedUrl = cached.url;
+    }
+    let url = meta.renderedUrl;
+    if (!url) {
+      const resp = await fetch(`/api/blob/${meta.blob_id}`, { cache: 'force-cache' });
+      if (!resp.ok) return showInfoModal('Download failed', 'Could not fetch the encrypted media.');
+      const cipherBuffer = await resp.arrayBuffer();
+      const key = await deriveKey(secret, groupId);
+      const nonce = new Uint8Array(fromHex(msg.nonce));
+      const tag = new Uint8Array(fromHex(msg.auth_tag));
+      const cipher = new Uint8Array(cipherBuffer);
+      const combined = new Uint8Array(cipher.length + tag.length);
+      combined.set(cipher);
+      combined.set(tag, cipher.length);
+      const plaintext = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: nonce, additionalData: encoder.encode('HashWhisper:v1') },
+        key,
+        combined
+      );
+      const blob = new Blob([plaintext], { type: meta.mime || 'application/octet-stream' });
+      url = URL.createObjectURL(blob);
+      meta.renderedUrl = url;
+      state.mediaCache.set(meta.blob_id, { url });
+    }
     if (inline && target) {
       target.innerHTML = '';
       const mime = (meta.mime || '').toLowerCase();
