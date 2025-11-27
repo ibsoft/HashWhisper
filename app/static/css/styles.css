@@ -11,6 +11,7 @@
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 }
 
+
 :root[data-bs-theme="light"] {
   --bg: #f6f8fb;
   --glass: rgba(255, 255, 255, 0.8);
@@ -38,6 +39,7 @@ html, body {
 [data-bs-theme="light"] body {
   background: #f6f8fb;
 }
+
 
 .navbar-glass {
   background-color: rgba(10, 15, 25, 0.9);

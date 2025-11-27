@@ -793,6 +793,7 @@ async function loadMessages(groupId, opts = {}) {
   }
 }
 
+
 async function sendMessage() {
   if (!state.currentGroup) {
     showInfoModal('Select a group', 'Choose a group or DM before sending.');
