@@ -61,10 +61,11 @@ class Config:
     # AES-GCM client side requirements
     CLIENT_AAD = "HashWhisper:v1"
 
-    MESSAGE_RETENTION_DAYS = int(os.environ.get("HASHWHISPER_RETENTION_DAYS", 7))
+    MESSAGE_RETENTION_DAYS = int(os.environ.get("HASHWHISPER_RETENTION_DAYS", 365))
     PRESENCE_BROADCAST_TTL = 30
 
     QR_ISSUER = "HashWhisper"
     DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
     REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
     APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "v_2.0.1")

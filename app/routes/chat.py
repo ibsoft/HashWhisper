@@ -405,6 +405,7 @@ def download_blob(blob_id):
         headers={
             "Content-Disposition": f"attachment; filename={secure_filename(blob.original_name)}",
             "Content-Type": blob.mime_type or "application/octet-stream",
+            "Cache-Control": "private, max-age=3600, immutable",
         },
     )
 
