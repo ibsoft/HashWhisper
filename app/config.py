@@ -79,4 +79,4 @@ class Config:
     DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
     REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
     APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.1")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.6")
