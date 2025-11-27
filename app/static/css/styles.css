@@ -153,12 +153,13 @@ html, body {
 .bubble .meta { font-size: 0.8rem; color: var(--muted); }
 .bubble .actions button {
   border-radius: 999px;
-  min-width: 46px;
-  height: 36px;
+  min-width: 42px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
+  padding: 0 10px;
+  font-size: 0.9rem;
 }
 .bubble .actions {
   display: flex;
@@ -168,10 +169,15 @@ html, body {
 }
 @media (max-width: 480px) {
   .bubble .actions button {
-    min-width: 36px;
-    height: 34px;
-    padding: 0 10px;
-    flex: 1 1 30%;
+    min-width: 32px;
+    height: 30px;
+    padding: 0 8px;
+    flex: 0 1 auto;
+    font-size: 0.8rem;
+  }
+  .bubble .actions {
+    gap: 4px;
+    flex-wrap: nowrap;
   }
 }
 .reaction-like { color: #ff6fa2; border-color: #ff6fa2; }
