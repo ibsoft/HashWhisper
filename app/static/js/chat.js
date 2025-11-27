@@ -83,9 +83,39 @@ function getUserTimezone() {
   return (shell?.getAttribute('data-user-tz')) || 'UTC';
 }
 
+function getCurrentUserId() {
+  const shell = document.querySelector('.chat-shell');
+  const raw = shell?.getAttribute('data-user-id');
+  const parsed = raw ? Number(raw) : null;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function getCurrentUsername() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.getAttribute('data-username')) || '';
+}
+
+function parseChatCommand(text) {
+  if (!text.startsWith('/')) return null;
+  const [cmd, ...rest] = text.trim().split(/\s+/);
+  const target = rest.join(' ').trim();
+  const me = getCurrentUsername() || 'Someone';
+  const cmdLower = cmd.toLowerCase();
+  if (cmdLower === '/slap' || cmdLower === '/slaps') {
+    if (!target) return null;
+    return { action: 'slap', icon: '🤚🐟', text: `${me} slaps ${target} with a wet trout` };
+  }
+  if (cmdLower === '/wave' || cmdLower === '/waves') {
+    return { action: 'wave', icon: '👋', text: `${me} waves enthusiastically` };
+  }
+  if (cmdLower === '/shrug') {
+    return { action: 'shrug', icon: '🤷', text: `${me} shrugs` };
+  }
+  if (cmdLower === '/me') {
+    if (!target) return null;
+    return { action: 'me', icon: '✨', text: `${me} ${target}` };
+  }
+  return null;
 }
 
 function escapeRegex(value) {
@@ -180,8 +210,11 @@ function messageMentionsUser(text) {
 
 function loadPersistedSecrets() {
   try {
-    const rawSession = sessionStorage.getItem('hw-secrets');
-    const rawLocal = localStorage.getItem('hw-secrets');
+    const uid = getCurrentUserId();
+    const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const rawSession = sessionStorage.getItem(keySession);
+    const rawLocal = localStorage.getItem(keyLocal);
     const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
     if (parsed && typeof parsed === 'object') {
       state.secrets = { ...parsed, ...state.secrets };
@@ -193,8 +226,11 @@ function loadPersistedSecrets() {
 
 function loadLastGroup() {
   try {
-    const rawSession = sessionStorage.getItem('hw-last-group');
-    const rawLocal = localStorage.getItem('hw-last-group');
+    const uid = getCurrentUserId();
+    const keySession = uid ? `hw-last-group-${uid}` : 'hw-last-group';
+    const keyLocal = uid ? `hw-last-group-${uid}` : 'hw-last-group';
+    const rawSession = sessionStorage.getItem(keySession);
+    const rawLocal = localStorage.getItem(keyLocal);
     const raw = rawSession || rawLocal;
     if (!raw) return null;
     const parsed = Number(raw);
@@ -206,8 +242,11 @@ function loadLastGroup() {
 
 function persistLastGroup(groupId) {
   try {
-    sessionStorage.setItem('hw-last-group', String(groupId));
-    localStorage.setItem('hw-last-group', String(groupId));
+    const uid = getCurrentUserId();
+    const keySession = uid ? `hw-last-group-${uid}` : 'hw-last-group';
+    const keyLocal = uid ? `hw-last-group-${uid}` : 'hw-last-group';
+    sessionStorage.setItem(keySession, String(groupId));
+    localStorage.setItem(keyLocal, String(groupId));
   } catch (e) {
     // ignore
   }
@@ -217,12 +256,16 @@ function persistSecret(groupId, secret) {
   const gid = Number(groupId);
   if (!gid || !secret) return;
   try {
-    const rawSession = sessionStorage.getItem('hw-secrets');
-    const rawLocal = localStorage.getItem('hw-secrets');
+    const uid = getCurrentUserId();
+    const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const rawSession = sessionStorage.getItem(keySession);
+    const rawLocal = localStorage.getItem(keyLocal);
     const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
     parsed[gid] = secret;
     const serialized = JSON.stringify(parsed);
-    sessionStorage.setItem('hw-secrets', serialized);
+    sessionStorage.setItem(keySession, serialized);
+    localStorage.setItem(keyLocal, serialized);
   } catch (e) {
     // ignore storage errors
   }
@@ -232,10 +275,16 @@ function removePersistedSecret(groupId) {
   const gid = Number(groupId);
   if (!gid) return;
   try {
-    const raw = sessionStorage.getItem('hw-secrets');
-    const parsed = raw ? JSON.parse(raw) : {};
+    const uid = getCurrentUserId();
+    const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+    const rawSession = sessionStorage.getItem(keySession);
+    const rawLocal = localStorage.getItem(keyLocal);
+    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
     delete parsed[gid];
-    sessionStorage.setItem('hw-secrets', JSON.stringify(parsed));
+    const serialized = JSON.stringify(parsed);
+    sessionStorage.setItem(keySession, serialized);
+    localStorage.setItem(keyLocal, serialized);
   } catch (e) {
     // ignore storage errors
   }
@@ -379,41 +428,100 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   const metaLine = document.createElement('div');
   metaLine.className = 'meta';
   const uploadedBy = msg.sender_name ? ` • by ${msg.sender_name}` : '';
-  const namePart = meta.type === 'media' ? '' : (meta.name ? ' • ' + meta.name : '');
-  metaLine.textContent = `${formatTime(msg.created_at)}${namePart}${uploadedBy}`;
+  metaLine.textContent = `${formatTime(msg.created_at)}${uploadedBy}`;
   const actions = document.createElement('div');
   actions.className = 'd-flex align-items-center gap-3 mt-2 actions';
+  const isAction = meta.action && msg.plaintext;
+  if (isAction) {
+    body.className = 'action-box';
+    body.innerHTML = '';
+    const iconLine = document.createElement('div');
+    iconLine.className = 'action-icon text-center';
+    iconLine.textContent = meta.icon || '✨';
+    const textLine = document.createElement('div');
+    textLine.className = 'text-center w-100';
+    textLine.textContent = msg.plaintext;
+    body.appendChild(iconLine);
+    body.appendChild(textLine);
+  }
   if (meta.type === 'media') {
     body.className = 'd-flex flex-column gap-2';
     const preview = document.createElement('div');
     preview.className = 'w-100 mt-1 media-preview';
     if (meta.blob_id) {
-      const renderInline = () => decryptMedia(msg, meta, { target: preview, inline: true, groupId });
-      if (!state.secrets[groupId]) {
-        ensureSecret(groupId).then((secret) => { if (secret) renderInline(); });
+      const mime = (meta.mime || '').toLowerCase();
+      const isAudio = mime.startsWith('audio/');
+      const isDoc = mime.startsWith('application/');
+      if (isAudio) {
+        preview.classList.add('media-audio');
+        preview.innerHTML = '';
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'd-flex justify-content-center';
+        iconWrap.innerHTML = '<i class="fa-solid fa-music fa-2x text-muted"></i>';
+        const nameRow = document.createElement('div');
+        nameRow.className = 'text-muted small fw-semibold filename-row text-center';
+        nameRow.textContent = meta.name || 'Audio';
+        const playerWrap = document.createElement('div');
+        playerWrap.className = 'w-100 mt-2';
+        preview.appendChild(iconWrap);
+        preview.appendChild(nameRow);
+        preview.appendChild(playerWrap);
+        const renderInline = () => decryptMedia(msg, meta, { target: playerWrap, inline: true, groupId });
+        if (!state.secrets[groupId]) {
+          ensureSecret(groupId).then((secret) => { if (secret) renderInline(); });
+        } else {
+          renderInline();
+        }
+      } else if (!isDoc) {
+        preview.innerHTML = '';
+        if (meta.name) {
+          const nameRow = document.createElement('div');
+          nameRow.className = 'text-muted small fw-semibold filename-row';
+          nameRow.textContent = meta.name;
+          body.appendChild(nameRow);
+        }
+        const renderInline = () => decryptMedia(msg, meta, { target: preview, inline: true, groupId });
+        if (!state.secrets[groupId]) {
+          ensureSecret(groupId).then((secret) => { if (secret) renderInline(); });
+        } else {
+          renderInline();
+        }
+        preview.addEventListener('click', async () => {
+          if (!meta.renderedUrl) {
+            await decryptMedia(msg, meta, { inline: false, groupId });
+          }
+          openMediaModal(meta);
+        });
       } else {
-        renderInline();
+        preview.innerHTML = '';
+        const docWrap = document.createElement('div');
+        docWrap.className = 'd-flex flex-column align-items-center text-center w-100';
+        const iconRow = document.createElement('div');
+        iconRow.className = 'text-muted';
+        if (isAudio) {
+          iconRow.innerHTML = '<i class="fa-solid fa-music fa-2x"></i>';
+        } else {
+          iconRow.innerHTML = '<i class="fa-solid fa-file-lines fa-2x"></i>';
+        }
+        const nameRow = document.createElement('div');
+        nameRow.className = 'text-muted small filename-row mt-1';
+        nameRow.textContent = meta.name || 'Document';
+        docWrap.appendChild(iconRow);
+        docWrap.appendChild(nameRow);
+        preview.appendChild(docWrap);
       }
-      preview.addEventListener('click', () => openMediaModal(meta));
       const dlBtn = document.createElement('button');
       dlBtn.className = 'btn btn-sm reaction-download align-self-start';
       dlBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
       dlBtn.addEventListener('click', () => decryptMedia(msg, meta, { download: true, groupId }));
       actions.appendChild(dlBtn);
-      if ((meta.mime || '').toLowerCase().startsWith('image/')) {
+      if (mime.startsWith('image/')) {
         const copyImgBtn = document.createElement('button');
         copyImgBtn.className = 'btn btn-sm reaction-download align-self-start';
         copyImgBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
         copyImgBtn.title = 'Copy image';
         copyImgBtn.addEventListener('click', () => copyImageFromMeta(msg, meta, groupId));
         actions.appendChild(copyImgBtn);
-      } else if ((meta.mime || '').toLowerCase().startsWith('video/')) {
-        const copyLinkBtn = document.createElement('button');
-        copyLinkBtn.className = 'btn btn-sm reaction-download align-self-start';
-        copyLinkBtn.innerHTML = '<i class="fa-solid fa-link"></i>';
-        copyLinkBtn.title = 'Copy video link';
-        copyLinkBtn.addEventListener('click', () => copyMediaLink(meta, msg, groupId));
-        actions.appendChild(copyLinkBtn);
       }
     }
     body.appendChild(preview);
@@ -513,12 +621,13 @@ async function decryptMedia(msg, meta, opts = {}) {
         audio.src = url;
         audio.controls = true;
         target.appendChild(audio);
+      } else if (mime === 'application/pdf') {
+        // PDF preview intentionally disabled; only download available.
+        target.innerHTML = '<div class="text-muted small">PDF ready. Use Download to view.</div>';
+      } else if (mime.startsWith('application/')) {
+        target.innerHTML = '<div class="text-muted small">Document ready. Use Download to view.</div>';
       } else {
-        const link = document.createElement('a');
-        link.href = url;
-        link.textContent = 'Open file';
-        link.target = '_blank';
-        target.appendChild(link);
+        target.innerHTML = '<div class="text-muted small">File ready. Use Download.</div>';
       }
     }
     if (download) {
@@ -575,6 +684,7 @@ async function loadMessages(groupId, opts = {}) {
   const hasExisting = state.messages[groupId].length > 0 && !forceRefresh;
   if (!state.secrets[groupId] && !skipSecretPrompt) {
     await ensureSecret(groupId);
+    if (!state.secrets[groupId]) return; // user cancelled
   }
 
   let data = [];
@@ -676,9 +786,11 @@ async function sendMessage() {
     showInfoModal('Empty message', 'Type a message before sending.');
     return;
   }
+  const command = parseChatCommand(text);
   const secret = await ensureSecret(state.currentGroup);
   if (!secret) return;
-  const encrypted = await encryptText(text, secret, state.currentGroup);
+  const payloadText = command ? `${command.icon} ${command.text}` : text;
+  const encrypted = await encryptText(payloadText, secret, state.currentGroup);
   const resp = await fetch('/api/messages', {
     method: 'POST',
     headers: {
@@ -690,7 +802,11 @@ async function sendMessage() {
       ciphertext: encrypted.ciphertext,
       nonce: encrypted.nonce,
       auth_tag: encrypted.tag,
-      meta: JSON.stringify({ type: 'text', len: text.length }),
+      meta: JSON.stringify({
+        type: 'text',
+        len: payloadText.length,
+        ...(command ? { action: command.action, icon: command.icon } : {}),
+      }),
     }),
   });
   if (resp.ok) {
@@ -730,6 +846,18 @@ async function sendFile(file) {
   if (resp.ok) {
     await loadMessages(state.currentGroup, { notify: false });
     startAutoRefresh();
+  } else {
+    let reason = 'Upload failed.';
+    try {
+      const data = await resp.json();
+      reason = data.reason || data.error || reason;
+    } catch (e) {
+      // ignore parse
+    }
+    if (resp.status === 400 && reason === 'Upload failed.') {
+      reason = 'File exceeds maximum size or type is blocked.';
+    }
+    showInfoModal('Upload blocked', reason);
   }
 }
 
@@ -848,6 +976,11 @@ function bindUI() {
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
     toggleRecording();
+  });
+  document.getElementById('refresh-btn')?.addEventListener('click', () => {
+    if (state.currentGroup && state.secrets[state.currentGroup]) {
+      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true, forceLatest: true });
+    }
   });
 
   initEmojiPicker();
@@ -1288,7 +1421,13 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   state.seen[state.currentGroup] = 0;
   const list = document.getElementById('message-list');
   if (list) list.innerHTML = '';
-  await ensureSecret(state.currentGroup);
+  const secret = await ensureSecret(state.currentGroup);
+  if (!secret) {
+    state.currentGroup = null;
+    if (list) list.innerHTML = '';
+    document.getElementById('chat-title').textContent = 'Select a group';
+    return;
+  }
   await loadMessages(state.currentGroup, { notify: false, forceLatest });
   if (forceLatest && list) {
     [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
