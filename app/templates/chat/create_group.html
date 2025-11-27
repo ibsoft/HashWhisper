@@ -17,7 +17,13 @@
         </div>
         {% endif %}
         <div class="mb-3">{{ form.name.label(class='form-label') }}{{ form.name(class='form-control') }}</div>
-        <div class="mb-3">{{ form.secret.label(class='form-label') }}{{ form.secret(class='form-control', autocomplete='off') }}
+        <div class="mb-3">
+          {{ form.secret.label(class='form-label mb-1') }}
+          <div class="input-group">
+            {{ form.secret(class='form-control', autocomplete='off') }}
+            <button type="button" class="btn btn-outline-light" id="gen-secret"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button type="button" class="btn btn-outline-light" id="copy-secret"><i class="fa-solid fa-copy"></i></button>
+          </div>
           <small class="text-muted">Use a strong secret (16+ characters recommended). This shared secret never leaves clients—distribute out-of-band.</small>
         </div>
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
@@ -25,4 +31,41 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  (() => {
+    const btn = document.getElementById('gen-secret');
+    const input = document.getElementById('{{ form.secret.id }}');
+    const copyBtn = document.getElementById('copy-secret');
+    function randomSecret(len = 24) {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+';
+      let out = '';
+      const arr = crypto.getRandomValues(new Uint32Array(len));
+      for (let i = 0; i < len; i++) {
+        out += chars[arr[i] % chars.length];
+      }
+      return out;
+    }
+    if (btn && input) {
+      btn.addEventListener('click', () => {
+        input.value = randomSecret();
+      });
+    }
+    if (copyBtn && input) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(input.value || '');
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 1200);
+        } catch (e) {
+          copyBtn.textContent = 'Failed';
+          setTimeout(() => { copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 1200);
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}

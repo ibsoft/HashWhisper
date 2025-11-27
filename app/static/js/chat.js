@@ -222,7 +222,6 @@ function persistSecret(groupId, secret) {
     parsed[gid] = secret;
     const serialized = JSON.stringify(parsed);
     sessionStorage.setItem('hw-secrets', serialized);
-    localStorage.setItem('hw-secrets', serialized);
   } catch (e) {
     // ignore storage errors
   }
@@ -932,23 +931,48 @@ function bindUI() {
       const gid = Number(document.getElementById('secret-group-id').value);
       const val = (document.getElementById('secret-input').value || '').trim();
       const remember = document.getElementById('remember-secret')?.checked;
+      const rememberPermanent = document.getElementById('remember-secret-permanent')?.checked;
       const errorEl = document.getElementById('secret-error');
       if (!val) {
         errorEl.classList.remove('d-none');
         return;
       }
-      errorEl.classList.add('d-none');
-      state.secrets[gid] = val;
-      if (remember) {
-        persistSecret(gid, val);
-      } else {
-        removePersistedSecret(gid);
-      }
-      if (secretResolver) {
-        secretResolver(val);
-        secretResolver = null;
-      }
-      secretModalInstance.hide();
+      fetch('/api/groups/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ group_id: gid, secret: val }),
+      }).then((resp) => {
+        if (!resp.ok) {
+          errorEl.classList.remove('d-none');
+          errorEl.textContent = 'Secret did not match this group.';
+          return;
+        }
+        errorEl.classList.add('d-none');
+        state.secrets[gid] = val;
+        if (remember) {
+          persistSecret(gid, val);
+        } else {
+          removePersistedSecret(gid);
+        }
+        if (rememberPermanent) {
+          try {
+            const rawLocal = localStorage.getItem('hw-secrets');
+            const parsed = rawLocal ? JSON.parse(rawLocal) : {};
+            parsed[gid] = val;
+            localStorage.setItem('hw-secrets', JSON.stringify(parsed));
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (secretResolver) {
+          secretResolver(val);
+          secretResolver = null;
+        }
+        secretModalInstance.hide();
+      }).catch(() => {
+        errorEl.classList.remove('d-none');
+        errorEl.textContent = 'Could not verify secret. Try again.';
+      });
     });
     modalEl.addEventListener('hidden.bs.modal', () => {
       if (secretResolver) {
