@@ -49,7 +49,8 @@ def settings():
                 current_user.totp_confirmed = False
         db.session.commit()
         flash(_("Settings updated"), "success")
-        return redirect(url_for("settings.settings"))
+        # Redirect with the chosen lang so the next render uses the correct locale immediately (incl. PWA)
+        return redirect(url_for("settings.settings", lang=lang_choice))
     # Always prepare a provisioning URI for the current user
     totp_uri = pyotp.totp.TOTP(current_user.totp_secret).provisioning_uri(
         name=current_user.email,

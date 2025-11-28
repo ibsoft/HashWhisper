@@ -4,6 +4,7 @@ from sqlalchemy import text
 from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
 from flask_login import current_user
+from flask_babel import get_locale as babel_get_locale
 from .config import Config
 from .extensions import db, login_manager, csrf, migrate, limiter, babel
 from .security import register_security_hooks
@@ -26,6 +27,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     limiter.init_app(app)
     app.extensions["presence_bus"] = create_presence_bus(app)
     babel.init_app(app, locale_selector=lambda: select_locale(app))
+    def current_locale():
+        locale = babel_get_locale()
+        if locale:
+            return str(locale)
+        return app.config.get("BABEL_DEFAULT_LOCALE", "en")
+
+    app.add_template_global(current_locale, name="get_locale")
 
     @app.before_request
     def apply_lang_param():
@@ -111,6 +119,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 def select_locale(app: Flask):
     """Resolve locale from user preference or Accept-Language."""
     try:
+        # Honor explicit selections from form posts (e.g., Settings) immediately.
+        if request.method == "POST":
+            form_lang = request.form.get("language")
+            if form_lang and form_lang in app.config.get("LANGUAGES", {}):
+                session["lang"] = form_lang
+                return form_lang
+
         lang_override = session.get("lang")
         if lang_override and lang_override in app.config.get("LANGUAGES", {}):
             return lang_override
@@ -120,6 +135,9 @@ def select_locale(app: Flask):
         if current_user and getattr(current_user, "is_authenticated", False):
             lang = (current_user.language or "").lower()
             if lang in app.config.get("LANGUAGES", {}):
+                # Keep session aligned so PWA/cached pages pick up the chosen language consistently.
+                if session.get("lang") != lang:
+                    session["lang"] = lang
                 return lang
     except Exception:
         pass
