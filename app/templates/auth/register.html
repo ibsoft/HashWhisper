@@ -6,12 +6,12 @@
       <div class="text-center mb-2">
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ config.APP_TITLE }}" class="register-logo">
       </div>
-      <h2 class="mb-3 text-center">Create account</h2>
+      <h2 class="mb-3 text-center">{{ _('Create account') }}</h2>
       <form method="post" novalidate>
         {{ form.hidden_tag() }}
         {% if form.errors %}
         <div class="alert alert-danger">
-          Please fix the issues below:
+          {{ _('Please fix the issues below:') }}
           <ul class="mb-0 mt-2">
             {% for field, errors in form.errors.items() %}
               {% for error in errors %}
@@ -52,9 +52,9 @@
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
       {% if require_totp %}
-      <div class="alert alert-info mt-3">Strong password + TOTP are mandatory.</div>
+      <div class="alert alert-info mt-3">{{ _('Strong password + TOTP are mandatory.') }}</div>
       {% elif totp_disabled %}
-      <div class="alert alert-secondary mt-3">TOTP has been disabled by configuration.</div>
+      <div class="alert alert-secondary mt-3">{{ _('TOTP has been disabled by configuration.') }}</div>
       {% endif %}
     </div>
   </div>

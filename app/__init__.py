@@ -1,10 +1,11 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 import click
 from sqlalchemy import text
 from flask_limiter.errors import RateLimitExceeded
 from flask_talisman import Talisman
+from flask_login import current_user
 from .config import Config
-from .extensions import db, login_manager, csrf, migrate, limiter
+from .extensions import db, login_manager, csrf, migrate, limiter, babel
 from .security import register_security_hooks
 from .tasks import purge_expired_messages
 from .presence import create_presence_bus
@@ -24,6 +25,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     limiter.default_limits = [app.config.get("RATELIMIT_DEFAULT", "1000 per hour")]
     limiter.init_app(app)
     app.extensions["presence_bus"] = create_presence_bus(app)
+    babel.init_app(app, locale_selector=lambda: select_locale(app))
+
+    @app.before_request
+    def apply_lang_param():
+        lang = request.args.get("lang")
+        if lang and lang in app.config.get("LANGUAGES", {}):
+            session["lang"] = lang
 
     # Security headers via Talisman
     talisman = Talisman(
@@ -98,3 +106,28 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         print("All data wiped (database only). Delete storage folder separately if needed.")
 
     return app
+
+
+def select_locale(app: Flask):
+    """Resolve locale from user preference or Accept-Language."""
+    try:
+        lang_override = session.get("lang")
+        if lang_override and lang_override in app.config.get("LANGUAGES", {}):
+            return lang_override
+    except Exception:
+        pass
+    try:
+        if current_user and getattr(current_user, "is_authenticated", False):
+            lang = (current_user.language or "").lower()
+            if lang in app.config.get("LANGUAGES", {}):
+                return lang
+    except Exception:
+        pass
+    try:
+        preferred = request.accept_languages.best_match(
+            list(app.config.get("LANGUAGES", {}).keys()),
+            default=app.config.get("BABEL_DEFAULT_LOCALE", "en"),
+        )
+        return preferred or app.config.get("BABEL_DEFAULT_LOCALE", "en")
+    except Exception:
+        return app.config.get("BABEL_DEFAULT_LOCALE", "en")

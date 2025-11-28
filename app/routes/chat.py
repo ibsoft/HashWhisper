@@ -472,8 +472,13 @@ def update_presence():
     data = request.get_json(silent=True) or {}
     status = data.get("status", "online")
     typing = bool(data.get("typing", False))
+    group_id_raw = data.get("group_id")
+    try:
+        group_id = int(group_id_raw) if group_id_raw is not None else None
+    except (TypeError, ValueError):
+        group_id = None
     bus = get_presence_bus()
-    bus.publish(current_user.id, status, typing, username=current_user.username)
+    bus.publish(current_user.id, status, typing, username=current_user.username, group_id=group_id)
     PresenceEvent.touch(current_user.id, status, typing)
     return jsonify({"ok": True})
 

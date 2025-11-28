@@ -1,0 +1,207 @@
+# Greek translations
+msgid ""
+msgstr ""
+"Project-Id-Version: HashWhisper\n"
+"Language: el\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Preferences"
+msgstr "Προτιμήσεις"
+
+msgid "Back to chat"
+msgstr "Πίσω στη συνομιλία"
+
+msgid "Two-factor authentication"
+msgstr "Έλεγχος ταυτότητας δύο παραγόντων"
+
+msgid "TOTP has been disabled by configuration."
+msgstr "Το TOTP έχει απενεργοποιηθεί από τη ρύθμιση."
+
+msgid "Use an authenticator app (TOTP). Click setup to view the QR/code."
+msgstr "Χρησιμοποιήστε εφαρμογή επαλήθευσης (TOTP). Πατήστε ρύθμιση για να δείτε το QR/κωδικό."
+
+msgid "Setup TOTP"
+msgstr "Ρύθμιση TOTP"
+
+msgid "TOTP is required and enforced."
+msgstr "Το TOTP απαιτείται και εφαρμόζεται."
+
+msgid "Themes and notifications are stored server-side without sensitive content."
+msgstr "Τα θέματα και οι ειδοποιήσεις αποθηκεύονται στον διακομιστή χωρίς ευαίσθητο περιεχόμενο."
+
+msgid "Set up TOTP"
+msgstr "Ρυθμίστε TOTP"
+
+msgid "Scan this QR with your authenticator app, or copy the code below."
+msgstr "Σαρώστε αυτό το QR με την εφαρμογή επαλήθευσης ή αντιγράψτε τον κωδικό."
+
+msgid "Copy"
+msgstr "Αντιγραφή"
+
+msgid "After scanning, save settings to enable."
+msgstr "Αφού σαρώσετε, αποθηκεύστε τις ρυθμίσεις για ενεργοποίηση."
+
+msgid "Done"
+msgstr "Έγινε"
+
+msgid "Settings updated"
+msgstr "Οι ρυθμίσεις ενημερώθηκαν"
+
+msgid "Use 3-32 alphanumeric/._- characters"
+msgstr "Χρησιμοποιήστε 3-32 αλφαριθμητικούς/._- χαρακτήρες"
+
+msgid "Username"
+msgstr "Όνομα χρήστη"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Password"
+msgstr "Κωδικός πρόσβασης"
+
+msgid "Use at least 12 characters"
+msgstr "Χρησιμοποιήστε τουλάχιστον 12 χαρακτήρες"
+
+msgid "Include upper, lower, digit, and symbol"
+msgstr "Συμπεριλάβετε κεφαλαίο, πεζό, αριθμό και σύμβολο"
+
+msgid "Confirm Password"
+msgstr "Επιβεβαίωση κωδικού"
+
+msgid "Create account"
+msgstr "Δημιουργία λογαριασμού"
+
+msgid "Username or Email"
+msgstr "Όνομα χρήστη ή Email"
+
+msgid "Remember me"
+msgstr "Να με θυμάσαι"
+
+msgid "Sign in"
+msgstr "Σύνδεση"
+
+msgid "Authenticator code"
+msgstr "Κωδικός εφαρμογής επαλήθευσης"
+
+msgid "Verify"
+msgstr "Επαλήθευση"
+
+msgid "Group name"
+msgstr "Όνομα ομάδας"
+
+msgid "Group secret"
+msgstr "Μυστικό ομάδας"
+
+msgid "Create group"
+msgstr "Δημιουργία ομάδας"
+
+msgid "Theme"
+msgstr "Θέμα"
+
+msgid "System"
+msgstr "Σύστημα"
+
+msgid "Light"
+msgstr "Φωτεινό"
+
+msgid "Dark"
+msgstr "Σκούρο"
+
+msgid "Language"
+msgstr "Γλώσσα"
+
+msgid "Enable notifications"
+msgstr "Ενεργοποίηση ειδοποιήσεων"
+
+msgid "Time zone"
+msgstr "Ζώνη ώρας"
+
+msgid "New York"
+msgstr "Νέα Υόρκη"
+
+msgid "London"
+msgstr "Λονδίνο"
+
+msgid "Paris"
+msgstr "Παρίσι"
+
+msgid "Athens"
+msgstr "Αθήνα"
+
+msgid "Dubai"
+msgstr "Ντουμπάι"
+
+msgid "Singapore"
+msgstr "Σιγκαπούρη"
+
+msgid "Tokyo"
+msgstr "Τόκιο"
+
+msgid "Sydney"
+msgstr "Σίδνεϊ"
+
+msgid "Enable TOTP (authenticator app)"
+msgstr "Ενεργοποίηση TOTP (εφαρμογή επαλήθευσης)"
+
+msgid "Save settings"
+msgstr "Αποθήκευση ρυθμίσεων"
+
+msgid "Please fix the errors below:"
+msgstr "Διορθώστε τα παρακάτω σφάλματα:"
+
+msgid "No account?"
+msgstr "Δεν έχετε λογαριασμό;"
+
+msgid "Register"
+msgstr "Εγγραφή"
+
+msgid "Please fix the issues below:"
+msgstr "Διορθώστε τα παρακάτω ζητήματα:"
+
+msgid "Strong password + TOTP are mandatory."
+msgstr "Ισχυρός κωδικός και TOTP είναι υποχρεωτικά."
+
+msgid "End-to-end encrypted group chat. Only those who share the hash can hear the whisper."
+msgstr "Κρυπτογραφημένη ομαδική συνομιλία άκρο-σε-άκρο. Μόνο όσοι μοιράζονται το hash μπορούν να ακούσουν τον ψίθυρο."
+
+msgid "Create secure account"
+msgstr "Δημιουργία ασφαλούς λογαριασμού"
+
+msgid "Sign in to %(app)s"
+msgstr "Συνδεθείτε στο %(app)s"
+
+msgid "Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages. Use %(app)s responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages."
+msgstr "Αποποίηση: Κρατήστε τα κοινά μυστικά σας offline και ιδιωτικά. Αν τα χάσετε, δεν μπορούμε να ανακτήσουμε τα μηνύματά σας. Χρησιμοποιήστε το %(app)s υπεύθυνα—όχι για παράνομες δραστηριότητες. Ο δημιουργός αποποιείται κάθε ευθύνη για κακή χρήση ή ζημίες."
+
+msgid "Licensed under"
+msgstr "Άδεια υπό"
+
+msgid "by InsBhrs"
+msgstr "από InsBhrs"
+
+msgid "Enter the 6-digit code from your authenticator app."
+msgstr "Εισάγετε τον 6-ψήφιο κωδικό από την εφαρμογή επαλήθευσης."
+
+msgid "Secure your account"
+msgstr "Ασφαλίστε τον λογαριασμό σας"
+
+msgid "Scan this QR with Google Authenticator (or any TOTP app). Two-factor is mandatory from first login."
+msgstr "Σαρώστε αυτό το QR με το Google Authenticator (ή άλλη εφαρμογή TOTP). Η διπλή επαλήθευση είναι υποχρεωτική από την πρώτη σύνδεση."
+
+msgid "Proceed to sign in"
+msgstr "Συνεχίστε στη σύνδεση"
+
+msgid "Built by IBSoft"
+msgstr "Κατασκευή από IBSoft"
+
+msgid "Version"
+msgstr "Έκδοση"
+
+msgid "Type an encrypted whisper..."
+msgstr "Πληκτρολογήστε έναν κρυπτογραφημένο ψίθυρο..."
+
+msgid "Client-side cryptography!"
+msgstr "Η κρυπτογραφία σου ανήκει!"

@@ -1,4 +1,36 @@
 (() => {
+  window.showToast = (type = 'info', title = '', message = '') => {
+    const fallbackTitle = title || 'Notice';
+    const fallbackMessage = message || '';
+    try {
+      if (window.toastr) {
+        const fn = window.toastr[type] || window.toastr.info;
+        fn.call(window.toastr, message || '', title || '');
+        return;
+      }
+    } catch (err) {
+      // ignore toastr errors and fall through to modal/console
+    }
+    try {
+      const modalEl = document.getElementById('infoModal');
+      const modalTitle = document.getElementById('infoModalTitle');
+      const modalBody = document.getElementById('infoModalBody');
+      if (modalEl && modalTitle && modalBody && window.bootstrap?.Modal) {
+        modalTitle.textContent = fallbackTitle;
+        modalBody.textContent = fallbackMessage;
+        window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return;
+      }
+    } catch (e) {
+      // fall back below
+    }
+    const text = fallbackTitle ? `${fallbackTitle}: ${fallbackMessage}` : fallbackMessage;
+    if (type === 'error') alert(text || 'Notice');
+    else console.log(text);
+  };
+})();
+
+(() => {
   const themeToggle = document.querySelector('[data-theme-toggle]');
   if (themeToggle) {
     themeToggle.addEventListener('click', () => {

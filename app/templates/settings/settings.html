@@ -3,8 +3,8 @@
 <div class="row justify-content-center">
   <div class="col-lg-6">
     <div class="card card-glass p-4">
-      <h3 class="mb-3">Preferences</h3>
-      <a href="{{ url_for('chat.chat') }}" class="btn btn-outline-light btn-sm mb-3"><i class="fa-solid fa-arrow-left"></i> Back to chat</a>
+      <h3 class="mb-3">{{ _('Preferences') }}</h3>
+      <a href="{{ url_for('chat.chat') }}" class="btn btn-outline-light btn-sm mb-3"><i class="fa-solid fa-arrow-left"></i> {{ _('Back to chat') }}</a>
       <form method="post" novalidate>
         {{ form.hidden_tag() }}
         <div class="mb-3">{{ form.preferred_theme.label(class='form-label') }}{{ form.preferred_theme(class='form-select') }}</div>
@@ -13,25 +13,25 @@
         <div class="mb-3">{{ form.timezone.label(class='form-label') }}{{ form.timezone(class='form-select') }}</div>
         {% if totp_disabled %}
         <div class="mb-3">
-          <label class="form-label">Two-factor authentication</label>
-          <div class="alert alert-secondary mb-0">TOTP has been disabled by configuration.</div>
+          <label class="form-label">{{ _('Two-factor authentication') }}</label>
+          <div class="alert alert-secondary mb-0">{{ _('TOTP has been disabled by configuration.') }}</div>
         </div>
         {% elif not require_totp %}
         <div class="form-check mb-3">
           {{ form.enable_totp(class='form-check-input') }}
           {{ form.enable_totp.label(class='form-check-label') }}
-          <div class="form-text text-muted">Use an authenticator app (TOTP). Click setup to view the QR/code.</div>
+          <div class="form-text text-muted">{{ _('Use an authenticator app (TOTP). Click setup to view the QR/code.') }}</div>
         </div>
-        <button type="button" class="btn btn-outline-light w-100 mb-3" id="totp-setup-btn" data-bs-toggle="modal" data-bs-target="#totpModal" {% if not form.enable_totp.data %}disabled{% endif %}>Setup TOTP</button>
+        <button type="button" class="btn btn-outline-light w-100 mb-3" id="totp-setup-btn" data-bs-toggle="modal" data-bs-target="#totpModal" {% if not form.enable_totp.data %}disabled{% endif %}>{{ _('Setup TOTP') }}</button>
         {% else %}
         <div class="mb-3">
-          <label class="form-label">Two-factor authentication</label>
-          <div class="alert alert-success mb-0">TOTP is required and enforced.</div>
+          <label class="form-label">{{ _('Two-factor authentication') }}</label>
+          <div class="alert alert-success mb-0">{{ _('TOTP is required and enforced.') }}</div>
         </div>
         {% endif %}
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
-      <div class="alert alert-info mt-3">Themes and notifications are stored server-side without sensitive content.</div>
+      <div class="alert alert-info mt-3">{{ _('Themes and notifications are stored server-side without sensitive content.') }}</div>
     </div>
   </div>
 </div>
@@ -42,20 +42,20 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-0">
-        <h5 class="modal-title">Set up TOTP</h5>
+        <h5 class="modal-title">{{ _('Set up TOTP') }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center">
-        <p class="text-muted small">Scan this QR with your authenticator app, or copy the code below.</p>
+        <p class="text-muted small">{{ _('Scan this QR with your authenticator app, or copy the code below.') }}</p>
         <img src="{{ url_for('settings.settings_totp_qr') }}" alt="TOTP QR" class="img-fluid mb-3" style="max-width: 220px;">
         <div class="input-group">
           <input type="text" class="form-control" value="{{ totp_uri }}" readonly>
-          <button class="btn btn-outline-light" type="button" id="copy-totp">Copy</button>
+          <button class="btn btn-outline-light" type="button" id="copy-totp">{{ _('Copy') }}</button>
         </div>
-        <div class="text-muted small mt-2">After scanning, save settings to enable.</div>
+        <div class="text-muted small mt-2">{{ _('After scanning, save settings to enable.') }}</div>
       </div>
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Done</button>
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">{{ _('Done') }}</button>
       </div>
     </div>
   </div>

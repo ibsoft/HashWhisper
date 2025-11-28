@@ -54,10 +54,42 @@
         input.value = randomSecret();
       });
     }
+    async function copySecretValue(value) {
+      if (!value) return false;
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+      } catch (e) {
+        // fall back
+      }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
     if (copyBtn && input) {
       copyBtn.addEventListener('click', async () => {
+        const ok = await copySecretValue(input.value || '');
         try {
-          await navigator.clipboard.writeText(input.value || '');
+          window.showToast?.(ok ? 'success' : 'error', ok ? 'Copied' : 'Copy failed', ok ? 'Secret copied to clipboard.' : 'Clipboard is blocked in this browser.');
+        } catch (e) {
+          // ignore toast errors
+        }
+        try {
           copyBtn.textContent = 'Copied';
           setTimeout(() => { copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 1200);
         } catch (e) {
