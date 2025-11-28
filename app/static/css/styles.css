@@ -331,13 +331,13 @@ html, body {
 }
 
 .login-logo {
-  width: 64px;
+  width: 120px;
   height: auto;
   display: inline-block;
 }
 .register-logo {
-  width: 64px;
-  height: 64px;
+  width: 120px;
+  height: 120px;
   display: inline-block;
   object-fit: contain;
 }

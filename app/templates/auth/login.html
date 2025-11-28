@@ -4,7 +4,7 @@
   <div class="col-lg-5">
     <div class="card card-glass p-4">
       <div class="text-center mb-3">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="HashWhisper logo" class="login-logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ config.APP_TITLE }} logo" class="login-logo">
       </div>
       <h2 class="mb-3 text-center">Sign in</h2>
       {% if form.errors %}

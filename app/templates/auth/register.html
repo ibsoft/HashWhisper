@@ -4,7 +4,7 @@
   <div class="col-lg-6">
     <div class="card card-glass p-4">
       <div class="text-center mb-2">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="HashWhisper" class="register-logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ config.APP_TITLE }}" class="register-logo">
       </div>
       <h2 class="mb-3 text-center">Create account</h2>
       <form method="post" novalidate>

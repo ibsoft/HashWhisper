@@ -57,7 +57,8 @@ if ('serviceWorker' in navigator) {
 
   function showPwaPrompt() {
     if (!deferredPrompt) return;
-    const shouldInstall = confirm('Install HashWhisper as an app?');
+    const appName = window.APP_TITLE || 'HashWhisper';
+    const shouldInstall = confirm(`Install ${appName} as an app?`);
     if (!shouldInstall) return;
     deferredPrompt.prompt();
     deferredPrompt.userChoice.finally(() => {

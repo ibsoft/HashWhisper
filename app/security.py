@@ -29,7 +29,10 @@ def register_security_hooks(app):
     @app.before_request
     def prevent_session_fixation():
         if current_user.is_authenticated:
-            if session.get("_last_user") != current_user.get_id():
+            stored = session.get("_last_user")
+            if stored is None:
+                session["_last_user"] = current_user.get_id()
+            elif stored != current_user.get_id():
                 session.clear()
                 return redirect(url_for("auth.logout"))
         else:
@@ -53,4 +56,3 @@ def regenerate_session(sess):
     sess.clear()
     sess.update(data)
     sess["_session_nonce"] = secrets.token_hex(16)
-

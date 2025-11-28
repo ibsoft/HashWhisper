@@ -981,12 +981,25 @@ async function copyImageFromMeta(msg, meta, groupId) {
     }
     const resp = await fetch(meta.renderedUrl);
     const blob = await resp.blob();
-    await navigator.clipboard.write([
-      new ClipboardItem({ [blob.type]: blob })
-    ]);
-    showInfoModal('Copied', 'Image copied to clipboard.');
+    // Prefer binary copy when supported, otherwise fall back to URL text.
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      showInfoModal('Copied', 'Image copied to clipboard.');
+    } else {
+      await navigator.clipboard.writeText(meta.renderedUrl);
+      showInfoModal('Copied link', 'Image link copied. Paste to share.');
+    }
   } catch (err) {
-    showInfoModal('Copy failed', 'Could not copy image to clipboard.');
+    try {
+      if (meta.renderedUrl) {
+        await navigator.clipboard.writeText(meta.renderedUrl);
+        showInfoModal('Copied link', 'Image link copied. Paste to share.');
+        return;
+      }
+    } catch (e) {
+      // ignore and fall through
+    }
+    showInfoModal('Copy failed', 'Could not copy image to clipboard in this browser.');
   }
 }
 

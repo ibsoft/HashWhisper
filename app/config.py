@@ -75,8 +75,8 @@ class Config:
     MESSAGE_RETENTION_DAYS = int(os.environ.get("HASHWHISPER_RETENTION_DAYS", 365))
     PRESENCE_BROADCAST_TTL = 30
 
-    QR_ISSUER = "HashWhisper"
+    APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
+    QR_ISSUER = os.environ.get("HASHWHISPER_QR_ISSUER") or APP_TITLE
     DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
     REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
-    APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.6")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.8")
