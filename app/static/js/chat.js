@@ -38,6 +38,30 @@ const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false t
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
 const PRESENCE_TOAST_COOLDOWN = 15000; // ms
 
+function updateScrollTopButton() {
+  const scrollTopBtn = document.getElementById('scroll-top-btn');
+  const list = document.getElementById('message-list');
+  if (!scrollTopBtn) return;
+  const hasListOverflow = list && list.scrollHeight - list.clientHeight > 20;
+  const scroller = hasListOverflow ? list : document.scrollingElement || document.documentElement;
+  const scrollable = scroller && scroller.scrollHeight - scroller.clientHeight > 20;
+  if (!scrollable) {
+    scrollTopBtn.classList.remove('show');
+    scrollTopBtn.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  const nearTop = scroller.scrollTop <= 20;
+  const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= 20;
+  const direction = nearTop && !nearBottom ? 'down' : 'up';
+  const icon = scrollTopBtn.querySelector('i');
+  if (icon) icon.className = direction === 'down' ? 'fa-solid fa-arrow-down' : 'fa-solid fa-arrow-up';
+  scrollTopBtn.dataset.direction = direction;
+  scrollTopBtn.setAttribute('aria-label', direction === 'down' ? 'Scroll to bottom' : 'Scroll to top');
+  scrollTopBtn.title = direction === 'down' ? 'Go to newest' : 'Go to top';
+  scrollTopBtn.classList.add('show');
+  scrollTopBtn.setAttribute('aria-hidden', 'false');
+}
+
 function isNearBottom(listEl, threshold = 120) {
   if (!listEl) return true;
   const distance = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
@@ -946,6 +970,10 @@ async function loadMessages(groupId, opts = {}) {
     } else if (wasNearBottom && !prepend && list?.lastElementChild) {
       list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
+    // Update scroll-top control visibility after rendering messages.
+    requestAnimationFrame(() => {
+      if (typeof updateScrollTopButton === 'function') updateScrollTopButton();
+    });
     // mark latest seen
     if (lastMsg) {
       state.seen[groupId] = new Date(lastMsg.created_at).getTime();
@@ -1328,6 +1356,7 @@ async function writeClipboardText(text) {
 
 function bindUI() {
   const list = document.getElementById('message-list');
+  const scrollTopBtn = document.getElementById('scroll-top-btn');
   loadPersistedSecrets();
   document.getElementById('send-btn')?.addEventListener('click', (e) => {
     resumeAudio();
@@ -1407,9 +1436,40 @@ function bindUI() {
     });
   }
 
-  const msgList = document.getElementById('message-list');
+  if (scrollTopBtn) {
+    scrollTopBtn.addEventListener('click', () => {
+      if (!list) return;
+      const dir = scrollTopBtn.dataset.direction || 'up';
+      const hasListOverflow = list && list.scrollHeight - list.clientHeight > 20;
+      if (dir === 'down') {
+        if (hasListOverflow) {
+          scrollToBottom(list);
+        } else {
+          const scroller = document.scrollingElement || document.documentElement;
+          scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+        }
+      } else {
+        if (hasListOverflow) {
+          list.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    });
+    // Ensure the button sits between the message list and input without overlaying content.
+    const btnContainer = scrollTopBtn.parentElement;
+    if (btnContainer) {
+      btnContainer.style.display = 'flex';
+      btnContainer.style.justifyContent = 'flex-end';
+      btnContainer.style.padding = '0 0.25rem 0.5rem 0.25rem';
+    }
+    window.addEventListener('scroll', updateScrollTopButton, { passive: true });
+  }
+
+  const msgList = list;
   if (msgList) {
     msgList.addEventListener('scroll', () => {
+      updateScrollTopButton();
       const gid = state.currentGroup;
       if (!gid || state.loadingOlder[gid]) return;
       if (msgList.scrollTop < 20 && state.oldest[gid]) {
@@ -1418,6 +1478,7 @@ function bindUI() {
           .finally(() => { state.loadingOlder[gid] = false; });
       }
     });
+    updateScrollTopButton();
   }
 
   document.getElementById('join-btn')?.addEventListener('click', async () => {
