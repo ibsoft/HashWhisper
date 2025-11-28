@@ -1479,7 +1479,7 @@ function loadGroupUsers(groupId) {
       users.forEach((u) => {
         const item = document.createElement('button');
         item.className = 'list-group-item list-group-item-action bg-transparent text-start text-light border-0';
-        item.innerHTML = `<i class="fa-solid fa-user me-2"></i><span class="username">${u.username}</span>`;
+        item.innerHTML = `<span class="user-dot user-dot-sm me-2"></span><span class="username">${u.username}</span>`;
         item.addEventListener('click', () => openDmModal(u.id));
         userList.appendChild(item);
       });

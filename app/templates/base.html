@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-bs-theme="dark">
+<html lang="{{ get_locale() or 'en' }}" data-bs-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -30,18 +30,17 @@
     </div>
   {% endfor %}
 </div>
-<nav class="navbar navbar-dark navbar-glass sticky-top">
-  <div class="container-fluid">
-    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{{ url_for('chat.chat') }}">
-      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" width="24" height="24" class="d-inline-block align-text-top">
-      {{ config.APP_TITLE }}
+<nav class="navbar navbar-dark navbar-glass sticky-top fancy-nav">
+  <div class="container-fluid fancy-bar py-2">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0" href="{{ url_for('chat.chat') }}">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" width="32" height="32" class="d-inline-block align-text-top nav-logo">
     </a>
-    <div class="d-flex gap-2 align-items-center">
+    <div class="nav-inline-scroll d-flex align-items-center gap-2 flex-nowrap ms-auto">
       {% if current_user.is_authenticated %}
-      <span class="badge bg-success d-flex align-items-center gap-1"><i class="fa-solid fa-lock"></i> {{ _('E2EE') }}</span>
-      <span class="badge bg-primary text-light">{{ _('Username') }}: {{ current_user.username }}</span>
-      <a class="btn btn-sm btn-outline-light" href="{{ url_for('settings.settings') }}"><i class="fa-solid fa-gear"></i></a>
-      <a class="btn btn-sm btn-outline-warning" href="{{ url_for('auth.logout') }}" data-logout><i class="fa-solid fa-right-from-bracket"></i></a>
+      <span class="chip chip-secure flex-shrink-0 nav-token"><i class="fa-solid fa-lock"></i> {{ _('E2EE') }}</span>
+      <span class="chip chip-user flex-shrink-0 nav-token chip-tight"><span class="user-dot"></span> {{ current_user.username }}</span>
+      <a class="btn btn-sm btn-outline-light btn-ghost flex-shrink-0 nav-token" href="{{ url_for('settings.settings') }}"><i class="fa-solid fa-gear"></i> <span class="d-none d-sm-inline">{{ _('Settings') }}</span></a>
+      <a class="btn btn-sm btn-outline-warning btn-ghost flex-shrink-0 nav-token" href="{{ url_for('auth.logout') }}" data-logout><i class="fa-solid fa-right-from-bracket"></i> <span class="d-none d-sm-inline">{{ _('Logout') }}</span></a>
       {% endif %}
     </div>
   </div>

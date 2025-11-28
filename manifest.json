@@ -4,7 +4,11 @@
   "start_url": "/chat",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "browser"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "browser"
+  ],
   "description": "End-to-end encrypted group chat. Share secrets privately.",
   "lang": "en",
   "dir": "auto",
