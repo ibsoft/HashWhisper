@@ -84,4 +84,4 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.22")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "3.0.1")

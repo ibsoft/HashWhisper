@@ -1,16 +1,54 @@
 {
-  "name": "HashWhisper",
+  "name": "HashWhisper - Secure, Encrypted, Anonymous Messaging",
   "short_name": "HashWhisper",
-  "start_url": "/",
+  "start_url": "/chat",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0f1c",
+  "display_override": ["standalone", "browser"],
+  "description": "End-to-end encrypted group chat. Share secrets privately.",
+  "lang": "en",
+  "dir": "auto",
   "theme_color": "#0a0f1c",
+  "background_color": "#0a0f1c",
+  "orientation": "any",
   "icons": [
     {
-      "src": "/static/img/icon.svg",
+      "src": "/static/img/logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/img/landing.png",
+      "sizes": "1600x900",
+      "type": "image/png",
+      "description": "Landing page"
+    }
+  ],
+  "protocol_handlers": [
+    { "protocol": "web+hashwhisper", "url": "/chat?link=%s" }
+  ],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Open chat",
+      "short_name": "Chat",
+      "url": "/chat",
+      "description": "Jump to encrypted chats"
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "url": "/settings",
+      "description": "Adjust preferences and language"
     }
   ]
 }
