@@ -4,23 +4,22 @@
   <div class="col-lg-6">
     <div class="card card-glass p-4 text-center">
       <div class="mb-3">
-        <img src="{{ url_for('static', filename='img/landing.png') }}" alt="HashWhisper" class="landing-logo">
+        <img src="{{ url_for('static', filename='img/landing.png') }}" alt="{{ config.APP_TITLE }}" class="landing-logo">
       </div>
-      <h1 class="mb-3">HashWhisper</h1>
-      <p class="text-muted mb-4">End-to-end encrypted group chat. Only those who share the hash can hear the whisper.</p>
+      <h1 class="mb-3">{{ config.APP_TITLE }}</h1>
+      <p class="text-muted mb-4">{{ _('End-to-end encrypted group chat. Only those who share the hash can hear the whisper.') }}</p>
       <div class="d-grid gap-3">
-        <a class="btn btn-soft btn-lg" href="{{ url_for('auth.register') }}">Create secure account</a>
-        <a class="btn btn-outline-light" href="{{ url_for('auth.login') }}">Sign in</a>
+        <a class="btn btn-soft btn-lg" href="{{ url_for('auth.register') }}">{{ _('Create secure account') }}</a>
+        <a class="btn btn-outline-light" href="{{ url_for('auth.login') }}">{{ _('Sign in to %(app)s', app=config.APP_TITLE) }}</a>
       </div>
       <p class="text-muted small mt-3 mb-0">
-        Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages.
-        Use HashWhisper responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages.
+        {{ _('Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages. Use %(app)s responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages.', app=config.APP_TITLE) }}
       </p>
       <div class="card card-glass mt-3">
         <div class="card-body d-flex align-items-center justify-content-center gap-2">
-          <span class="text-muted">Licensed under</span>
+          <span class="text-muted">{{ _('Licensed under') }}</span>
           <span class="badge bg-info text-dark">GPL v2</span>
-          <span class="text-muted">by InsBhrs</span>
+          <span class="text-muted">{{ _('by InsBhrs') }}</span>
         </div>
       </div>
     </div>

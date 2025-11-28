@@ -4,9 +4,9 @@
   <div class="collapse" id="groupSidebar">
     <div class="card card-glass p-3 sidebar-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>Spaces</h5>
+        <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Spaces') }}</h5>
         <div class="btn-group">
-          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="Create group"><i class="fa-solid fa-plus"></i></a>
+          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="{{ _('Create group') }}"><i class="fa-solid fa-plus"></i></a>
         </div>
       </div>
         <div class="contact-list list-group list-group-flush">
@@ -23,24 +23,24 @@
               {% endif %}
             </div>
           {% else %}
-            <p class="text-muted">No groups yet. Create or join using a secret hash.</p>
+            <p class="text-muted">{{ _('No groups yet. Create or join using a secret hash.') }}</p>
           {% endfor %}
       </div>
       <div class="mt-3" id="join-inline">
-        <label class="form-label">Join via secret hash</label>
+        <label class="form-label">{{ _('Join via secret hash') }}</label>
         <div class="input-group">
-          <input type="password" class="form-control" id="join-secret" placeholder="Paste shared secret" autocomplete="off">
-          <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="Show secret">
+          <input type="password" class="form-control" id="join-secret" placeholder="{{ _('Paste shared secret') }}" autocomplete="off">
+          <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="{{ _('Show secret') }}">
             <i class="fa-solid fa-eye"></i>
           </button>
         </div>
-        <input type="text" class="form-control mt-2" id="join-group-name" placeholder="Group name">
-        <button class="btn btn-outline-light w-100 mt-2" id="join-btn">Join securely</button>
+        <input type="text" class="form-control mt-2" id="join-group-name" placeholder="{{ _('Group name') }}">
+        <button class="btn btn-outline-light w-100 mt-2" id="join-btn">{{ _('Join securely') }}</button>
       </div>
       <hr class="text-secondary">
       <div>
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="mb-0"><i class="fa-solid fa-user-group me-2"></i>Users</h6>
+          <h6 class="mb-0"><i class="fa-solid fa-user-group me-2"></i>{{ _('Users') }}</h6>
         </div>
         <div class="contact-list list-group list-group-flush" id="user-list"></div>
       </div>
@@ -54,13 +54,13 @@
           <i class="fa-solid fa-bars"></i>
         </button>
         <div>
-          <h5 class="mb-0" id="chat-title">Select a group</h5>
-          <small class="text-muted" id="presence-label"><i class="fa-solid fa-signal"></i> waiting</small>
+          <h5 class="mb-0" id="chat-title">{{ _('Select a group') }}</h5>
+          <small class="text-muted" id="presence-label"><i class="fa-solid fa-signal"></i> {{ _('waiting') }}</small>
         </div>
       </div>
       <div class="d-flex gap-2 align-items-center">
         <span class="badge bg-dark"><i class="fa-solid fa-shield-halved"></i> AES-GCM</span>
-        <button class="btn btn-sm btn-outline-light position-relative" id="info-indicator" title="No new notifications">
+        <button class="btn btn-sm btn-outline-light position-relative" id="info-indicator" title="{{ _('No new notifications') }}">
           <i class="fa-solid fa-circle-info"></i>
           <span class="notification-dot d-none" id="info-dot"></span>
           <span class="notification-count d-none" id="info-count"></span>
@@ -72,21 +72,21 @@
     <div class="card card-glass input-card mt-3 p-2 position-relative sticky-input d-flex flex-column">
       <div class="d-flex gap-2 align-items-center flex-wrap flex-md-nowrap input-row">
         <input type="file" id="file-input" class="d-none" accept="image/*,video/*,audio/*">
-        <textarea class="form-control flex-grow-1" rows="2" id="message-input" placeholder="Type an encrypted whisper..." maxlength="5000"></textarea>
+        <textarea class="form-control flex-grow-1" rows="2" id="message-input" placeholder="{{ _('Type an encrypted whisper...') }}" maxlength="5000"></textarea>
         <div class="d-flex align-items-center gap-2 flex-grow-1 flex-md-grow-0">
-          <button class="btn btn-outline-light btn-sm flex-fill" id="attach-btn" title="Attach"><i class="fa-solid fa-paperclip"></i></button>
-          <button class="btn btn-outline-light btn-sm flex-fill" id="emoji-btn" title="Insert emoji"><i class="fa-regular fa-face-smile"></i></button>
-          <button class="btn btn-outline-light btn-sm flex-fill" id="record-btn" title="Record voice note"><i class="fa-solid fa-microphone"></i></button>
-          <button class="btn btn-outline-light btn-sm flex-fill" id="refresh-btn" title="Reload messages"><i class="fa-solid fa-rotate-right"></i></button>
+          <button class="btn btn-outline-light btn-sm flex-fill" id="attach-btn" title="{{ _('Attach') }}"><i class="fa-solid fa-paperclip"></i></button>
+          <button class="btn btn-outline-light btn-sm flex-fill" id="emoji-btn" title="{{ _('Insert emoji') }}"><i class="fa-regular fa-face-smile"></i></button>
+          <button class="btn btn-outline-light btn-sm flex-fill" id="record-btn" title="{{ _('Record voice note') }}"><i class="fa-solid fa-microphone"></i></button>
+          <button class="btn btn-outline-light btn-sm flex-fill" id="refresh-btn" title="{{ _('Reload messages') }}"><i class="fa-solid fa-rotate-right"></i></button>
           <div id="upload-spinner" class="spinner-border spinner-border-sm text-info d-none" role="status"></div>
           <button class="btn btn-soft send-btn flex-fill" id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
         </div>
       </div>
-      <div class="text-danger small mt-2 d-none" id="recording-indicator">Recording… click mic to stop.</div>
+      <div class="text-danger small mt-2 d-none" id="recording-indicator">{{ _('Recording… click mic to stop.') }}</div>
       <div class="emoji-picker d-none" id="emoji-picker" aria-label="Emoji picker"></div>
       <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
-        <span><i class="fa-solid fa-lock"></i> Client-side crypto</span>
-        <span id="typing-indicator" class="text-info d-none"><i class="fa-solid fa-pen"></i> typing...</span>
+        <span><i class="fa-solid fa-lock"></i> {{ _('Client-side cryptography!') }}</span>
+        <span id="typing-indicator" class="text-info d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
       </div>
     </div>
   </div>
@@ -97,30 +97,30 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-0">
-        <h5 class="modal-title" id="secretModalLabel">Enter shared secret</h5>
+        <h5 class="modal-title" id="secretModalLabel">{{ _('Enter shared secret') }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted small mb-2">This secret never leaves your device. It is required to decrypt and send messages in this group.</p>
+        <p class="text-muted small mb-2">{{ _('This secret never leaves your device. It is required to decrypt and send messages in this group.') }}</p>
         <input type="hidden" id="secret-group-id">
-        <input type="password" class="form-control" id="secret-input" placeholder="Shared secret" autocomplete="off">
-        <div class="text-danger small mt-2 d-none" id="secret-error">Secret is required.</div>
+        <input type="password" class="form-control" id="secret-input" placeholder="{{ _('Shared secret') }}" autocomplete="off">
+        <div class="text-danger small mt-2 d-none" id="secret-error">{{ _('Secret is required.') }}</div>
         <div class="form-check mt-3">
           <input class="form-check-input" type="checkbox" value="" id="remember-secret">
           <label class="form-check-label" for="remember-secret">
-            Remember for this session
+            {{ _('Remember for this session') }}
           </label>
         </div>
         <div class="form-check mt-2">
           <input class="form-check-input" type="checkbox" value="" id="remember-secret-permanent">
           <label class="form-check-label text-warning" for="remember-secret-permanent">
-            Save secret in this browser (unsafe)
+            {{ _('Save secret in this browser (unsafe)') }}
           </label>
         </div>
       </div>
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-soft" id="secret-save">Save secret</button>
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-soft" id="secret-save">{{ _('Save secret') }}</button>
       </div>
     </div>
   </div>
@@ -131,16 +131,16 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-0">
-        <h5 class="modal-title" id="deleteGroupModalLabel">Delete group</h5>
+        <h5 class="modal-title" id="deleteGroupModalLabel">{{ _('Delete group') }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="mb-2">This will delete the group and all encrypted data for <span id="delete-group-name" class="fw-semibold"></span>.</p>
-        <p class="text-danger small mb-0">Action is irreversible.</p>
+        <p class="mb-2">{{ _('This will delete the group and all encrypted data for') }} <span id="delete-group-name" class="fw-semibold"></span>.</p>
+        <p class="text-danger small mb-0">{{ _('Action is irreversible.') }}</p>
       </div>
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirm-delete-group">Delete</button>
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-group">{{ _('Delete') }}</button>
       </div>
     </div>
   </div>
@@ -151,20 +151,20 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content bg-dark text-light">
       <div class="modal-header border-0">
-        <h5 class="modal-title">Start private chat</h5>
+        <h5 class="modal-title">{{ _('Start private chat') }}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted">Enter a shared secret for this private conversation. It will be used to derive your E2EE key.</p>
+        <p class="text-muted">{{ _('Enter a shared secret for this private conversation. It will be used to derive your E2EE key.') }}</p>
         <input type="hidden" id="dm-user-id">
         <div class="mb-3">
-          <label class="form-label">Secret</label>
+          <label class="form-label">{{ _('Secret') }}</label>
           <input type="password" class="form-control" id="dm-secret" autocomplete="off">
         </div>
       </div>
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-soft" id="dm-start-btn">Start</button>
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-soft" id="dm-start-btn">{{ _('Start') }}</button>
       </div>
     </div>
   </div>
@@ -201,5 +201,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js', v=config.APP_VERSION) }}"></script>
 {% endblock %}

@@ -161,7 +161,10 @@ def totp_qr(user_id):
 
 @auth_bp.route("/logout")
 def logout():
+    lang = session.get("lang")
     logout_user()
     session.clear()
+    if lang:
+        session["lang"] = lang
     flash("Logged out", "info")
     return redirect(url_for("auth.login"))

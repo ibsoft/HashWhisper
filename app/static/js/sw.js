@@ -1,4 +1,5 @@
-const CACHE_NAME = 'hashwhisper-cache-v1';
+const CACHE_VERSION = 'v17';
+const CACHE_NAME = `hashwhisper-cache-${CACHE_VERSION}`;
 const ASSETS = [
   '/',
   '/static/css/styles.css',
@@ -25,13 +26,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(request).then((cached) =>
-      cached || fetch(request).then((resp) => {
-        const copy = resp.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return resp;
-      })
-    )
-  );
+  const url = new URL(request.url);
+  const isStatic = url.origin === self.location.origin && (url.pathname.startsWith('/static/') || url.pathname === '/');
+  const isHtml = request.headers.get('accept')?.includes('text/html');
+
+  if (!isStatic && !isHtml) return;
+
+  event.respondWith(networkFirst(request));
 });
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    return response;
+  } catch (err) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    throw err;
+  }
+}

@@ -15,6 +15,7 @@ const state = {
   emojiPickerReady: false,
   notificationsAllowed: false,
   freezeRefresh: false,
+  presenceSeen: {},
 };
 
 let refreshTimer = null;
@@ -32,6 +33,9 @@ let isRecording = false;
 let presenceSource = null;
 let sseRetryDelay = 1000;
 let sseRefreshDebounce = null;
+const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
+const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
+const PRESENCE_TOAST_COOLDOWN = 15000; // ms
 
 function isNearBottom(listEl, threshold = 120) {
   if (!listEl) return true;
@@ -109,11 +113,65 @@ function makeCopyButton(messageId, title, onCopy) {
   btn.appendChild(icon);
   btn.appendChild(countSpan);
   btn.addEventListener('click', async () => {
-    await onCopy();
-    state.copyCounts[messageId] = (state.copyCounts[messageId] || 0) + 1;
-    countSpan.textContent = state.copyCounts[messageId];
+    let ok = false;
+    try {
+      if (CLIPBOARD_DEBUG) console.debug('[copy] click', { messageId, title });
+      ok = await onCopy();
+    } catch (err) {
+      if (CLIPBOARD_DEBUG) console.error('[copy] handler error', err);
+      ok = false;
+    }
+    // Treat undefined as success to avoid blocking counter/feedback on soft failures.
+    const success = ok !== false;
+    if (CLIPBOARD_DEBUG) console.debug('[copy] result', { success, ok });
+    if (success) {
+      state.copyCounts[messageId] = (state.copyCounts[messageId] || 0) + 1;
+      countSpan.textContent = state.copyCounts[messageId];
+    }
   });
   return btn;
+}
+
+function ensureToastBridge() {
+  if (window.showToast) return;
+  const fallbackToast = (type = 'info', title = '', message = '') => {
+    const text = title ? `${title}: ${message}` : message;
+    if (type === 'error') alert(text || 'Notice');
+    else console.log(text);
+  };
+  if (typeof bootstrap === 'undefined' || !bootstrap.Toast) {
+    window.showToast = fallbackToast;
+    return;
+  }
+  const containerId = 'hw-toast-container';
+  let container = document.getElementById(containerId);
+  if (!container) {
+    container = document.createElement('div');
+    container.id = containerId;
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    document.body.appendChild(container);
+  }
+  const typeClass = (type) => {
+    const map = { success: 'success', info: 'info', warning: 'warning', error: 'danger' };
+    return map[type] || 'info';
+  };
+  window.showToast = (type = 'info', title = '', message = '') => {
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-bg-${typeClass(type)} border-0`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          ${title ? `<strong class="me-1">${title}</strong>` : ''}${message || ''}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    `;
+    container.appendChild(toastEl);
+    const toast = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3500, autohide: true });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+  };
 }
 
 function parseChatCommand(text) {
@@ -961,33 +1019,65 @@ async function toggleRecording() {
 }
 
 async function copyTextToClipboard(text) {
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
+  if (!text) return false;
+  const success = await writeClipboardText(text);
+  if (success) {
     showInfoModal('Copied', 'Content copied to clipboard.');
-  } catch (err) {
+  } else {
+    if (CLIPBOARD_DEBUG) console.warn('[copy-text] failed');
     showInfoModal('Copy failed', 'Could not copy to clipboard in this browser.');
   }
+  if (CLIPBOARD_DEBUG) console.debug('[copy-text]', { text, success });
+  return success;
 }
 
 async function copyImageFromMeta(msg, meta, groupId) {
+  let copied = false;
   try {
     if (!meta.renderedUrl) {
+      if (CLIPBOARD_DEBUG) console.debug('[copy-image] decrypting to get URL');
       await decryptMedia(msg, meta, { inline: false, groupId });
     }
     if (!meta.renderedUrl) {
       showInfoModal('Copy failed', 'No image available to copy.');
-      return;
+      if (CLIPBOARD_DEBUG) console.warn('[copy-image] no renderedUrl after decrypt');
+      return false;
     }
+    if (CLIPBOARD_DEBUG) console.debug('[copy-image] fetched url', meta.renderedUrl);
     const resp = await fetch(meta.renderedUrl);
     const blob = await resp.blob();
-    await navigator.clipboard.write([
-      new ClipboardItem({ [blob.type]: blob })
-    ]);
-    showInfoModal('Copied', 'Image copied to clipboard.');
+    // Prefer binary copy when supported, otherwise fall back to URL text.
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+        copied = true;
+        showInfoModal('Copied', 'Image copied to clipboard.');
+        if (CLIPBOARD_DEBUG) console.debug('[copy-image] binary copy success');
+        return true;
+      } catch (err) {
+        if (CLIPBOARD_DEBUG) console.warn('[copy-image] binary copy failed, fallback to URL', err);
+        // fall back to link copy below
+      }
+    }
   } catch (err) {
-    showInfoModal('Copy failed', 'Could not copy image to clipboard.');
+    if (CLIPBOARD_DEBUG) console.error('[copy-image] failed', err);
+    try {
+      // ignore and attempt link copy below
+    } catch (e) {
+      // ignore
+    }
   }
+  if (!copied && meta.renderedUrl) {
+    const urlCopied = await writeClipboardText(meta.renderedUrl);
+    if (urlCopied) {
+      showInfoModal('Copied link', 'Image link copied. Paste to share.');
+      if (CLIPBOARD_DEBUG) console.debug('[copy-image] url copy success');
+      return true;
+    }
+  }
+  if (CLIPBOARD_DEBUG) console.warn('[copy-image] all copy attempts failed');
+  showInfoModal('Copy failed', 'Could not copy image to clipboard in this browser.');
+  return false;
 }
 
 async function copyMediaLink(meta, msg, groupId) {
@@ -997,11 +1087,46 @@ async function copyMediaLink(meta, msg, groupId) {
     }
     if (!meta.renderedUrl) {
       showInfoModal('Copy failed', 'No media link available.');
-      return;
+      if (CLIPBOARD_DEBUG) console.warn('[copy-link] no renderedUrl');
+      return false;
     }
-    await copyTextToClipboard(meta.renderedUrl);
+    if (CLIPBOARD_DEBUG) console.debug('[copy-link] trying text copy', meta.renderedUrl);
+    return await copyTextToClipboard(meta.renderedUrl);
   } catch (err) {
     showInfoModal('Copy failed', 'Could not copy link.');
+    if (CLIPBOARD_DEBUG) console.error('[copy-link] failed', err);
+    return false;
+  }
+}
+
+async function writeClipboardText(text) {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      if (CLIPBOARD_DEBUG) console.debug('[clipboard] navigator.clipboard.writeText success');
+      return true;
+    }
+  } catch (err) {
+    if (CLIPBOARD_DEBUG) console.warn('[clipboard] navigator.clipboard.writeText failed', err);
+    // fall through to legacy path
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-1000px';
+    textarea.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const succeeded = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (CLIPBOARD_DEBUG) console.debug('[clipboard] execCommand copy result', succeeded);
+    return succeeded;
+  } catch (err) {
+    if (CLIPBOARD_DEBUG) console.error('[clipboard] execCommand failed', err);
+    return false;
   }
 }
 
@@ -1294,6 +1419,7 @@ function connectPresence() {
           const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
           typingIndicator.classList.toggle('d-none', !payload.typing || isSelf);
         }
+        maybeShowPresenceToast(payload);
         return;
       }
       if (payload.event === 'message') {
@@ -1305,6 +1431,27 @@ function connectPresence() {
     };
   } catch (err) {
     startAutoRefresh();
+  }
+}
+
+function maybeShowPresenceToast(payload) {
+  try {
+    const { user_id: uid, username, status, group_id: gid } = payload || {};
+    const currentUserId = getCurrentUserId();
+    if (!uid || uid === currentUserId) return;
+    if (!gid || gid !== state.currentGroup) return;
+    if (status !== 'online') return;
+    const key = `${gid}:${uid}`;
+    const now = Date.now();
+    const last = state.presenceSeen[key] || 0;
+    if (now - last < PRESENCE_TOAST_COOLDOWN) return;
+    state.presenceSeen[key] = now;
+    const name = username || 'Someone';
+    if (window.showToast) {
+      window.showToast('info', 'New connection', `User ${name} connected`);
+    }
+  } catch (err) {
+    // ignore presence toast errors
   }
 }
 
@@ -1400,12 +1547,31 @@ function openMediaModal(meta) {
   if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
-function showInfoModal(title, message) {
-  const modal = document.getElementById('infoModal');
-  if (!modal) return;
-  document.getElementById('infoModalTitle').textContent = title || 'Notice';
-  document.getElementById('infoModalBody').textContent = message || '';
-  bootstrap.Modal.getOrCreateInstance(modal).show();
+function showInfoModal(title, message, type = 'info') {
+  ensureToastBridge();
+  const noticeTitle = title || 'Notice';
+  const noticeMsg = message || '';
+  let usedToast = false;
+  try {
+    if (window.showToast) {
+      window.showToast(type, noticeTitle, noticeMsg);
+      usedToast = true;
+    }
+  } catch (err) {
+    usedToast = false;
+  }
+  if (usedToast) return;
+  // Fallback only if toast unavailable/failed.
+  const modalEl = document.getElementById('infoModal');
+  const modalTitle = document.getElementById('infoModalTitle');
+  const modalBody = document.getElementById('infoModalBody');
+  if (modalEl && modalTitle && modalBody && typeof bootstrap !== 'undefined') {
+    modalTitle.textContent = noticeTitle;
+    modalBody.textContent = noticeMsg;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    return;
+  }
+  alert((title ? `${title}: ` : '') + (message || ''));
 }
 
 async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
@@ -1439,18 +1605,19 @@ async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
 let typingTimeout;
 function signalTyping() {
   clearTimeout(typingTimeout);
+  sendPresenceStatus(state.currentGroup, { typing: true });
+  typingTimeout = setTimeout(() => {
+    sendPresenceStatus(state.currentGroup, { typing: false });
+  }, 1500);
+}
+
+function sendPresenceStatus(groupId, { status = 'online', typing = false } = {}) {
+  if (!groupId) return;
   fetch('/api/presence', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-    body: JSON.stringify({ status: 'online', typing: true }),
-  });
-  typingTimeout = setTimeout(() => {
-    fetch('/api/presence', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-      body: JSON.stringify({ status: 'online', typing: false }),
-    });
-  }, 1500);
+    body: JSON.stringify({ status, typing, group_id: groupId }),
+  }).catch(() => {});
 }
 
 bindUI();
@@ -1471,6 +1638,7 @@ function scheduleMessageRefresh(groupId, { notify = true, forceRefresh = false }
 }
 
 async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) {
+  if (GROUP_DEBUG) console.debug('[group] setCurrentGroup start', { groupId, groupName, forceLatest });
   state.currentGroup = Number(groupId);
   document.getElementById('chat-title').textContent = groupName || 'Chat';
   state.messages[state.currentGroup] = [];
@@ -1479,11 +1647,13 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   if (list) list.innerHTML = '';
   const secret = await ensureSecret(state.currentGroup);
   if (!secret) {
+    if (GROUP_DEBUG) console.warn('[group] ensureSecret returned falsy', { groupId });
     state.currentGroup = null;
     if (list) list.innerHTML = '';
     document.getElementById('chat-title').textContent = 'Select a group';
     return;
   }
+  if (GROUP_DEBUG) console.debug('[group] secret obtained, loading messages');
   await loadMessages(state.currentGroup, { notify: false, forceLatest });
   if (forceLatest && list) {
     [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
@@ -1492,6 +1662,8 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   updateSecretDots();
   startAutoRefresh();
   persistLastGroup(state.currentGroup);
+  sendPresenceStatus(state.currentGroup, { typing: false, status: 'online' });
+  if (GROUP_DEBUG) console.debug('[group] setCurrentGroup done', { currentGroup: state.currentGroup });
 }
 
 function initEmojiPicker() {
@@ -1545,7 +1717,9 @@ function attachGroupButtonHandler(btn) {
   btn.addEventListener('click', async () => {
     const gid = Number(btn.getAttribute('data-group-id'));
     const label = btn.getAttribute('data-group-name') || btn.querySelector('.group-name')?.textContent.trim() || 'Chat';
+    if (GROUP_DEBUG) console.debug('[group] sidebar click', { gid, label });
     await setCurrentGroup(gid, label, { forceLatest: true });
+    sendPresenceStatus(gid, { typing: false, status: 'online' });
     resetNotifications();
     persistLastGroup(gid);
     const sidebarEl = document.getElementById('groupSidebar');

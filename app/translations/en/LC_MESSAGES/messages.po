@@ -1,0 +1,207 @@
+# English translations
+msgid ""
+msgstr ""
+"Project-Id-Version: HashWhisper\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Preferences"
+msgstr "Preferences"
+
+msgid "Back to chat"
+msgstr "Back to chat"
+
+msgid "Two-factor authentication"
+msgstr "Two-factor authentication"
+
+msgid "TOTP has been disabled by configuration."
+msgstr "TOTP has been disabled by configuration."
+
+msgid "Use an authenticator app (TOTP). Click setup to view the QR/code."
+msgstr "Use an authenticator app (TOTP). Click setup to view the QR/code."
+
+msgid "Setup TOTP"
+msgstr "Setup TOTP"
+
+msgid "TOTP is required and enforced."
+msgstr "TOTP is required and enforced."
+
+msgid "Themes and notifications are stored server-side without sensitive content."
+msgstr "Themes and notifications are stored server-side without sensitive content."
+
+msgid "Set up TOTP"
+msgstr "Set up TOTP"
+
+msgid "Scan this QR with your authenticator app, or copy the code below."
+msgstr "Scan this QR with your authenticator app, or copy the code below."
+
+msgid "Copy"
+msgstr "Copy"
+
+msgid "After scanning, save settings to enable."
+msgstr "After scanning, save settings to enable."
+
+msgid "Done"
+msgstr "Done"
+
+msgid "Settings updated"
+msgstr "Settings updated"
+
+msgid "Use 3-32 alphanumeric/._- characters"
+msgstr "Use 3-32 alphanumeric/._- characters"
+
+msgid "Username"
+msgstr "Username"
+
+msgid "Email"
+msgstr "Email"
+
+msgid "Password"
+msgstr "Password"
+
+msgid "Use at least 12 characters"
+msgstr "Use at least 12 characters"
+
+msgid "Include upper, lower, digit, and symbol"
+msgstr "Include upper, lower, digit, and symbol"
+
+msgid "Confirm Password"
+msgstr "Confirm Password"
+
+msgid "Create account"
+msgstr "Create account"
+
+msgid "Username or Email"
+msgstr "Username or Email"
+
+msgid "Remember me"
+msgstr "Remember me"
+
+msgid "Sign in"
+msgstr "Sign in"
+
+msgid "Authenticator code"
+msgstr "Authenticator code"
+
+msgid "Verify"
+msgstr "Verify"
+
+msgid "Group name"
+msgstr "Group name"
+
+msgid "Group secret"
+msgstr "Group secret"
+
+msgid "Create group"
+msgstr "Create group"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "System"
+msgstr "System"
+
+msgid "Light"
+msgstr "Light"
+
+msgid "Dark"
+msgstr "Dark"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Enable notifications"
+msgstr "Enable notifications"
+
+msgid "Time zone"
+msgstr "Time zone"
+
+msgid "New York"
+msgstr "New York"
+
+msgid "London"
+msgstr "London"
+
+msgid "Paris"
+msgstr "Paris"
+
+msgid "Athens"
+msgstr "Athens"
+
+msgid "Dubai"
+msgstr "Dubai"
+
+msgid "Singapore"
+msgstr "Singapore"
+
+msgid "Tokyo"
+msgstr "Tokyo"
+
+msgid "Sydney"
+msgstr "Sydney"
+
+msgid "Enable TOTP (authenticator app)"
+msgstr "Enable TOTP (authenticator app)"
+
+msgid "Save settings"
+msgstr "Save settings"
+
+msgid "Please fix the errors below:"
+msgstr "Please fix the errors below:"
+
+msgid "No account?"
+msgstr "No account?"
+
+msgid "Register"
+msgstr "Register"
+
+msgid "Please fix the issues below:"
+msgstr "Please fix the issues below:"
+
+msgid "Strong password + TOTP are mandatory."
+msgstr "Strong password + TOTP are mandatory."
+
+msgid "End-to-end encrypted group chat. Only those who share the hash can hear the whisper."
+msgstr "End-to-end encrypted group chat. Only those who share the hash can hear the whisper."
+
+msgid "Create secure account"
+msgstr "Create secure account"
+
+msgid "Sign in to %(app)s"
+msgstr "Sign in to %(app)s"
+
+msgid "Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages. Use %(app)s responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages."
+msgstr "Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages. Use %(app)s responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages."
+
+msgid "Licensed under"
+msgstr "Licensed under"
+
+msgid "by InsBhrs"
+msgstr "by InsBhrs"
+
+msgid "Enter the 6-digit code from your authenticator app."
+msgstr "Enter the 6-digit code from your authenticator app."
+
+msgid "Secure your account"
+msgstr "Secure your account"
+
+msgid "Scan this QR with Google Authenticator (or any TOTP app). Two-factor is mandatory from first login."
+msgstr "Scan this QR with Google Authenticator (or any TOTP app). Two-factor is mandatory from first login."
+
+msgid "Proceed to sign in"
+msgstr "Proceed to sign in"
+
+msgid "Built by IBSoft"
+msgstr "Built by IBSoft"
+
+msgid "Version"
+msgstr "Version"
+
+msgid "Type an encrypted whisper..."
+msgstr "Type an encrypted whisper..."
+
+msgid "Client-side cryptography!"
+msgstr "Client-side cryptography!"

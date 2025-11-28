@@ -57,8 +57,9 @@ class Config:
         "media-src": ["'self'", "blob:"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
         "style-src": ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "script-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
-        "connect-src": ["'self'"],
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
+        # Allow blob: for media/object URLs generated client-side (e.g., decrypted media fetches).
+        "connect-src": ["'self'", "blob:"],
         "frame-src": ["'self'", "https://www.youtube.com"],
         "frame-ancestors": ["'none'"],
     }
@@ -75,8 +76,12 @@ class Config:
     MESSAGE_RETENTION_DAYS = int(os.environ.get("HASHWHISPER_RETENTION_DAYS", 365))
     PRESENCE_BROADCAST_TTL = 30
 
-    QR_ISSUER = "HashWhisper"
+    APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
+    QR_ISSUER = os.environ.get("HASHWHISPER_QR_ISSUER") or APP_TITLE
     DISABLE_TOTP = os.environ.get("HASHWHISPER_DISABLE_TOTP", "false").lower() == "true"
     REQUIRE_TOTP = False if DISABLE_TOTP else os.environ.get("HASHWHISPER_REQUIRE_TOTP", "true").lower() == "true"
-    APP_TITLE = os.environ.get("HASHWHISPER_APP_TITLE", "HashWhisper")
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.6")
+    LANGUAGES = {"en": "English", "el": "Ελληνικά"}
+    BABEL_DEFAULT_LOCALE = "en"
+    # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
+    BABEL_TRANSLATION_DIRECTORIES = "translations"
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "2.0.22")

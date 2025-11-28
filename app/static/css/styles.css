@@ -198,6 +198,16 @@ html, body {
 }
 .reaction-like { color: #ff6fa2; border-color: #ff6fa2; }
 .reaction-dislike { color: #7dd3ff; border-color: #7dd3ff; }
+
+/* Toastr styling tweaks */
+.toast {
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+.toast-success { border: 1px solid rgba(158, 242, 176, 0.4); }
+.toast-info { border: 1px solid rgba(111, 211, 255, 0.35); }
+.toast-warning { border: 1px solid rgba(242, 187, 92, 0.5); }
+.toast-error { border: 1px solid rgba(255, 143, 177, 0.45); }
 .reaction-download { color: #6fd3ff; border-color: #6fd3ff; }
 .copy-count { font-size: 0.85rem; }
 .reaction-download i,
@@ -331,13 +341,13 @@ html, body {
 }
 
 .login-logo {
-  width: 64px;
+  width: 120px;
   height: auto;
   display: inline-block;
 }
 .register-logo {
-  width: 64px;
-  height: 64px;
+  width: 120px;
+  height: 120px;
   display: inline-block;
   object-fit: contain;
 }
