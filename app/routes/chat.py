@@ -38,6 +38,15 @@ def index():
     return render_template("auth/landing.html")
 
 
+@chat_bp.route("/sw.js")
+def service_worker():
+    """Serve the PWA service worker from the app root for proper scope."""
+    response = current_app.send_static_file("js/sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @chat_bp.route("/chat")
 @login_required
 def chat():
