@@ -33,6 +33,7 @@ let isRecording = false;
 let presenceSource = null;
 let sseRetryDelay = 1000;
 let sseRefreshDebounce = null;
+let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
 const PRESENCE_TOAST_COOLDOWN = 15000; // ms
@@ -99,6 +100,11 @@ function getCurrentUserId() {
 function getCurrentUsername() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.getAttribute('data-username')) || '';
+}
+
+function aiActionsEnabled() {
+  const shell = document.querySelector('.chat-shell');
+  return (shell?.dataset?.aiEnabled || 'false') === 'true';
 }
 
 function makeCopyButton(messageId, title, onCopy) {
@@ -180,6 +186,10 @@ function parseChatCommand(text) {
   const target = rest.join(' ').trim();
   const me = getCurrentUsername() || 'Someone';
   const cmdLower = cmd.toLowerCase();
+  if (cmdLower === '/ai') {
+    if (!target) return null;
+    return { action: 'ai', icon: '🤖', text: target };
+  }
   if (cmdLower === '/slap' || cmdLower === '/slaps') {
     if (!target) return null;
     return { action: 'slap', icon: '🤚🐟', text: `${me} slaps ${target} with a wet trout` };
@@ -599,6 +609,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     }
     body.appendChild(preview);
   } else if (isAction) {
+    if (actionMeta.action === 'ai') bubble.classList.add('ai');
     body.className = 'action-box';
     body.innerHTML = '';
     const iconLine = document.createElement('div');
@@ -606,7 +617,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     const actIcon = actionMeta.icon || (actionMeta.action === 'slap' ? '🤚🐟' : actionMeta.action === 'wave' ? '👋' : actionMeta.action === 'shrug' ? '🤷' : '✨');
     iconLine.textContent = actIcon;
     const textLine = document.createElement('div');
-    textLine.className = 'text-center w-100';
+    textLine.className = 'text-center w-100 fw-bold';
     const actText = actionMeta.act_text || actionMeta.text || msg.plaintext || '';
     let displayText = actText;
     if (actionMeta.icon && displayText.startsWith(actionMeta.icon)) {
@@ -770,6 +781,60 @@ function ensureSecret(groupId) {
   });
 }
 
+function toggleMessageSpinner(show) {
+  const spinner = document.getElementById('message-loading');
+  if (!spinner) return;
+  const MIN_VISIBLE = 220;
+  const SHOW_DELAY = 120;
+  const clearTimers = () => {
+    if (messageSpinnerState.showTimer) {
+      clearTimeout(messageSpinnerState.showTimer);
+      messageSpinnerState.showTimer = null;
+    }
+    if (messageSpinnerState.hideTimer) {
+      clearTimeout(messageSpinnerState.hideTimer);
+      messageSpinnerState.hideTimer = null;
+    }
+  };
+
+  if (show) {
+    // Cancel pending hides and avoid re-showing if already visible
+    if (messageSpinnerState.hideTimer) {
+      clearTimeout(messageSpinnerState.hideTimer);
+      messageSpinnerState.hideTimer = null;
+    }
+    if (messageSpinnerState.visible) return;
+    clearTimers();
+    messageSpinnerState.showTimer = setTimeout(() => {
+      spinner.classList.remove('d-none');
+      messageSpinnerState.visible = true;
+      messageSpinnerState.start = Date.now();
+    }, SHOW_DELAY);
+    return;
+  }
+
+  // Hide with minimum visible duration
+  if (messageSpinnerState.showTimer) {
+    clearTimeout(messageSpinnerState.showTimer);
+    messageSpinnerState.showTimer = null;
+  }
+  if (!messageSpinnerState.visible) return;
+  const elapsed = Date.now() - (messageSpinnerState.start || 0);
+  const hideNow = () => {
+    spinner.classList.add('d-none');
+    messageSpinnerState.visible = false;
+    messageSpinnerState.start = 0;
+  };
+  if (elapsed >= MIN_VISIBLE) {
+    hideNow();
+  } else {
+    messageSpinnerState.hideTimer = setTimeout(() => {
+      hideNow();
+      messageSpinnerState.hideTimer = null;
+    }, MIN_VISIBLE - elapsed);
+  }
+}
+
 async function loadMessages(groupId, opts = {}) {
   const {
     skipSecretPrompt = false,
@@ -778,6 +843,7 @@ async function loadMessages(groupId, opts = {}) {
     before = null,
     prepend = false,
     forceLatest = false,
+    showSpinner = true,
   } = opts;
   const list = document.getElementById('message-list');
   const wasNearBottom = isNearBottom(list);
@@ -785,6 +851,8 @@ async function loadMessages(groupId, opts = {}) {
   const prevScrollTop = list?.scrollTop || 0;
   if (state.loadingMessages[groupId]) return;
   state.loadingMessages[groupId] = true;
+  const allowSpinner = showSpinner && !prepend;
+  let spinnerShown = false;
   try {
     if (!state.messages[groupId]) state.messages[groupId] = [];
     if (!state.oldest[groupId]) state.oldest[groupId] = null;
@@ -792,6 +860,10 @@ async function loadMessages(groupId, opts = {}) {
     if (!state.secrets[groupId] && !skipSecretPrompt) {
       await ensureSecret(groupId);
       if (!state.secrets[groupId]) return; // user cancelled
+    }
+    if (allowSpinner) {
+      toggleMessageSpinner(true);
+      spinnerShown = true;
     }
 
     let data = [];
@@ -886,6 +958,7 @@ async function loadMessages(groupId, opts = {}) {
     }
   } finally {
     state.loadingMessages[groupId] = false;
+    if (spinnerShown) toggleMessageSpinner(false);
   }
 }
 
@@ -902,29 +975,18 @@ async function sendMessage() {
     return;
   }
   const command = parseChatCommand(text);
-  const secret = await ensureSecret(state.currentGroup);
-  if (!secret) return;
+  if (command?.action === 'ai') {
+    input.value = '';
+    await handleAiQuestion(command.text);
+    return;
+  }
   const payloadText = command ? `${command.icon || ''} ${command.text}`.trim() : text;
-  const encrypted = await encryptText(payloadText, secret, state.currentGroup);
-  const resp = await fetch('/api/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCsrfToken(),
-    },
-    body: JSON.stringify({
-      group_id: state.currentGroup,
-      ciphertext: encrypted.ciphertext,
-      nonce: encrypted.nonce,
-      auth_tag: encrypted.tag,
-      meta: JSON.stringify({
-        type: 'text',
-        len: payloadText.length,
-        ...(command ? { action: command.action, icon: command.icon } : {}),
-      }),
-    }),
+  const ok = await sendEncryptedMessage(payloadText, {
+    type: 'text',
+    len: payloadText.length,
+    ...(command ? { action: command.action, icon: command.icon, text: command.text } : {}),
   });
-  if (resp.ok) {
+  if (ok) {
     input.value = '';
     await loadMessages(state.currentGroup, { notify: false });
     startAutoRefresh();
@@ -980,6 +1042,140 @@ function toggleUploadSpinner(show) {
   const spinner = document.getElementById('upload-spinner');
   if (!spinner) return;
   spinner.classList.toggle('d-none', !show);
+}
+
+async function sendEncryptedMessage(text, meta = {}) {
+  if (!state.currentGroup) {
+    showInfoModal('Select a group', 'Choose a group first.');
+    return false;
+  }
+  const content = (text || '').trim();
+  if (!content) return false;
+  const secret = await ensureSecret(state.currentGroup);
+  if (!secret) return false;
+  const encrypted = await encryptText(content, secret, state.currentGroup);
+  const payloadMeta = {
+    type: 'text',
+    len: content.length,
+    ...meta,
+  };
+  const resp = await fetch('/api/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCsrfToken(),
+    },
+    body: JSON.stringify({
+      group_id: state.currentGroup,
+      ciphertext: encrypted.ciphertext,
+      nonce: encrypted.nonce,
+      auth_tag: encrypted.tag,
+      meta: JSON.stringify(payloadMeta),
+    }),
+  });
+  return resp.ok;
+}
+
+function appendLocalBubble(text, { self = false, ai = false, spinner = false, small = false, actionIcon = '', actionStack = false } = {}) {
+  const list = document.getElementById('message-list');
+  if (!list) return null;
+  const bubble = document.createElement('div');
+  bubble.className = `bubble ${self ? 'self' : 'other'} ${ai ? 'ai' : ''}`;
+  const body = document.createElement('div');
+  if (spinner) {
+    body.className = 'ai-thinking';
+    body.innerHTML = `<i class="fa-solid fa-robot"></i> <span>${text}</span> <div class="spinner-border spinner-border-sm text-accent" role="status"></div>`;
+  } else if (actionStack && actionIcon) {
+    body.className = 'action-stack';
+    body.innerHTML = `<div class="action-icon">${actionIcon}</div><div class="action-text">${text}</div>`;
+  } else {
+    body.textContent = actionIcon ? `${actionIcon} ${text}` : text;
+  }
+  bubble.appendChild(body);
+  if (small) {
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = 'AI assistant';
+    bubble.appendChild(meta);
+  }
+  list.appendChild(bubble);
+  scrollToBottom(list);
+  return bubble;
+}
+
+async function handleAiQuestion(question) {
+  if (!aiActionsEnabled()) {
+    showInfoModal('AI disabled', 'AI actions are turned off.');
+    return;
+  }
+  if (!question) {
+    showInfoModal('Need a question', 'Type something after /ai.');
+    return;
+  }
+  const secret = await ensureSecret(state.currentGroup);
+  if (!secret) return;
+  const username = getCurrentUsername() || 'You';
+  const questionText = `${username} asks AI: ${question}`;
+  const userBubble = appendLocalBubble(questionText, {
+    self: true,
+    ai: false,
+    spinner: false,
+    actionIcon: '🤖',
+    actionStack: true,
+  });
+  const thinkingBubble = appendLocalBubble('Thinking...', { ai: true, spinner: true, small: true });
+  await sendEncryptedMessage(questionText, { action: 'ai', icon: '🤖', act_text: questionText });
+  try {
+    const resp = await fetch('/api/ai/ask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify({ question }),
+    });
+    if (!resp.ok) {
+      let msg = 'AI request failed';
+      try {
+        const errJson = await resp.json();
+        if (errJson.error === 'ratelimit') {
+          msg = 'Too many AI requests. Try again in a bit.';
+        } else {
+          msg = errJson.detail || errJson.error || msg;
+        }
+      } catch (e) {
+        const text = await resp.text();
+        msg = text || msg;
+      }
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const answer = data.answer || 'No response.';
+    const answerText = `AI: ${answer}`;
+    await sendEncryptedMessage(answerText, { action: 'ai', icon: '🤖', act_text: answerText });
+  } catch (err) {
+    if (window.showToast) {
+      window.showToast('error', 'AI error', err?.message || 'AI unavailable right now.');
+    }
+    if (thinkingBubble) {
+      thinkingBubble.innerHTML = '';
+      const body = document.createElement('div');
+      body.textContent = err?.message || 'AI unavailable right now.';
+      thinkingBubble.appendChild(body);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = 'AI assistant';
+      thinkingBubble.appendChild(meta);
+    }
+  } finally {
+    if (thinkingBubble) {
+      const spinnerEl = thinkingBubble.querySelector('.spinner-border');
+      if (spinnerEl) spinnerEl.remove();
+    }
+    if (userBubble) userBubble.remove();
+    if (thinkingBubble) thinkingBubble.remove();
+    await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
+  }
 }
 
 async function toggleRecording() {
@@ -1426,7 +1622,7 @@ function connectPresence() {
         scheduleMessageRefresh(payload.group_id, { notify: true, forceRefresh: true });
       }
       if (payload.event === 'reaction') {
-        scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true });
+        scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true, spinner: false });
       }
     };
   } catch (err) {
@@ -1628,11 +1824,11 @@ function startAutoRefresh() {
   // Refresh is now event-driven via SSE; polling disabled.
 }
 
-function scheduleMessageRefresh(groupId, { notify = true, forceRefresh = false } = {}) {
+function scheduleMessageRefresh(groupId, { notify = true, forceRefresh = false, spinner = true } = {}) {
   if (!groupId || groupId !== state.currentGroup) return;
   if (sseRefreshDebounce) return;
   sseRefreshDebounce = setTimeout(() => {
-    loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh });
+    loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh, showSpinner: spinner });
     sseRefreshDebounce = null;
   }, 250);
 }
