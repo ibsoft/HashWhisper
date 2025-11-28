@@ -61,7 +61,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   (() => {
-    const userPref = "{{ current_user.preferred_theme if current_user.is_authenticated else 'system' }}";
+    const userPref = "{{ current_user.preferred_theme if current_user.is_authenticated else 'dark' }}";
     const saved = localStorage.getItem('hw-theme');
     let theme = saved || userPref || 'dark';
     if (theme === 'system') {
