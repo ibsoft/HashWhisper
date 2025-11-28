@@ -59,7 +59,7 @@ class Config:
         "style-src": ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
         # Allow blob: for media/object URLs generated client-side (e.g., decrypted media fetches).
-        "connect-src": ["'self'", "blob:"],
+        "connect-src": ["'self'", "blob:", "https://api.openai.com"],
         "frame-src": ["'self'", "https://www.youtube.com"],
         "frame-ancestors": ["'none'"],
     }
@@ -84,4 +84,16 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "3.0.1")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "3.0.3")
+
+    # AI Assistant (optional)
+    AI_ENABLED = os.environ.get("HASHWHISPER_AI_ENABLED", "false").lower() == "true"
+    AI_API_KEY = os.environ.get("HASHWHISPER_AI_API_KEY", "")
+    AI_MODEL = os.environ.get("HASHWHISPER_AI_MODEL", "gpt-4o-mini")
+    AI_TIMEOUT = int(os.environ.get("HASHWHISPER_AI_TIMEOUT", 20))
+    AI_SYSTEM_PROMPT = (
+        "You are a concise, friendly assistant helping inside an end-to-end encrypted chat app. "
+        "Decline and warn if a request is malicious, dangerous, or violates safety. "
+        "Otherwise provide clear, actionable answers."
+    )
+    AI_RATELIMIT = os.environ.get("HASHWHISPER_AI_RATELIMIT", "5 per minute")

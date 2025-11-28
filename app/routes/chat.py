@@ -3,6 +3,9 @@ import io
 import json
 import os
 import secrets
+import socket
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -25,6 +28,7 @@ from ..models import (
     User,
 )
 from ..presence import get_presence_bus, sse_stream
+from flask import current_app
 
 chat_bp = Blueprint("chat", __name__)
 
@@ -464,6 +468,81 @@ def react_message(message_id: int):
             (r.user.username if r.user else str(r.user_id)) for r in reactions if r.value == "dislike"
         ],
     })
+
+
+@chat_bp.route("/api/ai/ask", methods=["POST"])
+@login_required
+@limiter.limit(lambda: current_app.config.get("AI_RATELIMIT", "5 per minute"))
+def ask_ai():
+    cfg = current_app.config
+    if not cfg.get("AI_ENABLED"):
+        return jsonify({"error": "disabled", "meta": {"enabled": False}}), 403
+    api_key = cfg.get("AI_API_KEY")
+    model = cfg.get("AI_MODEL", "gpt-4o-mini")
+    system_prompt = cfg.get("AI_SYSTEM_PROMPT", "")
+    timeout = int(cfg.get("AI_TIMEOUT", 20))
+    if not api_key:
+        return jsonify({"error": "missing_key", "meta": {"enabled": True, "has_key": False}}), 503
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "missing_question"}), 400
+
+    try:
+        payload = json.dumps(
+            {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                "temperature": 0.4,
+            }
+        ).encode()
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            parsed = json.loads(raw)
+            answer = (
+                parsed.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+                .strip()
+            )
+            return jsonify({"answer": answer or "I could not find an answer right now."})
+    except urllib.error.HTTPError as err:
+        status = getattr(err, "code", 502) or 502
+        try:
+            body = err.read().decode()
+        except Exception:
+            body = ""
+        detail = body or str(err)
+        return jsonify({"error": "upstream_error", "detail": detail, "meta": {"enabled": True, "has_key": True}}), status
+    except (urllib.error.URLError, socket.timeout) as err:
+        return jsonify({"error": "timeout", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 504
+    except Exception as err:
+        return jsonify({"error": "unknown", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 500
+
+
+@chat_bp.route("/api/ai/status", methods=["GET"])
+@login_required
+def ai_status():
+    cfg = current_app.config
+    return jsonify(
+        {
+            "enabled": bool(cfg.get("AI_ENABLED")),
+            "has_key": bool(cfg.get("AI_API_KEY")),
+            "model": cfg.get("AI_MODEL"),
+        }
+    )
 
 
 @chat_bp.route("/api/presence", methods=["POST"])
