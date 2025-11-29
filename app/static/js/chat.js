@@ -24,6 +24,8 @@ let audioCtx = null;
 let secretResolver = null;
 let secretModalInstance = null;
 let deleteModalInstance = null;
+let deleteMessageModalInstance = null;
+let pendingDeleteMessageId = null;
 let pendingDeleteGroupId = null;
 const secretState = { groupId: null };
 let infoModalInstance = null;
@@ -124,6 +126,11 @@ function getCurrentUserId() {
 function getCurrentUsername() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.getAttribute('data-username')) || '';
+}
+
+function allowMessageDelete() {
+  const shell = document.querySelector('.chat-shell');
+  return (shell?.dataset?.allowDelete || 'false') === 'true';
 }
 
 function aiActionsEnabled() {
@@ -327,6 +334,81 @@ function messageMentionsUser(text) {
   const escaped = escapeRegex(username);
   const regex = new RegExp(`@${escaped}(?![\\w@])`, 'i');
   return regex.test(text || '');
+}
+
+function escapeHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeLanguage(langRaw) {
+  if (!langRaw) return '';
+  const lang = langRaw.toLowerCase();
+  if (lang === 'py' || lang === 'python') return 'python';
+  if (lang === 'cs' || lang === 'csharp' || lang === 'c#') return 'csharp';
+  return lang;
+}
+
+function simpleHighlight(code, lang) {
+  const safe = escapeHtml(code || '');
+  let highlighted = safe
+    .replace(/("[^"]*"|'[^']*')/g, '<span class="code-str">$1</span>')
+    .replace(/(#.*)$/gm, '<span class="code-cmt">$1</span>')
+    .replace(/(\/\/.*)$/gm, '<span class="code-cmt">$1</span>')
+    .replace(/(\/\*[^]*?\*\/)/gm, '<span class="code-cmt">$1</span>')
+    .replace(/(\b\d+(?:\.\d+)?\b)/g, '<span class="code-num">$1</span>');
+  const kwMap = {
+    python: ['def', 'return', 'import', 'from', 'as', 'class', 'for', 'while', 'if', 'elif', 'else', 'try', 'except', 'with', 'lambda', 'yield', 'pass', 'raise', 'in', 'is', 'not', 'and', 'or', 'None', 'True', 'False'],
+    csharp: ['public', 'private', 'protected', 'internal', 'class', 'struct', 'interface', 'void', 'int', 'string', 'bool', 'return', 'using', 'namespace', 'new', 'var', 'foreach', 'for', 'while', 'if', 'else', 'switch', 'case', 'break', 'continue', 'null', 'true', 'false', 'async', 'await', 'static'],
+  };
+  const kws = kwMap[lang] || [];
+  if (kws.length) {
+    const regex = new RegExp(`\\b(${kws.join('|')})\\b`, 'g');
+    highlighted = highlighted.replace(regex, '<span class="code-kw">$1</span>');
+  }
+  return highlighted;
+}
+
+function renderCodeBlock(code, langRaw) {
+  const lang = normalizeLanguage(langRaw);
+  const label = lang === 'python' ? 'Python' : lang === 'csharp' ? 'C#' : (lang ? lang.toUpperCase() : 'Code');
+  const body = simpleHighlight(code || '', lang);
+  return `
+    <div class="code-block" data-lang="${label}">
+      <div class="code-block__meta">
+        <span class="code-pill">${label}</span>
+      </div>
+      <pre><code class="code code-${lang || 'plain'}">${body}</code></pre>
+    </div>
+  `;
+}
+
+function renderPlainTextSegment(text) {
+  const safe = escapeHtml(text || '');
+  return highlightMentions(linkify(safe)).replace(/\n/g, '<br>');
+}
+
+function renderRichText(text) {
+  if (!text) return '';
+  const parts = [];
+  const fenceRegex = /```([\w#+-]+)?\s*[\r\n]([\s\S]*?)```|\[code(?:\s+lang=([\w#+-]+))?\]([\s\S]*?)\[\/code\]/gi;
+  let lastIndex = 0;
+  let match;
+  while ((match = fenceRegex.exec(text)) !== null) {
+    const before = text.slice(lastIndex, match.index);
+    if (before) parts.push(renderPlainTextSegment(before));
+    const langRaw = match[1] || match[3] || '';
+    const code = match[2] || match[4] || '';
+    parts.push(renderCodeBlock(code, langRaw));
+    lastIndex = match.index + match[0].length;
+  }
+  const tail = text.slice(lastIndex);
+  if (tail) parts.push(renderPlainTextSegment(tail));
+  return parts.join('');
 }
 
 function loadPersistedSecrets() {
@@ -665,7 +747,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     }
   } else {
     const text = msg.plaintext || '[cipher]';
-    const html = highlightMentions(linkify(text)).replace(/\n/g, '<br>');
+    const html = renderRichText(text);
     body.innerHTML = html;
     const contentLength = Number.isFinite(meta?.len) ? meta.len : text.length;
     if (contentLength > 240 || text.split(/\s+/).some((word) => word.length > 42)) {
@@ -678,6 +760,21 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     if (yt && isYouTube(yt[0])) {
       body.insertAdjacentHTML('beforeend', youtubeEmbed(yt[0]));
     }
+  }
+  if (self && allowMessageDelete()) {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-sm btn-outline-danger';
+    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    deleteBtn.title = 'Delete message';
+    deleteBtn.addEventListener('click', () => {
+      pendingDeleteMessageId = msg.id;
+      const modalEl = document.getElementById('deleteMessageModal');
+      if (!deleteMessageModalInstance && modalEl) {
+        deleteMessageModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+      }
+      deleteMessageModalInstance?.show();
+    });
+    actions.prepend(deleteBtn);
   }
   const likeBtn = document.createElement('button');
   likeBtn.className = 'btn btn-sm reaction-like';
@@ -1398,6 +1495,19 @@ function bindUI() {
   updateSecretDots();
   restoreLastGroup();
 
+  const deleteMessageModalEl = document.getElementById('deleteMessageModal');
+  if (deleteMessageModalEl) {
+    deleteMessageModalInstance = bootstrap.Modal.getOrCreateInstance(deleteMessageModalEl);
+    document.getElementById('confirm-delete-message')?.addEventListener('click', async () => {
+      if (!pendingDeleteMessageId || !state.currentGroup) return;
+      const bubble = document.querySelector(`[data-message-id="${pendingDeleteMessageId}"]`);
+      await deleteMessage(pendingDeleteMessageId, state.currentGroup, bubble);
+      pendingDeleteMessageId = null;
+      deleteMessageModalInstance.hide();
+    });
+    deleteMessageModalEl.addEventListener('hidden.bs.modal', () => { pendingDeleteMessageId = null; });
+  }
+
   (async () => {
     if (state.currentGroup) return;
     const first = document.querySelector('[data-group-id]');
@@ -1685,6 +1795,17 @@ function connectPresence() {
       if (payload.event === 'reaction') {
         scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true, spinner: false });
       }
+      if (payload.event === 'delete') {
+        const gid = payload.group_id;
+        const mid = payload.message_id;
+        if (gid && state.messages[gid]) {
+          state.messages[gid] = state.messages[gid].filter((id) => id !== mid);
+        }
+        const list = document.getElementById('message-list');
+        const bubble = list?.querySelector(`[data-message-id="${mid}"]`);
+        bubble?.remove();
+        scheduleMessageRefresh(gid, { notify: false, forceRefresh: true, spinner: false });
+      }
     };
   } catch (err) {
     startAutoRefresh();
@@ -1857,6 +1978,42 @@ async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
   if (likedByEl) likedByEl.textContent = likedBy.length ? `Liked by ${likedBy.join(', ')}` : '';
   // keep scroll position by avoiding full list reloads
   playSound(value === 'like' ? 'like' : 'dislike');
+}
+
+async function deleteMessage(id, groupId, bubble) {
+  const resp = await fetch(`/api/messages/${id}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': getCsrfToken() },
+  });
+  if (!resp.ok) {
+    showInfoModal('Delete failed', 'Could not delete this message.');
+    return false;
+  }
+  const data = await resp.json();
+  if (!data?.ok) {
+    showInfoModal('Delete failed', data.error || 'Unable to delete message.');
+    return false;
+  }
+  if (state.messages[groupId]) {
+    state.messages[groupId] = state.messages[groupId].filter((mid) => mid !== id);
+  }
+  if (bubble?.remove) {
+    bubble.remove();
+  } else {
+    const existing = document.querySelector(`[data-message-id="${id}"]`);
+    existing?.remove();
+  }
+  if (groupId) {
+    scheduleMessageRefresh(groupId, { notify: false, forceRefresh: true, spinner: false });
+  }
+  try {
+    if (window.showToast) {
+      window.showToast('success', 'Deleted', 'Message removed.');
+    }
+  } catch (err) {
+    showInfoModal('Deleted', 'Message removed.');
+  }
+  return true;
 }
 
 let typingTimeout;
