@@ -2143,7 +2143,8 @@ function attachGroupButtonHandler(btn) {
     resetNotifications();
     persistLastGroup(gid);
     const sidebarEl = document.getElementById('groupSidebar');
-    if (sidebarEl) {
+    const isDesktop = window.matchMedia('(min-width: 992px)').matches;
+    if (sidebarEl && !isDesktop) {
       const inst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
       inst.hide();
       state.freezeRefresh = false;

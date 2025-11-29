@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="chat-shell" data-user-id="{{ current_user.id }}" data-username="{{ current_user.username }}" data-max-bytes="{{ config.MAX_CONTENT_LENGTH }}" data-user-tz="{{ current_user.timezone or 'UTC' }}" data-ai-enabled="{{ 'true' if config.AI_ENABLED else 'false' }}" data-allow-delete="{{ 'true' if config.ALLOW_MESSAGE_DELETE else 'false' }}" data-default-avatar="{{ default_avatar }}">
-  <div class="collapse" id="groupSidebar">
+  <div class="collapse d-lg-block desktop-spaces" id="groupSidebar">
     <div class="card card-glass p-3 sidebar-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Spaces') }}</h5>
@@ -227,4 +227,28 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/chat.js', v=config.APP_VERSION) }}"></script>
+<script>
+  (() => {
+    const sidebar = document.getElementById('groupSidebar');
+    if (!sidebar || typeof bootstrap === 'undefined') return;
+    let userToggled = false;
+    const toggleBtns = document.querySelectorAll('[data-bs-target=\"#groupSidebar\"]');
+    toggleBtns.forEach((btn) => {
+      btn.addEventListener('click', () => { userToggled = true; });
+    });
+    const syncSidebar = () => {
+      const isDesktop = window.matchMedia('(min-width: 992px)').matches;
+      const inst = bootstrap.Collapse.getOrCreateInstance(sidebar, { toggle: false });
+      if (isDesktop && !userToggled) {
+        inst.show();
+      }
+      if (!isDesktop) {
+        inst.hide();
+        userToggled = false;
+      }
+    };
+    window.addEventListener('resize', syncSidebar);
+    syncSidebar();
+  })();
+</script>
 {% endblock %}
