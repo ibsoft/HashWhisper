@@ -21,6 +21,9 @@ const state = {
 let refreshTimer = null;
 let audioCtx = null;
 
+const IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // aim to keep uploads around 2.5MB or less after compression
+const IMAGE_MAX_DIMENSION = 1920; // cap longest image edge for uploads
+
 let secretResolver = null;
 let secretModalInstance = null;
 let deleteModalInstance = null;
@@ -1124,6 +1127,84 @@ async function sendMessage() {
   }
 }
 
+function scaleToFit(width, height, maxDim) {
+  const longest = Math.max(width, height);
+  if (!longest || longest <= maxDim) return { width, height };
+  const ratio = maxDim / longest;
+  return { width: Math.round(width * ratio), height: Math.round(height * ratio) };
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create blob'));
+      },
+      type,
+      quality
+    );
+  });
+}
+
+async function loadImageForCompression(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    if (window.createImageBitmap) {
+      const bmp = await createImageBitmap(file);
+      return { img: bmp, cleanup: () => { bmp.close?.(); URL.revokeObjectURL(url); } };
+    }
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = url;
+    });
+    return { img, cleanup: () => URL.revokeObjectURL(url) };
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    throw err;
+  }
+}
+
+async function compressImageFile(file) {
+  if (!file?.type?.startsWith('image/')) {
+    return { file, name: file?.name || 'file', mime: file?.type || 'application/octet-stream', size: file?.size || 0, changed: false };
+  }
+  const { img, cleanup } = await loadImageForCompression(file);
+  try {
+    const needsResize = Math.max(img.width, img.height) > IMAGE_MAX_DIMENSION;
+    const needsShrink = file.size > IMAGE_TARGET_BYTES;
+    if (!needsResize && !needsShrink) {
+      return { file, name: file.name, mime: file.type, size: file.size, changed: false };
+    }
+    const { width, height } = scaleToFit(img.width, img.height, IMAGE_MAX_DIMENSION);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return { file, name: file.name, mime: file.type, size: file.size, changed: false };
+    }
+    ctx.drawImage(img, 0, 0, width, height);
+    const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+    let quality = 0.82;
+    const minQuality = 0.55;
+    let blob = await canvasToBlob(canvas, 'image/webp', quality);
+    while (blob.size > IMAGE_TARGET_BYTES && quality > minQuality) {
+      quality = Math.max(minQuality, quality - 0.08);
+      blob = await canvasToBlob(canvas, 'image/webp', quality);
+    }
+    const outName = `${baseName}.webp`;
+    const outFile = new File([blob], outName, { type: 'image/webp', lastModified: Date.now() });
+    return { file: outFile, name: outName, mime: outFile.type, size: outFile.size, changed: true, origName: file.name, origSize: file.size };
+  } catch (err) {
+    return { file, name: file.name, mime: file.type, size: file.size, changed: false };
+  } finally {
+    cleanup?.();
+  }
+}
+
 async function sendFile(file) {
   if (!state.currentGroup) {
     showInfoModal('Select a group', 'Choose a group or DM before uploading.');
@@ -1133,21 +1214,31 @@ async function sendFile(file) {
     showInfoModal('No file selected', 'Pick a file or record a voice note to upload.');
     return;
   }
+  const processed = await compressImageFile(file);
+  const uploadFile = processed.file || file;
+  const uploadName = processed.name || file.name;
+  const uploadMime = processed.mime || file.type;
   const maxBytes = Number(document.querySelector('.chat-shell').dataset.maxBytes || 0);
-  if (maxBytes && file.size > maxBytes) {
+  if (maxBytes && uploadFile.size > maxBytes) {
     showInfoModal('Upload blocked', 'File exceeds maximum encrypted upload size.');
     return;
   }
   const secret = await ensureSecret(state.currentGroup);
   if (!secret) return;
   toggleUploadSpinner(true);
-  const encrypted = await encryptFile(file, secret, state.currentGroup);
+  const encrypted = await encryptFile(uploadFile, secret, state.currentGroup);
   const form = new FormData();
-  form.append('file', new Blob([encrypted.cipher], { type: file.type || 'application/octet-stream' }), `cipher-${file.name}`);
+  form.append('file', new Blob([encrypted.cipher], { type: uploadMime || 'application/octet-stream' }), `cipher-${uploadName}`);
   form.append('group_id', state.currentGroup);
   form.append('nonce', encrypted.nonce);
   form.append('auth_tag', encrypted.tag);
-  form.append('meta', JSON.stringify({ type: 'media', name: file.name, size: file.size, mime: file.type }));
+  form.append('meta', JSON.stringify({
+    type: 'media',
+    name: uploadName,
+    size: uploadFile.size,
+    mime: uploadMime,
+    ...(processed.origName ? { orig_name: processed.origName, orig_size: processed.origSize } : {}),
+  }));
   const resp = await fetch('/api/upload', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }, body: form });
   toggleUploadSpinner(false);
   if (resp.ok) {
