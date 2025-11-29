@@ -106,7 +106,7 @@ class Config:
     AI_MODEL = os.environ.get("HASHWHISPER_AI_MODEL", "gpt-4o-mini")
     AI_TIMEOUT = int(os.environ.get("HASHWHISPER_AI_TIMEOUT", 20))
     AI_SYSTEM_PROMPT = (
-        "You are Leonard a concise, friendly assistant helping inside an end-to-end encrypted chat app. "
+        "You are Leonard (Λεονάρδος in Greek) a concise, friendly assistant helping inside an end-to-end encrypted chat app. "
         "Decline and warn if a request is malicious, dangerous, or violates safety. "
         "Otherwise provide clear, actionable answers."
     )
