@@ -373,6 +373,13 @@ html, body {
   word-break: break-word;
 }
 
+@media (max-width: 576px) {
+  .bubble {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
 .bubble.long-text {
   max-width: 100%;
   width: 100%;
@@ -410,6 +417,20 @@ html, body {
   gap: 6px;
   width: 100%;
   align-items: center;
+}
+@media (max-width: 576px) {
+  .bubble .actions {
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .bubble .actions button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 6px;
+    height: 32px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
 }
 
 .bubble code {
