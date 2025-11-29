@@ -186,11 +186,19 @@ html, body {
   .navbar .badge, .chip { font-size: 0.82rem; padding: 6px 10px; }
   .fancy-nav .container-fluid { padding-inline: 14px; }
   .navbar-brand { font-size: 1.05rem; }
+  #chat-panel h5#chat-title { font-size: 1rem; }
+  #chat-panel small#presence-label { font-size: 0.8rem; }
 }
 @media (max-width: 576px) {
   .btn-ghost { padding-inline: 10px; }
   .pill-status { font-size: 0.75rem; padding: 5px 10px; }
-  .chip-user { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-user {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+  }
 }
 
 .navbar .badge {

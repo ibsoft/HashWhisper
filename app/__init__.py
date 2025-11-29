@@ -1,3 +1,5 @@
+import socket
+import time
 from flask import Flask, jsonify, request, session
 import click
 from sqlalchemy import text
@@ -35,16 +37,66 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     app.add_template_global(current_locale, name="get_locale")
 
+    _net_cache = {"ts": 0.0, "online": True}
+
+    def has_connectivity():
+        if not app.config.get("CHECK_INTERNET", True):
+            return True
+        now = time.monotonic()
+        cache_seconds = app.config.get("CHECK_INTERNET_CACHE_SECONDS", 30)
+        if now - _net_cache["ts"] < cache_seconds:
+            return _net_cache["online"]
+        timeout = app.config.get("CHECK_INTERNET_TIMEOUT", 1.5)
+        online = True
+        try:
+            socket.create_connection(("1.1.1.1", 443), timeout=timeout).close()
+        except OSError:
+            online = False
+        _net_cache["ts"] = now
+        _net_cache["online"] = online
+        return online
+
     @app.before_request
     def apply_lang_param():
         lang = request.args.get("lang")
         if lang and lang in app.config.get("LANGUAGES", {}):
             session["lang"] = lang
 
+    @app.before_request
+    def guard_maintenance():
+        if not app.config.get("MAINTENANCE_MODE"):
+            return
+        # allow static assets and service worker so we can show the page
+        if request.endpoint == "static" or request.path.startswith("/static"):
+            return
+        if request.path.endswith("/sw.js"):
+            return
+        msg = app.config.get("MAINTENANCE_MESSAGE") or "We'll be back shortly."
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": "maintenance", "message": msg}), 503
+        return render_template("maintenance.html", message=msg), 503
+
+    @app.before_request
+    def guard_connectivity():
+        if not app.config.get("CHECK_INTERNET", True):
+            return
+        # Skip static assets and service worker to allow offline shell.
+        if request.endpoint == "static" or request.path.startswith("/static"):
+            return
+        if request.path.endswith("/sw.js"):
+            return
+        online = has_connectivity()
+        if online:
+            return
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": "offline", "message": "No internet connectivity detected."}), 503
+        return render_template("offline.html"), 503
+
     # Security headers via Talisman
     talisman = Talisman(
         app,
         content_security_policy=app.config["SECURITY_CSP"],
+        permissions_policy=app.config.get("FEATURE_POLICY"),
         force_https=True,
         force_https_permanent=True,
         session_cookie_secure=True,

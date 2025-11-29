@@ -19,6 +19,9 @@ class Config:
     SESSION_COOKIE_SECURE = _cookie_secure
     REMEMBER_COOKIE_SECURE = _cookie_secure
     REMEMBER_COOKIE_HTTPONLY = True
+    CHECK_INTERNET = os.environ.get("HASHWHISPER_CHECK_INTERNET", "true").lower() == "true"
+    CHECK_INTERNET_TIMEOUT = float(os.environ.get("HASHWHISPER_CHECK_INTERNET_TIMEOUT", 1.5))
+    CHECK_INTERNET_CACHE_SECONDS = int(os.environ.get("HASHWHISPER_CHECK_INTERNET_CACHE_SECONDS", 30))
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     WTF_CSRF_TIME_LIMIT = 3600
     MAX_CONTENT_LENGTH = int(os.environ.get("HASHWHISPER_MAX_UPLOAD", 10 * 1024 * 1024))
@@ -60,9 +63,14 @@ class Config:
         "style-src": ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "'unsafe-inline'"],
         # Allow blob: for media/object URLs generated client-side (e.g., decrypted media fetches).
-        "connect-src": ["'self'", "blob:", "https://api.openai.com"],
+        "connect-src": ["'self'", "blob:", "https://api.openai.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         "frame-src": ["'self'", "https://www.youtube.com"],
         "frame-ancestors": ["'none'"],
+    }
+    FEATURE_POLICY = {
+        # Permissions-Policy header (formerly Feature-Policy)
+        "microphone": ["'self'"],
+        "camera": ["'self'"],
     }
 
     # Rate limiting
@@ -85,7 +93,12 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "4.0.4")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "4.0.6")
+    MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
+    MAINTENANCE_MESSAGE = os.environ.get(
+        "HASHWHISPER_MAINTENANCE_MESSAGE",
+        "We are updating HashWhisper. Please check back in a few minutes.",
+    )
 
     # AI Assistant (optional)
     AI_ENABLED = os.environ.get("HASHWHISPER_AI_ENABLED", "false").lower() == "true"

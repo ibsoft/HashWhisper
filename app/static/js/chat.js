@@ -41,7 +41,7 @@ let sseRefreshDebounce = null;
 let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
-const PRESENCE_TOAST_COOLDOWN = 15000; // ms
+const PRESENCE_TOAST_COOLDOWN = null; // deprecated: we now show once per user per group
 
 function updateScrollTopButton() {
   const scrollTopBtn = document.getElementById('scroll-top-btn');
@@ -1443,6 +1443,11 @@ async function toggleRecording() {
     for (const m of mimeOptions) {
       if (MediaRecorder.isTypeSupported(m)) { chosen = m; break; }
     }
+    if (!window.MediaRecorder) {
+      console.warn('[voice] MediaRecorder is not supported in this browser.');
+      showInfoModal('Recording not supported', 'This browser does not support audio recording.');
+      return;
+    }
     mediaRecorder = new MediaRecorder(stream, chosen ? { mimeType: chosen } : undefined);
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.push(e.data); };
     mediaRecorder.onstop = async () => {
@@ -1944,10 +1949,8 @@ function maybeShowPresenceToast(payload) {
     if (!gid || gid !== state.currentGroup) return;
     if (status !== 'online') return;
     const key = `${gid}:${uid}`;
-    const now = Date.now();
-    const last = state.presenceSeen[key] || 0;
-    if (now - last < PRESENCE_TOAST_COOLDOWN) return;
-    state.presenceSeen[key] = now;
+    if (state.presenceSeen[key]) return; // show only once per session per group/user
+    state.presenceSeen[key] = Date.now();
     const name = username || 'Someone';
     if (window.showToast) {
       window.showToast('info', 'New connection', `User ${name} connected`);
