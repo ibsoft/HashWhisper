@@ -1,0 +1,35 @@
+<div class="modal fade" id="scheduledDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">{{ _('Delete scheduled chat') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">{{ _('Are you sure you want to delete this scheduled chat?') }}</p>
+        <p class="text-warning small mb-0">{{ _('This cannot be undone.') }}</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-danger" id="scheduled-delete-confirm">{{ _('Delete') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="expiryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">{{ _('Chat ending soon') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">{{ _('Chat ends in 1 minute. Messages will be deleted.') }}</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">{{ _('OK') }}</button>
+      </div>
+    </div>
+  </div>
+</div>

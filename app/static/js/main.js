@@ -1,11 +1,12 @@
 (() => {
-  window.showToast = (type = 'info', title = '', message = '') => {
+  if (window.showToast) return;
+  window.showToast = (type = 'info', title = '', message = '', options = {}) => {
     const fallbackTitle = title || 'Notice';
     const fallbackMessage = message || '';
     try {
       if (window.toastr) {
         const fn = window.toastr[type] || window.toastr.info;
-        fn.call(window.toastr, message || '', title || '');
+        fn.call(window.toastr, message || '', title || '', options || {});
         return;
       }
     } catch (err) {

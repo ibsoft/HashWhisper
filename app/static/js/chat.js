@@ -16,6 +16,11 @@ const state = {
   notificationsAllowed: false,
   freezeRefresh: false,
   presenceSeen: {},
+  favorites: [],
+  scheduled: [],
+  scheduledEditing: null,
+  groups: [],
+  expiryMonitor: { lastMinute: null, handledExpire: false, lastWarnTs: 0, modalShown: false, modalInstance: null, lastSystemMinute: null },
 };
 
 let refreshTimer = null;
@@ -1004,6 +1009,11 @@ async function loadMessages(groupId, opts = {}) {
       const res = await fetch(url.toString(), { cache: 'no-store' });
       if (!res.ok) {
         const text = await res.text();
+        if (res.status === 410) {
+          showInfoModal('Expired', 'This chat has expired and was removed.');
+          window.location.reload();
+          return;
+        }
         showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
         return;
       }
@@ -1549,6 +1559,384 @@ async function copyMediaLink(meta, msg, groupId) {
   }
 }
 
+async function fetchFavorites() {
+  try {
+    const res = await fetch('/api/favorites');
+    if (!res.ok) return;
+    state.favorites = await res.json();
+    renderFavorites();
+    populateScheduleFavorites();
+  } catch (err) {
+    if (CLIPBOARD_DEBUG) console.warn('[favorites] fetch failed', err);
+  }
+}
+
+function renderFavorites() {
+  const list = document.getElementById('favorite-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!state.favorites.length) {
+    list.innerHTML = '<div class="text-muted small">No favorites yet.</div>';
+    return;
+  }
+  state.favorites.forEach((u) => {
+    const item = document.createElement('div');
+    item.className = 'list-group-item d-flex align-items-center justify-content-between bg-transparent text-start text-light border-0';
+    item.innerHTML = `
+      <button class="btn btn-link text-start text-light flex-grow-1 d-flex align-items-center gap-2 p-0" data-dm-user-id="${u.id}">
+        <img class="avatar avatar-sm" src="${u.avatar_url || getDefaultAvatar()}" alt="${u.username}" onerror="this.src='${getDefaultAvatar()}'">
+        <span class="username text-truncate">${u.username}</span>
+      </button>
+      <button class="btn btn-sm btn-outline-success favorite-btn" data-unfavorite="${u.id}" title="Unfavorite"><i class="fa-solid fa-star"></i></button>
+    `;
+    list.appendChild(item);
+  });
+  list.querySelectorAll('[data-dm-user-id]').forEach((btn) => {
+    btn.addEventListener('click', () => openDmModal(Number(btn.getAttribute('data-dm-user-id'))));
+  });
+  list.querySelectorAll('[data-unfavorite]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const uid = Number(btn.getAttribute('data-unfavorite'));
+      await toggleFavorite(uid, false);
+    });
+  });
+}
+
+async function toggleFavorite(userId, add = true) {
+  if (!userId) return;
+  try {
+    const res = await fetch('/api/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+      body: JSON.stringify({ target_id: userId, action: add ? 'add' : 'remove' }),
+    });
+    if (!res.ok) throw new Error('failed');
+    fetchFavorites();
+    if (window.showToast) window.showToast('info', add ? 'Favorited' : 'Removed', add ? 'User added to favorites.' : 'User removed from favorites.');
+  } catch (err) {
+    if (window.showToast) window.showToast('error', 'Favorites', 'Could not update favorites.');
+  }
+}
+
+async function fetchScheduled() {
+  try {
+    const res = await fetch('/api/scheduled-chats');
+    if (!res.ok) return;
+    state.scheduled = await res.json();
+    renderScheduled();
+    handleScheduledToken();
+    return state.scheduled;
+  } catch (err) {
+    // ignore
+  }
+  return [];
+}
+
+async function handleScheduledToken() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('scheduled');
+    if (!token) return;
+    // Avoid re-processing if already on this group
+    if (state._handledScheduled === token) return;
+    const res = await fetch(`/api/scheduled-chats/lookup?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      if (res.status === 403) {
+        showInfoModal('Access denied', 'You are not invited to this chat.');
+      }
+      if (res.status === 410) {
+        showInfoModal('Expired', 'This scheduled chat has expired and was removed.');
+        window.location.reload();
+      }
+      return;
+    }
+    const data = await res.json();
+    const gid = data.group_id;
+    const name = data.name || 'Chat';
+    // Add to sidebar if missing
+    const existing = document.querySelector(`#group-list [data-group-id="${gid}"]`);
+    if (!existing) addGroupToSidebar(gid, name, { deletable: false });
+    await fetchGroups();
+    const secret = await ensureSecret(gid);
+    if (!secret) return;
+    await setCurrentGroup(gid, name, { forceLatest: true });
+    state._handledScheduled = token;
+  } catch (err) {
+    // ignore
+  }
+}
+
+function checkExpiryWarning() {
+  if (!state.currentGroup) return;
+  let sched = state.scheduled.find((s) => s.group_id === state.currentGroup);
+  if (!sched) {
+    fetchScheduled().then((items) => {
+      sched = (items || []).find((s) => s.group_id === state.currentGroup);
+      if (sched) checkExpiryWarning();
+    });
+    return;
+  }
+  if (sched.never_expires) return;
+  const end = new Date(sched.end_at).getTime();
+  const now = Date.now();
+  const remainingMs = end - now;
+  console.info('[expiry] group', state.currentGroup, 'remainingMs', remainingMs, 'end', sched.end_at, 'now', new Date().toISOString(), 'sched_id', sched.id);
+  // Force a modal once when within the last minute.
+  if (remainingMs > 0 && remainingMs <= 60000 && !state.expiryMonitor.modalShown) {
+    state.expiryMonitor.modalShown = true;
+    if (state.expiryMonitor.modalInstance) {
+      state.expiryMonitor.modalInstance.show();
+    } else {
+      showInfoModal('Chat ending soon', 'Chat ends in 1 minute. Messages will be deleted.');
+    }
+  }
+  if (remainingMs <= 0) {
+    if (!state.expiryMonitor.handledExpire) {
+      state.expiryMonitor.handledExpire = true;
+      showInfoModal('Chat expired', 'This chat has ended. Messages will be deleted.');
+      fetch('/api/scheduled-chats/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ group_id: sched.group_id }),
+      }).finally(() => {
+        fetchScheduled().then((items) => {
+          fetchGroups().then(() => {
+            // Clear UI without full reload
+            const list = document.getElementById('message-list');
+            if (list) list.innerHTML = '';
+            document.getElementById('chat-title').textContent = 'Select a group';
+            state.currentGroup = null;
+          });
+        });
+      });
+    }
+    return;
+  }
+  const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+  if (remainingMin <= 5) {
+    const nowWarn = Date.now();
+    const shouldWarn = !state.expiryMonitor.lastWarnTs || (nowWarn - state.expiryMonitor.lastWarnTs >= 55000) || state.expiryMonitor.lastMinute !== remainingMin;
+    if (shouldWarn) {
+      state.expiryMonitor.lastMinute = remainingMin;
+      state.expiryMonitor.lastWarnTs = nowWarn;
+      if (state.expiryMonitor.lastSystemMinute !== remainingMin && remainingMin <= 5) {
+        state.expiryMonitor.lastSystemMinute = remainingMin;
+        const systemMessages = {
+          5: 'System: This chat self-destructs in 5 minutes. Speak now, or forever chase the pixels. 😉',
+          4: 'System: In four minutes, this conversation dissolves into digital stardust. ✨',
+          3: 'System: T-minus 3 minutes before this chat vanishes into the void. Brace yourself. 😎',
+          2: 'System: Two minutes left before these messages evaporate like forgotten dreams. 🌙',
+          1: 'System: The clock ticks—60 seconds until this chat fades into the abyss. ⏳',
+        };
+        const msg = systemMessages[remainingMin] || `System: Chat ends in ${remainingMin} minutes.`;
+        appendLocalBubble(msg, { self: false, ai: false, spinner: false, small: true });
+      }
+    }
+  }
+}
+
+function renderScheduled() {
+  const list = document.getElementById('scheduled-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!state.scheduled.length) {
+    const emptyText = list.dataset.emptyText || 'No scheduled chats yet.';
+    list.innerHTML = `<div class="text-muted small">${emptyText}</div>`;
+    return;
+  }
+  state.scheduled.forEach((item) => {
+    const start = new Date(item.start_at).toLocaleString();
+    const end = new Date(item.end_at).toLocaleString();
+    const badge = item.active ? '<span class="badge bg-success ms-2">Live</span>' : item.expired ? '<span class="badge bg-secondary ms-2">Expired</span>' : '';
+    const priv = '<span class="badge bg-info ms-2">Private</span>';
+    const expireBadge = item.never_expires ? '<span class="badge bg-warning ms-2">No expiry</span>' : '';
+    const row = document.createElement('div');
+    row.className = 'list-group-item d-flex flex-column bg-transparent text-start text-light border-0';
+    const isOwner = item.host_id === getCurrentUserId();
+    row.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center w-100">
+        <div class="text-truncate">${item.name}${badge}${priv}${expireBadge}</div>
+        <div class="d-flex gap-1">
+          ${isOwner ? `<button class="btn btn-sm btn-outline-light" data-copy-sched="${item.id}" title="Copy link"><i class="fa-solid fa-copy"></i></button>` : ''}
+          ${isOwner ? `<button class="btn btn-sm btn-outline-primary" data-edit-sched="${item.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>` : ''}
+          ${isOwner ? `<button class="btn btn-sm btn-outline-danger" data-delete-sched="${item.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
+        </div>
+      </div>
+      <div class="text-muted small">Start: ${start}</div>
+      <div class="text-muted small">End: ${end}</div>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-copy-sched]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-copy-sched'));
+      const sched = state.scheduled.find((s) => s.id === id);
+      if (!sched) return;
+      const text = `Chat: ${sched.name}\nLink: ${sched.share_url}\nSecret hash: ${sched.secret_hash || ''}\nStart: ${sched.start_at}\nEnd: ${sched.end_at}`;
+      copyTextToClipboard(text);
+    });
+  });
+  list.querySelectorAll('[data-delete-sched]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.getAttribute('data-delete-sched'));
+      if (!id) return;
+      openScheduledDeleteModal(id);
+    });
+  });
+  list.querySelectorAll('[data-edit-sched]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-edit-sched'));
+      const sched = state.scheduled.find((s) => s.id === id);
+      if (!sched) return;
+      state.scheduledEditing = id;
+      const nameEl = document.getElementById('sched-name');
+      const startEl = document.getElementById('sched-start');
+      const endEl = document.getElementById('sched-end');
+      const publicEl = document.getElementById('sched-public');
+      const neverEl = document.getElementById('sched-never');
+      if (nameEl) nameEl.value = sched.name || '';
+      if (startEl) startEl.value = sched.start_at ? sched.start_at.slice(0, 16) : '';
+      if (endEl) endEl.value = sched.end_at ? sched.end_at.slice(0, 16) : '';
+      if (publicEl) publicEl.checked = Boolean(sched.public);
+      if (neverEl) neverEl.checked = Boolean(sched.never_expires);
+      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('scheduleModal'));
+      modal.show();
+    });
+  });
+}
+
+function populateScheduleFavorites() {
+  const wrap = document.getElementById('sched-favorites');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (!state.favorites.length) {
+    wrap.innerHTML = '<div class="text-muted">No favorites yet.</div>';
+    return;
+  }
+  state.favorites.forEach((u) => {
+    const row = document.createElement('label');
+    row.className = 'd-flex align-items-center gap-2';
+    row.innerHTML = `<input type="checkbox" value="${u.id}" class="form-check-input"> <span>${u.username}</span>`;
+    wrap.appendChild(row);
+  });
+}
+
+function openScheduledDeleteModal(id) {
+  const modalEl = document.getElementById('scheduledDeleteModal');
+  if (!modalEl) return;
+  const confirmBtn = document.getElementById('scheduled-delete-confirm');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const handler = async () => {
+    try {
+      const res = await fetch('/api/scheduled-chats', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        fetchScheduled();
+        fetchGroups();
+        window.location.reload();
+      } else {
+        // suppress toast on failure to reduce noise; error can be observed in dev tools
+      }
+    } catch (err) {
+      // suppress toast on failure to reduce noise; error can be observed in dev tools
+    } finally {
+      modal.hide();
+      confirmBtn.removeEventListener('click', handler);
+    }
+  };
+  confirmBtn.addEventListener('click', handler);
+  modal.show();
+}
+
+async function fetchGroups() {
+  try {
+    const res = await fetch('/api/groups/summary');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    state.groups = data;
+    rebuildGroupList();
+  } catch (err) {
+    // ignore
+  }
+}
+
+function rebuildGroupList() {
+  const container = document.getElementById('group-list');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!Array.isArray(state.groups) || !state.groups.length) {
+    container.innerHTML = '<div class="text-muted small">No groups yet. Create or join using a secret hash.</div>';
+    return;
+  }
+  state.groups.forEach((g) => {
+    addGroupToSidebar(g.group_id, g.name || 'Chat', { deletable: g.created_by === getCurrentUserId() });
+  });
+  document.querySelectorAll('#group-list [data-group-id]').forEach(attachGroupButtonHandler);
+  document.querySelectorAll('#group-list .delete-group').forEach(attachDeleteGroupHandler);
+  updateSecretDots();
+}
+
+async function createScheduledChat() {
+  const nameEl = document.getElementById('sched-name');
+  const startEl = document.getElementById('sched-start');
+  const endEl = document.getElementById('sched-end');
+  const neverEl = document.getElementById('sched-never');
+  const name = (nameEl?.value || '').trim();
+  const startVal = startEl?.value;
+  const endVal = endEl?.value;
+  const selected = [];
+  const neverExpires = Boolean(neverEl?.checked);
+  if (!name || !startVal || !endVal) {
+    showInfoModal('Missing info', 'Please provide name, start, and end time.');
+    return;
+  }
+  try {
+    const payload = {
+      name,
+      start_at: startVal,
+      end_at: endVal,
+      member_ids: selected,
+      never_expires: neverExpires,
+    };
+    const method = state.scheduledEditing ? 'PUT' : 'POST';
+    if (state.scheduledEditing) payload.id = state.scheduledEditing;
+    const res = await fetch('/api/scheduled-chats', {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      showInfoModal('Failed', 'Could not create scheduled chat.');
+      return;
+    }
+    const data = await res.json();
+    fetchScheduled();
+    fetchGroups();
+  if (window.showToast) window.showToast('success', 'Scheduled', state.scheduledEditing ? 'Chat updated.' : 'Chat created and shared info ready to copy.');
+  if (!state.scheduledEditing) {
+    const share = data.share || {};
+    const text = `Chat: ${share.name || name}\nLink: ${share.share_url}\nGroup ID: ${share.group_id}\nSecret hash: ${share.secret_hash || ''}\nStarts: ${share.start_at}\nEnds: ${share.end_at}`;
+    copyTextToClipboard(text);
+    handleScheduledToken();
+  }
+  state.expiryMonitor = { lastMinute: null, handledExpire: false };
+    const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleModal')) || bootstrap.Modal.getOrCreateInstance(document.getElementById('scheduleModal'));
+    modal.hide();
+    if (nameEl) nameEl.value = '';
+    if (startEl) startEl.value = '';
+    if (endEl) endEl.value = '';
+    if (neverEl) neverEl.checked = false;
+    state.scheduledEditing = null;
+    populateScheduleFavorites();
+  } catch (err) {
+    showInfoModal('Failed', 'Could not create scheduled chat.');
+  }
+}
+
 async function writeClipboardText(text) {
   try {
     if (navigator?.clipboard?.writeText) {
@@ -1584,6 +1972,7 @@ function bindUI() {
   const list = document.getElementById('message-list');
   const scrollTopBtn = document.getElementById('scroll-top-btn');
   loadPersistedSecrets();
+  fetchGroups();
   document.getElementById('send-btn')?.addEventListener('click', (e) => {
     resumeAudio();
     sendMessage();
@@ -1623,6 +2012,8 @@ function bindUI() {
   document.querySelectorAll('[data-group-id]').forEach(attachGroupButtonHandler);
   updateSecretDots();
   restoreLastGroup();
+  fetchFavorites();
+  fetchScheduled();
 
   const deleteMessageModalEl = document.getElementById('deleteMessageModal');
   if (deleteMessageModalEl) {
@@ -1663,6 +2054,13 @@ function bindUI() {
     sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
     sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; startAutoRefresh(); });
   }
+
+  const expiryModalEl = document.getElementById('expiryModal');
+  if (expiryModalEl) {
+    state.expiryMonitor.modalInstance = bootstrap.Modal.getOrCreateInstance(expiryModalEl);
+  }
+
+  setInterval(checkExpiryWarning, 5000);
 
   const joinToggle = document.getElementById('join-secret-toggle');
   if (joinToggle) {
@@ -1737,6 +2135,7 @@ function bindUI() {
         addGroupToSidebar(data.group_id, groupName);
       }
       setCurrentGroup(data.group_id, groupName, { forceLatest: true });
+      fetchGroups();
       document.getElementById('join-secret').value = '';
       const nameInput = document.getElementById('join-group-name');
       if (nameInput) nameInput.value = '';
@@ -1805,6 +2204,11 @@ function bindUI() {
     });
   }
 
+  const schedSave = document.getElementById('sched-save');
+  if (schedSave) {
+    schedSave.addEventListener('click', createScheduledChat);
+  }
+
   const deleteModalEl = document.getElementById('deleteGroupModal');
   if (deleteModalEl) {
     deleteModalInstance = bootstrap.Modal.getOrCreateInstance(deleteModalEl);
@@ -1816,6 +2220,7 @@ function bindUI() {
       });
       if (resp.ok) {
         removeGroupFromSidebar(pendingDeleteGroupId);
+        fetchGroups();
         if (state.currentGroup === pendingDeleteGroupId) {
           state.currentGroup = null;
           document.getElementById('chat-title').textContent = 'Select a group';
@@ -1835,18 +2240,80 @@ function bindUI() {
   // Fetch users for DM list
   const userList = document.getElementById('user-list');
 
+  const dmSecretInput = document.getElementById('dm-secret');
+  const dmSecretToggle = document.getElementById('dm-secret-toggle');
+  const dmSecretGen = document.getElementById('dm-secret-gen');
+  const dmSecretCopy = document.getElementById('dm-secret-copy');
+  const toggleDmSecret = () => {
+    if (!dmSecretInput) return;
+    const isHidden = dmSecretInput.getAttribute('type') === 'password';
+    dmSecretInput.setAttribute('type', isHidden ? 'text' : 'password');
+    if (dmSecretToggle) {
+      dmSecretToggle.innerHTML = isHidden ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    }
+  };
+  const randomSecret = (len = 24) => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+';
+    let out = '';
+    const arr = crypto.getRandomValues(new Uint32Array(len));
+    for (let i = 0; i < len; i++) {
+      out += chars[arr[i] % chars.length];
+    }
+    return out;
+  };
+  if (dmSecretToggle) {
+    dmSecretToggle.addEventListener('click', toggleDmSecret);
+  }
+  if (dmSecretGen) {
+    dmSecretGen.addEventListener('click', () => {
+      if (!dmSecretInput) return;
+      dmSecretInput.value = randomSecret();
+      dmSecretInput.focus();
+    });
+  }
+  if (dmSecretCopy) {
+    dmSecretCopy.addEventListener('click', async () => {
+      if (!dmSecretInput) return;
+      const val = (dmSecretInput.value || '').trim();
+      if (!val) return;
+      try {
+        await navigator.clipboard.writeText(val);
+        dmSecretCopy.innerHTML = '<i class="fa-solid fa-check"></i>';
+        setTimeout(() => { dmSecretCopy.innerHTML = '<i class="fa-solid fa-copy"></i>'; }, 1000);
+      } catch (err) {
+        dmSecretCopy.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        setTimeout(() => { dmSecretCopy.innerHTML = '<i class="fa-solid fa-copy"></i>'; }, 1000);
+      }
+    });
+  }
+
   const dmStartBtn = document.getElementById('dm-start-btn');
   if (dmStartBtn) {
     dmStartBtn.addEventListener('click', async () => {
       const uid = Number(document.getElementById('dm-user-id').value);
       const secret = (document.getElementById('dm-secret').value || '').trim();
-      if (!uid || !secret) return;
-      const resp = await fetch('/api/dm/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-        body: JSON.stringify({ user_id: uid, secret }),
-      });
-      if (resp.ok) {
+      if (!uid || !secret) {
+        showInfoModal('Missing info', 'Please enter a secret to start a DM.');
+        return;
+      }
+      if (secret.length < 12) {
+        showInfoModal('Secret too short', 'Please use at least 12 characters for the DM secret.');
+        return;
+      }
+      try {
+        const resp = await fetch('/api/dm/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+          body: JSON.stringify({ user_id: uid, secret }),
+        });
+        if (resp.status === 409) {
+          showInfoModal('DM exists', 'A DM with this user already exists with a different secret. Use the original secret.');
+          return;
+        }
+        if (!resp.ok) {
+          showInfoModal('DM failed', 'Could not start DM.');
+          return;
+        }
         const data = await resp.json();
         state.secrets[data.group_id] = secret;
         const list = document.querySelector('.contact-list');
@@ -1862,6 +2329,11 @@ function bindUI() {
           const inst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
           inst.hide();
         }
+        if (data.existing) {
+          showInfoModal('DM exists', 'A DM with this user already existed. Opening it.');
+        }
+      } catch (err) {
+        showInfoModal('DM failed', 'Could not start DM.');
       }
     });
   }
@@ -1977,22 +2449,38 @@ function loadGroupUsers(groupId) {
     .then((users) => {
       if (!Array.isArray(users)) return;
       userList.innerHTML = '';
-      if (!users.length) {
-        userList.innerHTML = '<div class="text-muted small">No other members.</div>';
-        return;
-      }
-      users.forEach((u) => {
-        const item = document.createElement('button');
-        item.className = 'list-group-item list-group-item-action bg-transparent text-start text-light border-0';
-        const avatar = u.avatar_url || getDefaultAvatar();
-        item.innerHTML = `<img class="avatar avatar-sm me-2" src="${avatar}" alt="${u.username} avatar" onerror="this.src='${getDefaultAvatar()}'"><span class="username">${u.username}</span>`;
-        item.addEventListener('click', () => openDmModal(u.id));
-        userList.appendChild(item);
-      });
-    })
-    .catch(() => {
-      userList.innerHTML = '<div class="text-muted small">Unable to load members.</div>';
+    if (!users.length) {
+      userList.innerHTML = '<div class="text-muted small">No other members.</div>';
+      return;
+    }
+    users.forEach((u) => {
+      const item = document.createElement('div');
+      item.className = 'list-group-item d-flex align-items-center justify-content-between bg-transparent text-start text-light border-0';
+      const avatar = u.avatar_url || getDefaultAvatar();
+      item.innerHTML = `
+        <button class="btn btn-link text-start text-light flex-grow-1 d-flex align-items-center gap-2" data-dm-user-id="${u.id}">
+          <img class="avatar avatar-sm" src="${avatar}" alt="${u.username} avatar" onerror="this.src='${getDefaultAvatar()}'">
+          <span class="username text-truncate">${u.username}</span>
+        </button>
+        <button class="btn btn-sm btn-outline-success favorite-btn" data-fav-toggle="${u.id}" title="Add to favorites"><i class="fa-solid fa-star"></i></button>
+      `;
+      userList.appendChild(item);
     });
+    userList.querySelectorAll('[data-dm-user-id]').forEach((btn) => {
+      btn.addEventListener('click', () => openDmModal(Number(btn.getAttribute('data-dm-user-id'))));
+    });
+    userList.querySelectorAll('[data-fav-toggle]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const uid = Number(btn.getAttribute('data-fav-toggle'));
+        const already = state.favorites.some((f) => f.id === uid);
+        await toggleFavorite(uid, !already);
+      });
+    });
+  })
+  .catch(() => {
+    userList.innerHTML = '<div class="text-muted small">Unable to load members.</div>';
+  });
 }
 
 async function restoreLastGroup() {
@@ -2183,6 +2671,7 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   if (GROUP_DEBUG) console.debug('[group] setCurrentGroup start', { groupId, groupName, forceLatest });
   state.currentGroup = Number(groupId);
   document.getElementById('chat-title').textContent = groupName || 'Chat';
+  state.expiryMonitor = { lastMinute: null, handledExpire: false, lastWarnTs: 0, modalShown: false, lastSystemMinute: null, modalInstance: state.expiryMonitor.modalInstance };
   state.messages[state.currentGroup] = [];
   state.seen[state.currentGroup] = 0;
   const list = document.getElementById('message-list');
@@ -2202,6 +2691,8 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   }
   loadGroupUsers(state.currentGroup);
   updateSecretDots();
+  await fetchScheduled();
+  checkExpiryWarning();
   startAutoRefresh();
   persistLastGroup(state.currentGroup);
   sendPresenceStatus(state.currentGroup, { typing: false, status: 'online' });
@@ -2260,6 +2751,10 @@ function attachGroupButtonHandler(btn) {
     const gid = Number(btn.getAttribute('data-group-id'));
     const label = btn.getAttribute('data-group-name') || btn.querySelector('.group-name')?.textContent.trim() || 'Chat';
     if (GROUP_DEBUG) console.debug('[group] sidebar click', { gid, label });
+    if (!state.secrets[gid]) {
+      const secret = await ensureSecret(gid);
+      if (!secret) return;
+    }
     await setCurrentGroup(gid, label, { forceLatest: true });
     sendPresenceStatus(gid, { typing: false, status: 'online' });
     resetNotifications();
@@ -2292,7 +2787,7 @@ function attachDeleteGroupHandler(btn) {
 }
 
 function addGroupToSidebar(groupId, groupName, { deletable = false } = {}) {
-  const container = document.querySelector('.contact-list');
+  const container = document.querySelector('#group-list') || document.querySelector('.contact-list');
   if (!container) return;
   const wrapper = document.createElement('div');
   wrapper.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0';
@@ -2317,7 +2812,7 @@ function addGroupToSidebar(groupId, groupName, { deletable = false } = {}) {
 }
 
 function removeGroupFromSidebar(groupId) {
-  const btn = document.querySelector(`[data-group-id="${groupId}"]`);
+  const btn = document.querySelector(`#group-list [data-group-id="${groupId}"]`);
   const wrapper = btn?.closest('.list-group-item');
   if (wrapper) wrapper.remove();
 }

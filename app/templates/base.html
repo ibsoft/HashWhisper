@@ -97,11 +97,23 @@
         closeButton: true,
         newestOnTop: true,
         positionClass: 'toast-top-right',
-        timeOut: 4000,
-        extendedTimeOut: 2000,
+        timeOut: 8000,
+        extendedTimeOut: 4000,
         progressBar: true,
       };
     }
+    const showModal = (title, message) => {
+      const modalEl = document.getElementById('infoModal');
+      const modalTitle = document.getElementById('infoModalTitle');
+      const modalBody = document.getElementById('infoModalBody');
+      if (modalEl && modalTitle && modalBody && window.bootstrap?.Modal) {
+        modalTitle.textContent = title || window.APP_TITLE || 'Notice';
+        modalBody.textContent = message || '';
+        window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        return true;
+      }
+      return false;
+    };
     const fallbackToast = (type = 'info', title = '', message = '') => {
       const text = title ? `${title}: ${message}` : message;
       if (type === 'error') alert(text);
@@ -109,23 +121,32 @@
     };
     window.showToast =
       window.showToast ||
-      ((type = 'info', title = '', message = '') => {
+      ((type = 'info', title = '', message = '', options = {}) => {
         try {
-          if (!hasToastr) {
-            fallbackToast(type, title, message);
+          if (hasToastr) {
+            const fn = toastr[type] || toastr.info;
+            fn.call(toastr, message || '', title || '', options || {});
+            if (options.forceModal) showModal(title, message);
             return;
           }
-          const fn = toastr[type] || toastr.info;
-          fn.call(toastr, message || '', title || '');
         } catch (err) {
-          fallbackToast(type, title, message);
+          // fall through
         }
+        if (options.forceModal && showModal(title, message)) return;
+        fallbackToast(type, title, message);
       });
     if (Array.isArray(window.FLASH_MESSAGES)) {
       window.FLASH_MESSAGES.forEach(([category, msg]) => {
         const map = { danger: 'error', warning: 'warning', info: 'info', success: 'success' };
         const t = map[category] || 'info';
-        window.showToast(t, window.APP_TITLE || 'Notice', msg);
+        const text = (msg || '').toLowerCase();
+        const isGroupNameConflict =
+          text.includes('group with this name') ||
+          text.includes('υπάρχει ήδη ομάδα με αυτό το όνομα');
+        const opts = isGroupNameConflict
+          ? { timeOut: 20000, extendedTimeOut: 8000, forceModal: true }
+          : undefined;
+        window.showToast(t, window.APP_TITLE || 'Notice', msg, opts);
       });
     }
     document.querySelectorAll('[data-flash-fallback]').forEach((node) => node.remove());
