@@ -100,3 +100,5 @@ class Config:
 
     # User controls
     ALLOW_MESSAGE_DELETE = os.environ.get("HASHWHISPER_ALLOW_MESSAGE_DELETE", "true").lower() == "true"
+    AVATAR_UPLOAD_FOLDER = os.environ.get("HASHWHISPER_AVATAR_UPLOAD_FOLDER", os.path.join("app", "storage", "avatars"))
+    MAX_AVATAR_SIZE = int(os.environ.get("HASHWHISPER_MAX_AVATAR_SIZE", 2 * 1024 * 1024))  # 2MB default

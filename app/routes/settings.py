@@ -1,9 +1,11 @@
 import io
+import os
 import qrcode
 import pyotp
 from flask import Blueprint, flash, redirect, render_template, url_for, current_app, send_file, session
 from flask_login import current_user, login_required
 from flask_babel import _
+from werkzeug.utils import secure_filename
 
 from ..extensions import db
 from ..forms import SettingsForm
@@ -41,6 +43,37 @@ def settings():
         session["lang"] = lang_choice
         current_user.notifications_enabled = form.notifications_enabled.data
         current_user.timezone = form.timezone.data
+        avatar_file = form.avatar.data
+        if avatar_file and avatar_file.filename:
+            # Enforce max size
+            max_size = int(current_app.config.get("MAX_AVATAR_SIZE", 2 * 1024 * 1024))
+            avatar_file.stream.seek(0, os.SEEK_END)
+            size = avatar_file.stream.tell()
+            avatar_file.stream.seek(0)
+            if size > max_size:
+                flash(_("Avatar too large (max %(mb)s MB)", mb=round(max_size / 1024 / 1024, 2)), "error")
+                return redirect(url_for("settings.settings", lang=lang_choice))
+            mime = (avatar_file.mimetype or "").lower()
+            if not mime.startswith("image/"):
+                flash(_("Avatar must be an image"), "error")
+                return redirect(url_for("settings.settings", lang=lang_choice))
+            upload_dir = current_app.config.get("AVATAR_UPLOAD_FOLDER") or os.path.join("app", "storage", "avatars")
+            os.makedirs(upload_dir, exist_ok=True)
+            _, ext = os.path.splitext(secure_filename(avatar_file.filename))
+            ext = ext if ext else ".png"
+            filename = f"user-{current_user.id}{ext}"
+            path = os.path.join(upload_dir, filename)
+            # Remove previous avatar if different
+            prev = current_user.avatar_path
+            if prev:
+                try:
+                    prev_path = os.path.join(upload_dir, os.path.basename(prev))
+                    if os.path.isfile(prev_path) and prev_path != path:
+                        os.remove(prev_path)
+                except OSError:
+                    pass
+            avatar_file.save(path)
+            current_user.avatar_path = filename
         if not require_totp and not totp_disabled:
             want_totp = form.enable_totp.data
             if want_totp:

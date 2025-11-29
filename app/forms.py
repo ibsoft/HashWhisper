@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from flask_babel import lazy_gettext as _l
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField
 from wtforms.validators import DataRequired, Email, Length, Regexp, EqualTo
+from flask_wtf.file import FileField, FileAllowed
 
 
 username_validator = Regexp(r"^[A-Za-z0-9_.-]{3,32}$", message=_l("Use 3-32 alphanumeric/._- characters"))
@@ -61,4 +62,5 @@ class SettingsForm(FlaskForm):
         default="UTC",
     )
     enable_totp = BooleanField(_l("Enable TOTP (authenticator app)"))
+    avatar = FileField(_l("Avatar"), validators=[FileAllowed(["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"], _l("Images only"))])
     submit = SubmitField(_l("Save settings"))
