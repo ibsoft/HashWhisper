@@ -1,4 +1,5 @@
 import base64
+import flask
 import io
 import json
 import os
@@ -10,9 +11,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import qrcode
-from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request
+from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, url_for
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
+from flask import send_from_directory
+from werkzeug.exceptions import NotFound
 
 from ..extensions import db, limiter
 from ..forms import GroupForm
@@ -38,6 +41,16 @@ def index():
     return render_template("auth/landing.html")
 
 
+@chat_bp.route("/avatars/<path:filename>")
+def avatar_file(filename: str):
+    upload_dir = current_app.config.get("AVATAR_UPLOAD_FOLDER") or os.path.join("app", "storage", "avatars")
+    full_dir = os.path.abspath(upload_dir)
+    target = os.path.abspath(os.path.join(full_dir, filename))
+    if not target.startswith(full_dir) or not os.path.isfile(target):
+        raise NotFound()
+    return send_from_directory(full_dir, os.path.basename(filename))
+
+
 @chat_bp.route("/sw.js")
 def service_worker():
     """Serve the PWA service worker from the app root for proper scope."""
@@ -51,7 +64,8 @@ def service_worker():
 @login_required
 def chat():
     groups = Group.query.join(GroupMembership).filter(GroupMembership.user_id == current_user.id).all()
-    return render_template("chat/chat.html", groups=groups)
+    default_avatar = flask.url_for("static", filename="img/user.png")
+    return render_template("chat/chat.html", groups=groups, default_avatar=default_avatar)
 
 
 @chat_bp.route("/groups/create", methods=["GET", "POST"])
@@ -164,7 +178,12 @@ def list_users():
         .filter(GroupMembership.group_id == group_id, User.id != current_user.id)
         .all()
     )
-    return jsonify([{"id": u.id, "username": u.username} for u in users])
+    def avatar_url(u: User):
+        if not u.avatar_path:
+            return None
+        return url_for("chat.avatar_file", filename=u.avatar_path, _external=False)
+
+    return jsonify([{"id": u.id, "username": u.username, "avatar_url": avatar_url(u)} for u in users])
 
 
 @chat_bp.route("/api/groups/summary")

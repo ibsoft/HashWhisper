@@ -128,6 +128,11 @@ function getCurrentUsername() {
   return (shell?.getAttribute('data-username')) || '';
 }
 
+function getDefaultAvatar() {
+  const shell = document.querySelector('.chat-shell');
+  return shell?.dataset?.defaultAvatar || '/static/img/icon.svg';
+}
+
 function allowMessageDelete() {
   const shell = document.querySelector('.chat-shell');
   return (shell?.dataset?.allowDelete || 'false') === 'true';
@@ -1857,7 +1862,8 @@ function loadGroupUsers(groupId) {
       users.forEach((u) => {
         const item = document.createElement('button');
         item.className = 'list-group-item list-group-item-action bg-transparent text-start text-light border-0';
-        item.innerHTML = `<span class="user-dot user-dot-sm me-2"></span><span class="username">${u.username}</span>`;
+        const avatar = u.avatar_url || getDefaultAvatar();
+        item.innerHTML = `<img class="avatar avatar-sm me-2" src="${avatar}" alt="${u.username} avatar" onerror="this.src='${getDefaultAvatar()}'"><span class="username">${u.username}</span>`;
         item.addEventListener('click', () => openDmModal(u.id));
         userList.appendChild(item);
       });

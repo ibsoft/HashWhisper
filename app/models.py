@@ -28,6 +28,7 @@ class User(UserMixin, db.Model):
     language = db.Column(db.String(8), default="en")
     notifications_enabled = db.Column(db.Boolean, default=True)
     timezone = db.Column(db.String(64), default="UTC")
+    avatar_path = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login_at = db.Column(db.DateTime)
     failed_attempts = db.Column(db.Integer, default=0)
