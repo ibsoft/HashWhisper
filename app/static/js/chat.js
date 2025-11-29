@@ -647,6 +647,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
 
   if (meta.type === 'media') {
     body.className = 'd-flex flex-column gap-2';
+    bubble.classList.add('media-wide');
     const preview = document.createElement('div');
     preview.className = 'w-100 mt-1 media-preview';
     if (meta.blob_id) {
