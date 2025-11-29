@@ -442,6 +442,10 @@ html, body {
   }
 }
 
+.favorite-btn i {
+  color: #34d399;
+}
+
 .bubble code {
   font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
   background: rgba(255, 255, 255, 0.08);

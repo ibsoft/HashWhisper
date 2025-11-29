@@ -59,9 +59,9 @@ def settings():
                 return redirect(url_for("settings.settings", lang=lang_choice))
             upload_dir = current_app.config.get("AVATAR_UPLOAD_FOLDER") or os.path.join("app", "storage", "avatars")
             os.makedirs(upload_dir, exist_ok=True)
-            _, ext = os.path.splitext(secure_filename(avatar_file.filename))
-            ext = ext if ext else ".png"
-            filename = f"user-{current_user.id}{ext}"
+            base_name, file_ext = os.path.splitext(secure_filename(avatar_file.filename))
+            file_ext = file_ext if file_ext else ".png"
+            filename = f"user-{current_user.id}{file_ext}"
             path = os.path.join(upload_dir, filename)
             # Remove previous avatar if different
             prev = current_user.avatar_path

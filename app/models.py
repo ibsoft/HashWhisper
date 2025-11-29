@@ -168,3 +168,46 @@ class PresenceEvent(db.Model):
         event.updated_at = datetime.utcnow()
         db.session.commit()
         return event
+
+
+class Favorite(db.Model):
+    __tablename__ = "favorites"
+    __table_args__ = (db.UniqueConstraint("user_id", "favorite_user_id", name="uq_user_favorite"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    favorite_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    favorite_user = db.relationship("User", foreign_keys=[favorite_user_id])
+
+
+class ScheduledChat(db.Model):
+    __tablename__ = "scheduled_chats"
+    id = db.Column(db.Integer, primary_key=True)
+    host_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey("chat_groups.id"), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+    secret_hash = db.Column(db.String(64), nullable=False)
+    start_at = db.Column(db.DateTime, nullable=False, index=True)
+    end_at = db.Column(db.DateTime, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    share_token = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    is_public = db.Column(db.Boolean, default=False)
+    never_expires = db.Column(db.Boolean, default=False)
+
+    host = db.relationship("User", foreign_keys=[host_id])
+    group = db.relationship("Group", foreign_keys=[group_id])
+
+    @property
+    def is_active(self) -> bool:
+        now = datetime.utcnow()
+        if self.never_expires:
+            return now >= self.start_at
+        return self.start_at <= now <= self.end_at
+
+    @property
+    def is_expired(self) -> bool:
+        if self.never_expires:
+            return False
+        return datetime.utcnow() > self.end_at

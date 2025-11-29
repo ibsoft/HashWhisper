@@ -2,14 +2,14 @@
 {% block content %}
 <div class="chat-shell" data-user-id="{{ current_user.id }}" data-username="{{ current_user.username }}" data-max-bytes="{{ config.MAX_CONTENT_LENGTH }}" data-user-tz="{{ current_user.timezone or 'UTC' }}" data-ai-enabled="{{ 'true' if config.AI_ENABLED else 'false' }}" data-allow-delete="{{ 'true' if config.ALLOW_MESSAGE_DELETE else 'false' }}" data-default-avatar="{{ default_avatar }}">
   <div class="collapse d-lg-block desktop-spaces" id="groupSidebar">
-    <div class="card card-glass p-3 sidebar-card">
+    <div class="card card-glass p-3 sidebar-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Spaces') }}</h5>
         <div class="btn-group">
           <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="{{ _('Create group') }}"><i class="fa-solid fa-plus"></i></a>
         </div>
       </div>
-        <div class="contact-list list-group list-group-flush">
+        <div class="contact-list list-group list-group-flush" id="group-list">
           {% for g in groups %}
             <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0">
               <button class="btn btn-link text-start text-light flex-grow-1 position-relative" data-group-id="{{ g.id }}" data-group-name="{{ g.name }}">
@@ -43,6 +43,25 @@
           <h6 class="mb-0"><i class="fa-solid fa-user-group me-2"></i>{{ _('Users') }}</h6>
         </div>
         <div class="contact-list list-group list-group-flush" id="user-list"></div>
+      </div>
+    </div>
+
+    <div class="card card-glass p-3 sidebar-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="fa-solid fa-star me-2 text-success"></i>{{ _('Favorites') }}</h6>
+      </div>
+      <div class="contact-list list-group list-group-flush" id="favorite-list">
+        <div class="text-muted small">{{ _('No favorites yet.') }}</div>
+      </div>
+    </div>
+
+    <div class="card card-glass p-3 sidebar-card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="fa-solid fa-calendar-check me-2"></i>{{ _('Scheduled chats') }}</h6>
+        <button class="btn btn-sm btn-soft" type="button" data-bs-toggle="modal" data-bs-target="#scheduleModal"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="contact-list list-group list-group-flush" id="scheduled-list" data-empty-text="{{ _('No scheduled chats yet.') }}">
+        <div class="text-muted small">{{ _('No scheduled chats yet.') }}</div>
       </div>
     </div>
   </div>
@@ -93,6 +112,40 @@
       <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
         <span><i class="fa-solid fa-lock"></i> {{ _('Client-side cryptography!') }}</span>
         <span id="typing-indicator" class="text-info d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="scheduleModalLabel">{{ _('Schedule chat') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">{{ _('Name') }}</label>
+          <input type="text" class="form-control" id="sched-name" maxlength="128" placeholder="{{ _('Team catch-up') }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _('Start time') }}</label>
+          <input type="datetime-local" class="form-control" id="sched-start">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ _('End time') }}</label>
+          <input type="datetime-local" class="form-control" id="sched-end">
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="sched-never">
+          <label class="form-check-label" for="sched-never">{{ _('Never expire') }}</label>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-soft" id="sched-save">{{ _('Create') }}</button>
       </div>
     </div>
   </div>
@@ -184,7 +237,13 @@
         <input type="hidden" id="dm-user-id">
         <div class="mb-3">
           <label class="form-label">{{ _('Secret') }}</label>
-          <input type="password" class="form-control" id="dm-secret" autocomplete="off">
+          <div class="input-group">
+            <input type="password" class="form-control" id="dm-secret" autocomplete="off" minlength="12">
+            <button class="btn btn-outline-light" type="button" id="dm-secret-toggle" aria-label="{{ _('Show secret') }}"><i class="fa-solid fa-eye"></i></button>
+            <button class="btn btn-outline-light" type="button" id="dm-secret-gen" aria-label="{{ _('Generate secret') }}"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="btn btn-outline-light" type="button" id="dm-secret-copy" aria-label="{{ _('Copy secret') }}"><i class="fa-solid fa-copy"></i></button>
+          </div>
+          <div class="form-text text-muted">{{ _('Minimum 12 characters.') }}</div>
         </div>
       </div>
       <div class="modal-footer border-0">
@@ -227,6 +286,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/chat.js', v=config.APP_VERSION) }}"></script>
+{% include 'modals/scheduled_delete.html' %}
 <script>
   (() => {
     const sidebar = document.getElementById('groupSidebar');

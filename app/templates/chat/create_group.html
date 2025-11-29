@@ -7,6 +7,11 @@
       <a href="{{ url_for('chat.chat') }}" class="btn btn-outline-light btn-sm mb-3"><i class="fa-solid fa-arrow-left"></i> Back to chat</a>
       <form method="post" novalidate>
         {{ form.hidden_tag() }}
+        {% if duplicate_error %}
+        <div class="alert alert-warning" role="alert">
+          {{ duplicate_error }}
+        </div>
+        {% endif %}
         {% if form.errors %}
         <div class="alert alert-danger">
           {% for field, errors in form.errors.items() %}

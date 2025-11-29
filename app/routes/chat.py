@@ -11,8 +11,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import qrcode
-from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, url_for
+from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, url_for, redirect
 from flask_login import current_user, login_required
+from flask_babel import _
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from werkzeug.exceptions import NotFound
@@ -29,11 +30,76 @@ from ..models import (
     hash_secret,
     PresenceEvent,
     User,
+    Favorite,
+    ScheduledChat,
 )
 from ..presence import get_presence_bus, sse_stream
 from flask import current_app
 
 chat_bp = Blueprint("chat", __name__)
+
+
+def purge_expired_scheduled():
+    now = datetime.now()
+    expired = ScheduledChat.query.filter(
+        ScheduledChat.never_expires.is_(False),
+        ScheduledChat.end_at <= now,
+    ).all()
+    if expired:
+        current_app.logger.info(
+            "Purging expired scheduled chats count=%s ids=%s now=%s",
+            len(expired),
+            [(sc.id, sc.group_id, sc.end_at) for sc in expired],
+            now,
+        )
+    for sc in expired:
+        gid = sc.group_id
+        msg_ids = [m.id for m in Message.query.filter_by(group_id=gid).all()]
+        if msg_ids:
+            current_app.logger.info("Deleting messages for group %s ids=%s", gid, msg_ids)
+            MediaBlob.query.filter(MediaBlob.message_id.in_(msg_ids)).delete(synchronize_session=False)
+            MessageReaction.query.filter(MessageReaction.message_id.in_(msg_ids)).delete(synchronize_session=False)
+            Message.query.filter(Message.id.in_(msg_ids)).delete(synchronize_session=False)
+        GroupMembership.query.filter_by(group_id=gid).delete(synchronize_session=False)
+        IntegrityChain.query.filter_by(group_id=gid).delete(synchronize_session=False)
+        ScheduledChat.query.filter_by(id=sc.id).delete(synchronize_session=False)
+        Group.query.filter_by(id=gid).delete(synchronize_session=False)
+    if expired:
+        db.session.commit()
+        current_app.logger.info("Finished purge for expired scheduled chats.")
+
+
+def delete_group_completely(group_id: int):
+    current_app.logger.info("Deleting group completely group_id=%s", group_id)
+    messages = Message.query.filter_by(group_id=group_id).all()
+    for msg in messages:
+        blobs = MediaBlob.query.filter_by(message_id=msg.id).all()
+        for blob in blobs:
+            try:
+                path = Path(blob.stored_path)
+                upload_root = Path(current_app.config["UPLOAD_FOLDER"]).resolve()
+                if path.resolve().is_file() and upload_root in path.resolve().parents:
+                    path.unlink()
+            except OSError:
+                pass
+            db.session.delete(blob)
+        db.session.delete(msg)
+    GroupMembership.query.filter_by(group_id=group_id).delete(synchronize_session=False)
+    IntegrityChain.query.filter_by(group_id=group_id).delete(synchronize_session=False)
+    ScheduledChat.query.filter_by(group_id=group_id).delete(synchronize_session=False)
+    Group.query.filter_by(id=group_id).delete(synchronize_session=False)
+    current_app.logger.info("Group %s deleted.", group_id)
+
+
+def ensure_not_expired(group_id: int):
+    sched = ScheduledChat.query.filter_by(group_id=group_id).first()
+    now = datetime.now()
+    if sched and not sched.never_expires and sched.end_at and sched.end_at <= now:
+        current_app.logger.info("Group %s expired at %s, deleting via ensure_not_expired.", group_id, sched.end_at)
+        delete_group_completely(group_id)
+        db.session.commit()
+        return False
+    return True
 
 
 @chat_bp.route("/")
@@ -63,6 +129,7 @@ def service_worker():
 @chat_bp.route("/chat")
 @login_required
 def chat():
+    purge_expired_scheduled()
     groups = Group.query.join(GroupMembership).filter(GroupMembership.user_id == current_user.id).all()
     default_avatar = flask.url_for("static", filename="img/user.png")
     return render_template("chat/chat.html", groups=groups, default_avatar=default_avatar)
@@ -75,10 +142,17 @@ def create_group():
     if form.validate_on_submit():
         secret = form.secret.data.strip()
         secret_hash = hash_secret(secret)
-        group = Group(name=form.name.data.strip(), secret_hash=secret_hash, created_by=current_user.id)
+        name = form.name.data.strip()
+        # Enforce unique group name per app
+        existing = Group.query.filter_by(name=name).first()
+        if existing:
+            msg = _("A group with this name already exists.")
+            flash(msg, "error")
+            return render_template("chat/create_group.html", form=form, duplicate_error=msg), 409
+        group = Group(name=name, secret_hash=secret_hash, created_by=current_user.id)
         db.session.add(group)
         db.session.commit()
-        IntegrityChain.append_event(group.id, "group_created", form.name.data.strip())
+        IntegrityChain.append_event(group.id, "group_created", name)
         db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
         db.session.commit()
         qr_payload = {"group": group.id, "secret": secret}
@@ -101,7 +175,9 @@ def verify_group_secret():
     group = Group.query.get(group_id)
     if not group:
         return jsonify({"error": "not_found"}), 404
-    if hash_secret(secret) != group.secret_hash:
+    # Accept either the raw secret or the pre-hashed value to allow hash-only sharing.
+    provided_hash = secret if secret == group.secret_hash else hash_secret(secret)
+    if provided_hash != group.secret_hash:
         return jsonify({"error": "bad_secret"}), 403
     return jsonify({"ok": True})
 
@@ -145,8 +221,19 @@ def start_dm():
         return jsonify({"error": "not_found"}), 404
     secret_hash = hash_secret(secret)
     dm_name = f"DM:{'-'.join(sorted([current_user.username, target.username]))}"
-    group = Group.query.filter_by(secret_hash=secret_hash, name=dm_name).first()
-    if not group:
+    group = Group.query.filter_by(name=dm_name).first()
+    if group:
+        # DM already exists; enforce same secret
+        if group.secret_hash != secret_hash:
+            return jsonify({"error": "dm_exists_with_different_secret"}), 409
+        existed = True
+        if not GroupMembership.query.filter_by(group_id=group.id, user_id=current_user.id).first():
+            db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
+        if not GroupMembership.query.filter_by(group_id=group.id, user_id=target.id).first():
+            db.session.add(GroupMembership(user_id=target.id, group_id=group.id))
+        db.session.commit()
+        return jsonify({"group_id": group.id, "name": group.name, "existing": True})
+    else:
         group = Group(name=dm_name, secret_hash=secret_hash, created_by=current_user.id)
         db.session.add(group)
         db.session.flush()
@@ -154,13 +241,7 @@ def start_dm():
         db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
         db.session.add(GroupMembership(user_id=target.id, group_id=group.id))
         db.session.commit()
-    else:
-        if not GroupMembership.query.filter_by(group_id=group.id, user_id=current_user.id).first():
-            db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
-        if not GroupMembership.query.filter_by(group_id=group.id, user_id=target.id).first():
-            db.session.add(GroupMembership(user_id=target.id, group_id=group.id))
-        db.session.commit()
-    return jsonify({"group_id": group.id, "name": group.name})
+        return jsonify({"group_id": group.id, "name": group.name, "existing": False})
 
 
 @chat_bp.route("/api/users")
@@ -186,10 +267,239 @@ def list_users():
     return jsonify([{"id": u.id, "username": u.username, "avatar_url": avatar_url(u)} for u in users])
 
 
+@chat_bp.route("/api/favorites", methods=["GET", "POST"])
+@login_required
+@limiter.exempt
+def favorites():
+    if request.method == "GET":
+        favs = (
+            Favorite.query.filter_by(user_id=current_user.id)
+            .join(User, Favorite.favorite_user_id == User.id)
+            .with_entities(User.id, User.username, User.avatar_path)
+            .all()
+        )
+        def avatar_url(u_avatar):
+            return url_for("chat.avatar_file", filename=u_avatar, _external=False) if u_avatar else None
+        return jsonify(
+            [
+                {
+                    "id": row.id,
+                    "username": row.username,
+                    "avatar_url": avatar_url(row.avatar_path),
+                }
+                for row in favs
+            ]
+        )
+    data = request.get_json(silent=True) or {}
+    target_id = data.get("target_id")
+    action = (data.get("action") or "").lower()
+    if not target_id or action not in {"add", "remove"}:
+        return jsonify({"error": "invalid"}), 400
+    if target_id == current_user.id:
+        return jsonify({"error": "self"}), 400
+    target = User.query.get(target_id)
+    if not target:
+        return jsonify({"error": "not_found"}), 404
+    if action == "add":
+        existing = Favorite.query.filter_by(user_id=current_user.id, favorite_user_id=target_id).first()
+        if not existing:
+            db.session.add(Favorite(user_id=current_user.id, favorite_user_id=target_id))
+            db.session.commit()
+        return jsonify({"ok": True})
+    fav = Favorite.query.filter_by(user_id=current_user.id, favorite_user_id=target_id).first()
+    if fav:
+        db.session.delete(fav)
+        db.session.commit()
+    return jsonify({"ok": True})
+
+
+@chat_bp.route("/api/scheduled-chats", methods=["GET", "POST", "PUT", "DELETE"])
+@login_required
+@limiter.exempt
+def scheduled_chats():
+    purge_expired_scheduled()
+    if request.method == "GET":
+        current_app.logger.info("Scheduled list for user %s", current_user.id)
+        # Return scheduled chats where current user is host or member of the group.
+        memberships = GroupMembership.query.filter_by(user_id=current_user.id).with_entities(GroupMembership.group_id)
+        rows = (
+            ScheduledChat.query.join(Group, ScheduledChat.group_id == Group.id)
+            .filter(ScheduledChat.group_id.in_(memberships))
+            .order_by(ScheduledChat.start_at.asc())
+            .all()
+        )
+        result = []
+        for sc in rows:
+            share_url = url_for("chat.chat", _external=True) + f"?scheduled={sc.share_token}"
+            result.append(
+                {
+                    "id": sc.id,
+                    "name": sc.name,
+                    "group_id": sc.group_id,
+                    "start_at": sc.start_at.isoformat(),
+                    "end_at": sc.end_at.isoformat(),
+                    "host_id": sc.host_id,
+                    "active": sc.is_active,
+                    "public": sc.is_public,
+                    "never_expires": sc.never_expires,
+                    "expired": sc.is_expired,
+                    "share_url": share_url,
+                    "secret_hash": sc.secret_hash,
+                }
+            )
+        return jsonify(result)
+    if request.method == "PUT":
+        data = request.get_json(silent=True) or {}
+        sched_id = data.get("id")
+        if not sched_id:
+            return jsonify({"error": "missing_id"}), 400
+        sched = ScheduledChat.query.get(sched_id)
+        if not sched or sched.host_id != current_user.id:
+            return jsonify({"error": "forbidden"}), 403
+        name = (data.get("name") or sched.name).strip()
+        start_at_raw = data.get("start_at") or sched.start_at.isoformat()
+        end_at_raw = data.get("end_at") or sched.end_at.isoformat()
+        is_public = False
+        never_expires = bool(data.get("never_expires", sched.never_expires))
+        try:
+            start_at = datetime.fromisoformat(start_at_raw)
+            end_at = datetime.fromisoformat(end_at_raw)
+        except Exception:
+            return jsonify({"error": "invalid_time"}), 400
+        if end_at <= start_at and not never_expires:
+            return jsonify({"error": "bad_range"}), 400
+        sched.name = name[:128]
+        sched.start_at = start_at
+        sched.end_at = end_at
+        sched.is_public = is_public
+        sched.never_expires = never_expires
+        db.session.commit()
+        return jsonify({"ok": True})
+    if request.method == "DELETE":
+        data = request.get_json(silent=True) or {}
+        sched_id = data.get("id")
+        if not sched_id:
+            return jsonify({"error": "missing_id"}), 400
+        sched = ScheduledChat.query.get(sched_id)
+        if not sched or sched.host_id != current_user.id:
+            return jsonify({"error": "forbidden"}), 403
+        delete_group_completely(sched.group_id)
+        db.session.commit()
+        return jsonify({"ok": True})
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    start_at_raw = data.get("start_at")
+    end_at_raw = data.get("end_at")
+    member_ids = data.get("member_ids") or []
+    is_public = False
+    never_expires = bool(data.get("never_expires"))
+    if not name or not start_at_raw or not end_at_raw:
+        return jsonify({"error": "missing"}), 400
+    try:
+        start_at = datetime.fromisoformat(start_at_raw)
+        end_at = datetime.fromisoformat(end_at_raw)
+    except Exception:
+        return jsonify({"error": "invalid_time"}), 400
+    if end_at <= start_at:
+        return jsonify({"error": "bad_range"}), 400
+    # Generate secret and group
+    secret = secrets.token_urlsafe(16)
+    secret_hash = hash_secret(secret)
+    group = Group(name=name[:64], secret_hash=secret_hash, created_by=current_user.id)
+    db.session.add(group)
+    db.session.flush()
+    db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
+    valid_members = (
+        User.query.filter(User.id.in_(member_ids)).with_entities(User.id).all() if member_ids else []
+    )
+    for mid, in valid_members:
+        if mid == current_user.id:
+            continue
+        # avoid duplicate
+        if not GroupMembership.query.filter_by(user_id=mid, group_id=group.id).first():
+            db.session.add(GroupMembership(user_id=mid, group_id=group.id))
+    sched = ScheduledChat(
+        host_id=current_user.id,
+        group_id=group.id,
+        name=name[:128],
+        secret_hash=secret_hash,
+        start_at=start_at,
+        end_at=end_at,
+        share_token=secrets.token_urlsafe(16),
+        is_public=is_public,
+        never_expires=never_expires,
+    )
+    db.session.add(sched)
+    IntegrityChain.append_event(group.id, "scheduled_chat", name)
+    db.session.commit()
+    join_hint = {
+        "group_id": group.id,
+        "name": group.name,
+        "start_at": start_at.isoformat(),
+        "end_at": end_at.isoformat(),
+        "share_url": url_for("chat.chat", _external=True) + f"?scheduled={sched.share_token}",
+        "secret_hash": secret_hash,
+    }
+    return jsonify({"ok": True, "scheduled_id": sched.id, "share": join_hint})
+
+
+@chat_bp.route("/api/scheduled-chats/lookup")
+@login_required
+@limiter.exempt
+def scheduled_lookup():
+    purge_expired_scheduled()
+    token = request.args.get("token") or ""
+    if not token:
+        return jsonify({"error": "missing"}), 400
+    sched = ScheduledChat.query.filter_by(share_token=token).first()
+    if not sched:
+        return jsonify({"error": "not_found"}), 404
+    if not sched.never_expires and sched.end_at and sched.end_at < datetime.utcnow():
+        return jsonify({"error": "expired"}), 410
+    # Only allow host or invited members
+    if not GroupMembership.query.filter_by(group_id=sched.group_id, user_id=current_user.id).first():
+        return jsonify({"error": "forbidden"}), 403
+    current_app.logger.info("Scheduled lookup user=%s token=%s group=%s end_at=%s", current_user.id, token, sched.group_id, sched.end_at)
+    return jsonify(
+        {
+            "group_id": sched.group_id,
+            "name": sched.name,
+            "start_at": sched.start_at.isoformat(),
+            "end_at": sched.end_at.isoformat(),
+        }
+    )
+
+
+@chat_bp.route("/api/scheduled-chats/purge", methods=["POST"])
+@login_required
+@limiter.exempt
+def purge_specific_scheduled():
+    data = request.get_json(silent=True) or {}
+    group_id = data.get("group_id")
+    if not group_id:
+        return jsonify({"error": "missing_group"}), 400
+    sched = ScheduledChat.query.filter_by(group_id=group_id).first()
+    if not sched:
+        current_app.logger.info("Purge requested for group %s but no scheduled chat found", group_id)
+        return jsonify({"ok": True, "deleted": False})
+    if sched.never_expires or not sched.end_at:
+        current_app.logger.info("Purge requested for group %s but never_expires=%s end_at=%s", group_id, sched.never_expires, sched.end_at)
+        return jsonify({"ok": True, "deleted": False})
+    now = datetime.now()
+    if sched.end_at > now:
+        current_app.logger.info("Purge requested for group %s but end_at in future %s now=%s", group_id, sched.end_at, now)
+        return jsonify({"ok": True, "deleted": False})
+    delete_group_completely(group_id)
+    db.session.commit()
+    current_app.logger.info("Purged expired scheduled chat via API group_id=%s", group_id)
+    return jsonify({"ok": True, "deleted": True})
+
 @chat_bp.route("/api/groups/summary")
 @login_required
 @limiter.exempt
 def groups_summary():
+    current_app.logger.info("Building groups summary for user %s", current_user.id)
+    purge_expired_scheduled()
     results = []
     memberships = GroupMembership.query.filter_by(user_id=current_user.id).all()
     for m in memberships:
@@ -204,6 +514,7 @@ def groups_summary():
                 "group_id": m.group_id,
                 "latest": latest_msg.created_at.isoformat() if latest_msg else None,
                 "name": group.name if group else "",
+                "created_by": group.created_by if group else None,
             }
         )
     return jsonify(results)
@@ -216,24 +527,7 @@ def delete_group(group_id: int):
     if group.created_by != current_user.id:
         return jsonify({"error": "forbidden"}), 403
 
-    # Delete associated messages and media securely
-    messages = Message.query.filter_by(group_id=group.id).all()
-    for msg in messages:
-        blobs = MediaBlob.query.filter_by(message_id=msg.id).all()
-        for blob in blobs:
-            try:
-                path = Path(blob.stored_path)
-                upload_root = Path(current_app.config["UPLOAD_FOLDER"]).resolve()
-                if path.resolve().is_file() and upload_root in path.resolve().parents:
-                    path.unlink()
-            except OSError:
-                pass
-            db.session.delete(blob)
-        db.session.delete(msg)
-
-    GroupMembership.query.filter_by(group_id=group.id).delete()
-    IntegrityChain.query.filter_by(group_id=group.id).delete()
-    db.session.delete(group)
+    delete_group_completely(group.id)
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -242,7 +536,9 @@ def delete_group(group_id: int):
 @login_required
 @limiter.exempt
 def list_messages():
+    purge_expired_scheduled()
     group_id = request.args.get("group_id", type=int)
+    current_app.logger.info("List messages user=%s group_id=%s", current_user.id, group_id)
     before_raw = request.args.get("before")
     before_dt = None
     if before_raw:
@@ -252,6 +548,9 @@ def list_messages():
             before_dt = None
     if not group_id:
         return jsonify([])
+    if not ensure_not_expired(group_id):
+        current_app.logger.info("Group %s expired during message fetch", group_id)
+        return jsonify({"error": "expired"}), 410
     membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
     if not membership:
         return jsonify({"error": "forbidden"}), 403
@@ -298,8 +597,11 @@ def list_messages():
 def post_message():
     data = request.get_json(silent=True) or {}
     group_id = data.get("group_id")
+    current_app.logger.info("Post message user=%s group_id=%s", current_user.id, group_id)
     if not group_id:
         return jsonify({"error": "missing_group"}), 400
+    if not ensure_not_expired(group_id):
+        return jsonify({"error": "expired"}), 410
     membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
     if not membership:
         return jsonify({"error": "forbidden"}), 403
@@ -341,11 +643,15 @@ def post_message():
 @login_required
 def upload_blob():
     group_id = request.form.get("group_id", type=int)
+    current_app.logger.info("Upload blob user=%s group_id=%s", current_user.id, group_id)
     nonce = request.form.get("nonce", "")
     auth_tag = request.form.get("auth_tag", "")
     raw_meta = str(request.form.get("meta", "")).replace("\r", " ").replace("\n", " ")
     if not group_id:
         return jsonify({"error": "missing_group"}), 400
+    if not ensure_not_expired(group_id):
+        current_app.logger.info("Group %s expired during upload", group_id)
+        return jsonify({"error": "expired"}), 410
     membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
     if not membership:
         return jsonify({"error": "forbidden"}), 403
