@@ -41,7 +41,7 @@ let sseRefreshDebounce = null;
 let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
-const PRESENCE_TOAST_COOLDOWN = 15000; // ms
+const PRESENCE_TOAST_COOLDOWN = null; // deprecated: we now show once per user per group
 
 function updateScrollTopButton() {
   const scrollTopBtn = document.getElementById('scroll-top-btn');
@@ -762,7 +762,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     if (contentLength > 240 || text.split(/\s+/).some((word) => word.length > 42)) {
       bubble.classList.add('long-text');
     }
-    const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyTextToClipboard(text));
+    const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyMessageContent(bubble, text));
     copyBtn.classList.add('mt-2');
     actions.appendChild(copyBtn);
     const yt = text.match(/https?:\/\/[^\s]+/);
@@ -1325,6 +1325,33 @@ function appendLocalBubble(text, { self = false, ai = false, spinner = false, sm
   return bubble;
 }
 
+function trimBlankLines(text) {
+  let t = (text || '').replace(/\r\n/g, '\n');
+  t = t.replace(/^\n+/, '').replace(/\n+$/, '');
+  return t;
+}
+
+async function copyMessageContent(bubble, fallbackText) {
+  try {
+    if (bubble) {
+      const codeNodes = bubble.querySelectorAll('.code-block pre code');
+      if (codeNodes.length) {
+        const combined = Array.from(codeNodes)
+          .map((node) => trimBlankLines(node.textContent || ''))
+          .join('\n\n')
+          .trim();
+        if (combined) {
+          return await copyTextToClipboard(combined);
+        }
+      }
+    }
+    return await copyTextToClipboard(fallbackText || '');
+  } catch (err) {
+    if (CLIPBOARD_DEBUG) console.error('[copy] failed', err);
+    return false;
+  }
+}
+
 async function handleAiQuestion(question) {
   if (!aiActionsEnabled()) {
     showInfoModal('AI disabled', 'AI actions are turned off.');
@@ -1415,6 +1442,11 @@ async function toggleRecording() {
     let chosen = '';
     for (const m of mimeOptions) {
       if (MediaRecorder.isTypeSupported(m)) { chosen = m; break; }
+    }
+    if (!window.MediaRecorder) {
+      console.warn('[voice] MediaRecorder is not supported in this browser.');
+      showInfoModal('Recording not supported', 'This browser does not support audio recording.');
+      return;
     }
     mediaRecorder = new MediaRecorder(stream, chosen ? { mimeType: chosen } : undefined);
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunks.push(e.data); };
@@ -1917,10 +1949,8 @@ function maybeShowPresenceToast(payload) {
     if (!gid || gid !== state.currentGroup) return;
     if (status !== 'online') return;
     const key = `${gid}:${uid}`;
-    const now = Date.now();
-    const last = state.presenceSeen[key] || 0;
-    if (now - last < PRESENCE_TOAST_COOLDOWN) return;
-    state.presenceSeen[key] = now;
+    if (state.presenceSeen[key]) return; // show only once per session per group/user
+    state.presenceSeen[key] = Date.now();
     const name = username || 'Someone';
     if (window.showToast) {
       window.showToast('info', 'New connection', `User ${name} connected`);
