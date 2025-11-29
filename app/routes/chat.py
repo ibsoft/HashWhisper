@@ -809,11 +809,15 @@ def react_message(message_id: int):
 def delete_message(message_id: int):
     cfg = current_app.config
     if not cfg.get("ALLOW_MESSAGE_DELETE", False):
-        return jsonify({"error": "disabled"}), 403
+        return jsonify({"error": "disabled", "message": "Message deletion is disabled"}), 403
     message = Message.query.get_or_404(message_id)
     membership = GroupMembership.query.filter_by(group_id=message.group_id, user_id=current_user.id).first()
-    if not membership or message.sender_id != current_user.id:
-        return jsonify({"error": "forbidden"}), 403
+    group = Group.query.get(message.group_id)
+    is_group_owner = group and group.created_by == current_user.id
+    if not membership:
+        return jsonify({"error": "forbidden", "message": "You are not a member of this group"}), 403
+    if not (message.sender_id == current_user.id or is_group_owner):
+        return jsonify({"error": "forbidden", "message": "Only the sender or group owner can delete this message"}), 403
     upload_root = Path(cfg["UPLOAD_FOLDER"]).resolve()
     blobs = MediaBlob.query.filter_by(message_id=message.id).all()
     for blob in blobs:
@@ -839,7 +843,7 @@ def delete_message(message_id: int):
         message_id=message_id,
         created_at=datetime.utcnow().isoformat(),
     )
-    return jsonify({"ok": True, "id": message_id})
+    return jsonify({"ok": True, "id": message_id, "group_id": group_id})
 
 
 @chat_bp.route("/api/ai/ask", methods=["POST"])

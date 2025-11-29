@@ -2602,7 +2602,13 @@ async function deleteMessage(id, groupId, bubble) {
     headers: { 'X-CSRFToken': getCsrfToken() },
   });
   if (!resp.ok) {
-    showInfoModal('Delete failed', 'Could not delete this message.');
+    try {
+      const data = await resp.json();
+      const reason = data?.message || data?.error || 'Could not delete this message.';
+      showInfoModal('Delete failed', reason);
+    } catch (e) {
+      showInfoModal('Delete failed', 'Could not delete this message.');
+    }
     return false;
   }
   const data = await resp.json();
@@ -2620,6 +2626,13 @@ async function deleteMessage(id, groupId, bubble) {
     existing?.remove();
   }
   if (groupId) {
+    // Immediately prune the DOM to avoid stale view; server refresh will follow.
+    const list = document.getElementById('message-list');
+    const el = bubble || document.querySelector(`[data-message-id="${id}"]`);
+    el?.remove();
+    if (list) {
+      list.querySelectorAll(`[data-message-id="${id}"]`).forEach((node) => node.remove());
+    }
     scheduleMessageRefresh(groupId, { notify: false, forceRefresh: true, spinner: false });
   }
   try {
