@@ -13,10 +13,11 @@ class Config:
     if _rl_storage and _rl_storage.strip().startswith("$"):
         _rl_storage = None
     RATELIMIT_STORAGE_URI = _rl_storage or REDIS_URL or "memory://"
+    _cookie_secure = os.environ.get("HASHWHISPER_COOKIE_SECURE", "true").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = True
-    REMEMBER_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = _cookie_secure
+    REMEMBER_COOKIE_SECURE = _cookie_secure
     REMEMBER_COOKIE_HTTPONLY = True
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     WTF_CSRF_TIME_LIMIT = 3600
@@ -84,7 +85,7 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "3.0.7")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "4.0.1")
 
     # AI Assistant (optional)
     AI_ENABLED = os.environ.get("HASHWHISPER_AI_ENABLED", "false").lower() == "true"
