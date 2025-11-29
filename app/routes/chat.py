@@ -479,6 +479,44 @@ def react_message(message_id: int):
     })
 
 
+@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
+@login_required
+def delete_message(message_id: int):
+    cfg = current_app.config
+    if not cfg.get("ALLOW_MESSAGE_DELETE", False):
+        return jsonify({"error": "disabled"}), 403
+    message = Message.query.get_or_404(message_id)
+    membership = GroupMembership.query.filter_by(group_id=message.group_id, user_id=current_user.id).first()
+    if not membership or message.sender_id != current_user.id:
+        return jsonify({"error": "forbidden"}), 403
+    upload_root = Path(cfg["UPLOAD_FOLDER"]).resolve()
+    blobs = MediaBlob.query.filter_by(message_id=message.id).all()
+    for blob in blobs:
+        try:
+            path = Path(blob.stored_path)
+            if path.resolve().is_file() and upload_root in path.resolve().parents:
+                path.unlink()
+        except OSError:
+            pass
+        db.session.delete(blob)
+    MessageReaction.query.filter_by(message_id=message.id).delete()
+    group_id = message.group_id
+    db.session.delete(message)
+    db.session.commit()
+    bus = get_presence_bus()
+    bus.publish(
+        current_user.id,
+        "online",
+        typing=False,
+        username=current_user.username,
+        event="delete",
+        group_id=group_id,
+        message_id=message_id,
+        created_at=datetime.utcnow().isoformat(),
+    )
+    return jsonify({"ok": True, "id": message_id})
+
+
 @chat_bp.route("/api/ai/ask", methods=["POST"])
 @login_required
 @limiter.limit(lambda: current_app.config.get("AI_RATELIMIT", "5 per minute"))
