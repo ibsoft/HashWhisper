@@ -762,7 +762,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     if (contentLength > 240 || text.split(/\s+/).some((word) => word.length > 42)) {
       bubble.classList.add('long-text');
     }
-    const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyTextToClipboard(text));
+    const copyBtn = makeCopyButton(msg.id, 'Copy text', () => copyMessageContent(bubble, text));
     copyBtn.classList.add('mt-2');
     actions.appendChild(copyBtn);
     const yt = text.match(/https?:\/\/[^\s]+/);
@@ -1323,6 +1323,33 @@ function appendLocalBubble(text, { self = false, ai = false, spinner = false, sm
   list.appendChild(bubble);
   scrollToBottom(list);
   return bubble;
+}
+
+function trimBlankLines(text) {
+  let t = (text || '').replace(/\r\n/g, '\n');
+  t = t.replace(/^\n+/, '').replace(/\n+$/, '');
+  return t;
+}
+
+async function copyMessageContent(bubble, fallbackText) {
+  try {
+    if (bubble) {
+      const codeNodes = bubble.querySelectorAll('.code-block pre code');
+      if (codeNodes.length) {
+        const combined = Array.from(codeNodes)
+          .map((node) => trimBlankLines(node.textContent || ''))
+          .join('\n\n')
+          .trim();
+        if (combined) {
+          return await copyTextToClipboard(combined);
+        }
+      }
+    }
+    return await copyTextToClipboard(fallbackText || '');
+  } catch (err) {
+    if (CLIPBOARD_DEBUG) console.error('[copy] failed', err);
+    return false;
+  }
 }
 
 async function handleAiQuestion(question) {
