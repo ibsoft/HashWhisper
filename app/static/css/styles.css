@@ -373,13 +373,6 @@ html, body {
   word-break: break-word;
 }
 
-@media (max-width: 576px) {
-  .bubble {
-    max-width: 100%;
-    width: 100%;
-  }
-}
-
 .bubble.long-text {
   max-width: 100%;
   width: 100%;
@@ -387,6 +380,12 @@ html, body {
   text-justify: auto;
   hyphens: none;
   line-height: 1.5;
+}
+@media (max-width: 576px) {
+  .bubble.media-wide {
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
 .bubble.self { margin-left: auto; background: linear-gradient(135deg, rgba(158,242,176,0.16), rgba(111,211,255,0.16)); color: #f3f7ff; border: 1px solid rgba(158,242,176,0.35); }
