@@ -1196,6 +1196,10 @@ async function sendMessage() {
   if (ok) {
     input.value = '';
     await loadMessages(state.currentGroup, { notify: false, forceLatest: true });
+    const list = document.getElementById('message-list');
+    // Focus composer and force bottom scroll to avoid mid-list positioning
+    input.focus();
+    [0, 80, 200, 400, 800, 1200].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
     startAutoRefresh();
     playSound('outbound');
   }
