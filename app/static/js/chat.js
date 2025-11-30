@@ -141,6 +141,64 @@ function youtubeEmbed(url) {
   }
 }
 
+let backendNoticeElement = null;
+
+function sanitizeBackendDetail(text) {
+  if (!text) return '';
+  return text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
+function showBackendUnavailableNotice(status, detail = '') {
+  if (backendNoticeElement) return;
+  const normalized = sanitizeBackendDetail(detail);
+  const message =
+    normalized ||
+    'Our encrypted backend is deploying updates. You can retry once it finishes.';
+  const overlay = document.createElement('div');
+  overlay.className = 'backend-overlay';
+  overlay.innerHTML = `
+    <div class="backend-overlay-card card-glass">
+      <p class="backend-overlay-title">Service temporarily unavailable</p>
+      <p class="backend-overlay-text">We detected a ${status} response from the server. ${message}</p>
+      <button type="button" class="btn btn-soft backend-overlay-retry">Retry now</button>
+    </div>
+  `;
+  const retryBtn = overlay.querySelector('.backend-overlay-retry');
+  retryBtn?.addEventListener('click', () => {
+    hideBackendUnavailableNotice();
+    if (state.currentGroup) {
+      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true, forceLatest: true });
+    } else {
+      window.location.reload();
+    }
+  });
+  document.body.appendChild(overlay);
+  backendNoticeElement = overlay;
+}
+
+function hideBackendUnavailableNotice() {
+  if (backendNoticeElement) {
+    backendNoticeElement.remove();
+    backendNoticeElement = null;
+  }
+}
+
+function handleBackendErrorResponse(res, bodyText = '') {
+  const text = (bodyText || '').toLowerCase();
+  const isHtmlError = text.includes('<html');
+  const mentionsNginx = text.includes('nginx');
+  const shouldShow = res.status >= 500 || mentionsNginx || isHtmlError;
+  if (shouldShow) {
+    showBackendUnavailableNotice(res.status, bodyText || res.statusText);
+    return true;
+  }
+  return false;
+}
+
 function getCsrfToken() {
   return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
@@ -644,6 +702,20 @@ function updateBubbleReactions(bubble, msg) {
   if (likedByEl) likedByEl.textContent = msg.liked_by?.length ? `Liked by ${msg.liked_by.join(', ')}` : '';
 }
 
+function applyReactionPayload(payload) {
+  if (!payload?.message_id) return;
+  const list = document.getElementById('message-list');
+  if (!list) return;
+  const bubble = list.querySelector(`[data-message-id="${payload.message_id}"]`);
+  if (!bubble) return;
+  updateBubbleReactions(bubble, {
+    likes: typeof payload.likes === 'number' ? payload.likes : Number(payload.likes) || 0,
+    dislikes: typeof payload.dislikes === 'number' ? payload.dislikes : Number(payload.dislikes) || 0,
+    liked_by: Array.isArray(payload.liked_by) ? payload.liked_by : [],
+    disliked_by: Array.isArray(payload.disliked_by) ? payload.disliked_by : [],
+  });
+}
+
 async function encryptFile(file, secret, groupId) {
   const key = await deriveKey(secret, groupId);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -1103,10 +1175,12 @@ async function loadMessages(groupId, opts = {}) {
           window.location.reload();
           return;
         }
+        if (handleBackendErrorResponse(res, text)) return;
         showInfoModal('Load failed', `Status ${res.status}: ${text || 'Unable to load messages.'}`);
         return;
       }
       data = await res.json();
+      hideBackendUnavailableNotice();
     } catch (err) {
       showInfoModal('Load failed', 'Could not load messages.');
       console.error('loadMessages error', err);
@@ -1490,7 +1564,12 @@ async function fetchLatestMessage(groupId, { ignoreAfter = false } = {}) {
       url.searchParams.set('after', lastIso);
     }
     const res = await fetch(url.toString(), { cache: 'no-store' });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const text = await res.text();
+      handleBackendErrorResponse(res, text);
+      return null;
+    }
+    hideBackendUnavailableNotice();
     const data = await res.json();
     if (!data || !data.id) return null;
     return data;
@@ -2048,7 +2127,12 @@ function openScheduledDeleteModal(id) {
 async function fetchGroups() {
   try {
     const res = await fetch('/api/groups/summary');
-    if (!res.ok) return;
+    if (!res.ok) {
+      const text = await res.text();
+      handleBackendErrorResponse(res, text);
+      return;
+    }
+    hideBackendUnavailableNotice();
     const data = await res.json();
     if (!Array.isArray(data)) return;
     state.groups = data;
@@ -2591,9 +2675,11 @@ function connectPresence() {
       if (payload.event === 'message') {
         const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
         scheduleLatestMessageAppend(payload.group_id, { notify: !isSelf });
+        return;
       }
       if (payload.event === 'reaction') {
-        scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true, spinner: false });
+        applyReactionPayload(payload);
+        return;
       }
       if (payload.event === 'delete') {
         const gid = payload.group_id;
@@ -2604,7 +2690,7 @@ function connectPresence() {
         const list = document.getElementById('message-list');
         const bubble = list?.querySelector(`[data-message-id="${mid}"]`);
         bubble?.remove();
-        scheduleMessageRefresh(gid, { notify: false, forceRefresh: true, spinner: false });
+        return;
       }
     };
   } catch (err) {
