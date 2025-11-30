@@ -861,6 +861,14 @@ def react_message(message_id: int):
         group_id=message.group_id,
         message_id=message.id,
         created_at=datetime.utcnow().isoformat(),
+        likes=likes,
+        dislikes=dislikes,
+        liked_by=[
+            (r.user.username if r.user else str(r.user_id)) for r in reactions if r.value == "like"
+        ],
+        disliked_by=[
+            (r.user.username if r.user else str(r.user_id)) for r in reactions if r.value == "dislike"
+        ],
     )
     return jsonify({
         "likes": likes,

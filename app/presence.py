@@ -24,6 +24,7 @@ class BasePresenceBus:
         group_id: int | None = None,
         message_id: int | None = None,
         created_at: str | None = None,
+        **extra,
     ):  # pragma: no cover - interface
         raise NotImplementedError
 
@@ -48,6 +49,7 @@ class InMemoryPresenceBus(BasePresenceBus):
         group_id: int | None = None,
         message_id: int | None = None,
         created_at: str | None = None,
+        **extra,
     ):
         payload = {
             "event": event,
@@ -60,6 +62,7 @@ class InMemoryPresenceBus(BasePresenceBus):
             "created_at": created_at,
             "at": datetime.utcnow().isoformat(),
         }
+        payload.update(extra)
         with self.lock:
             if event == "presence":
                 self.status[user_id] = payload
@@ -119,6 +122,7 @@ class RedisPresenceBus(BasePresenceBus):
         group_id: int | None = None,
         message_id: int | None = None,
         created_at: str | None = None,
+        **extra,
     ):
         payload = {
             "event": event,
@@ -131,6 +135,7 @@ class RedisPresenceBus(BasePresenceBus):
             "created_at": created_at,
             "at": datetime.utcnow().isoformat(),
         }
+        payload.update(extra)
         data = json.dumps(payload)
         if event == "presence":
             self.redis.hset(self.hash_key, user_id, data)
