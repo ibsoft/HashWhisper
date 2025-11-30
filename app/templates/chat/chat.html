@@ -64,6 +64,13 @@
         <div class="text-muted small">{{ _('No scheduled chats yet.') }}</div>
       </div>
     </div>
+    <div class="card card-glass p-3 sidebar-card doc-card mt-3">
+      <div class="card-body text-center">
+        <h6 class="card-title mb-2">{{ _('Documentation') }}</h6>
+        <p class="text-muted small mb-3">{{ _('Review the essentials or catch up on features without leaving the chat.') }}</p>
+        <a class="btn btn-soft w-100 doc-btn" href="{{ url_for('chat.help_page') }}">{{ _('User Manual') }}</a>
+      </div>
+    </div>
   </div>
 
   <div class="card card-glass p-3 position-relative" id="chat-panel">
