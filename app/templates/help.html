@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container py-4">
+  <div class="card card-glass mb-4">
+    <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+      <div>
+        {% if show_gr %}
+        <h3 class="mb-1"><i class="fa-solid fa-circle-question me-2"></i>Οδηγός Χρήσης</h3>
+        <p class="text-muted mb-0">Πώς να χρησιμοποιείς το HashWhisper με ασφάλεια και αποτελεσματικότητα.</p>
+        {% else %}
+        <h3 class="mb-1"><i class="fa-solid fa-circle-question me-2"></i>{{ _('User Manual') }}</h3>
+        <p class="text-muted mb-0">{{ _('How to use HashWhisper securely and effectively.') }}</p>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-soft" href="{{ url_for('chat.chat') }}"><i class="fa-solid fa-comments me-1"></i>{{ _('Back to chat') }}</a>
+        <span class="badge bg-success">{{ _('E2EE') }}</span>
+        <span class="badge bg-info">{{ _('Light & Dark ready') }}</span>
+        <span class="badge bg-secondary">{{ _('EN / GR') }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% set show_gr = locale and locale.startswith('el') %}
+  {% set show_en = not show_gr %}
+
+  <div class="row g-3">
+    {% if show_en %}
+    <div class="col-12 {% if show_gr %}col-lg-6{% endif %}">
+      <div class="card card-glass h-100">
+        <div class="card-body">
+          <h5 class="card-title">HashWhisper User Manual (EN)</h5>
+          <hr>
+          <h6>Basics</h6>
+          <ul>
+            <li><strong>Sign in:</strong> Landing on the chat dashboard. Theme follows your preference; toggle via the half-moon icon.</li>
+            <li><strong>Spaces (groups):</strong> Left sidebar lists your groups. Presence/expiry notices show in the header.</li>
+            <li><strong>Secrets:</strong> Paste the shared secret when prompted; you can remember it for the session.</li>
+          </ul>
+          <h6>Creating & Joining</h6>
+          <ul>
+            <li><strong>Create group:</strong> Press <strong>+</strong> in “Spaces”, name it, share the generated secret.</li>
+            <li><strong>Join via secret:</strong> Paste the secret, add a display name, click <strong>Join securely</strong>.</li>
+            <li><strong>Favorites:</strong> Star users to pin them.</li>
+          </ul>
+          <h6>Messaging</h6>
+          <ul>
+            <li><strong>Text:</strong> Type and send with Enter or the paper-plane. Encryption is client-side (AES-GCM).</li>
+            <li><strong>Emojis:</strong> Open the panel, click multiple emojis; stays open until you close it.</li>
+            <li><strong>Reactions/mentions:</strong> Heart/Thumbs-down under bubbles; mentions trigger notification dots.</li>
+            <li><strong>Delete (if allowed):</strong> Remove your own messages via the trash icon.</li>
+          </ul>
+          <h6>Media & Files</h6>
+          <ul>
+            <li><strong>Attach:</strong> Paperclip → pick image/video/audio/document. Large images auto-compress to WebP ~2.5MB.</li>
+            <li><strong>Rules:</strong> Allowed MIME types per admin; size limit via <code>MAX_CONTENT_LENGTH</code>.</li>
+            <li><strong>Viewing:</strong> Decrypts on click/auto-preview with a spinner.</li>
+            <li><strong>Download:</strong> Use the download icon; retries on decrypt fail.</li>
+          </ul>
+          <h6>Voice Notes</h6>
+          <ul>
+            <li><strong>Record:</strong> Mic button starts/stops; plays inline after upload.</li>
+          </ul>
+          <h6>Scheduled Chats</h6>
+          <ul>
+            <li><strong>Add/edit:</strong> In “Scheduled chats” → <strong>+</strong>; set name, start/end, optional “Never expire”.</li>
+            <li><strong>Join via link:</strong> Share link asks for secret and opens the group.</li>
+            <li><strong>Expiry:</strong> Expired chats purge; warnings appear near end.</li>
+          </ul>
+          <h6>Presence & Notifications</h6>
+          <ul>
+            <li><strong>Presence label:</strong> Shows connection; toasts/browser notifications for new messages (allow in browser).</li>
+            <li><strong>Scroll control:</strong> “Scroll to top/bottom” appears on long history.</li>
+          </ul>
+          <h6>Commands</h6>
+          <ul>
+            <li><code>/ai &lt;prompt&gt;</code> — Send a prompt to the AI assistant (🤖).</li>
+            <li><code>/slap &lt;name&gt;</code> — “You slap &lt;name&gt; with a wet trout” (🤚🐟 + GIF).</li>
+            <li><code>/wave</code> — Wave action with 👋 and GIF.</li>
+            <li><code>/shrug</code> — Shrug action with 🤷 and GIF.</li>
+            <li><code>/me &lt;text&gt;</code> — Emote/action text as yourself.</li>
+          </ul>
+          <h6>Theme & Language</h6>
+          <ul>
+            <li><strong>Theme toggle:</strong> Circle-half icon switches light/dark and saves locally.</li>
+            <li><strong>Language:</strong> Follows saved preference; append <code>?lang=&lt;code&gt;</code> to switch.</li>
+          </ul>
+          <h6>Security Notes</h6>
+          <ul>
+            <li>All encryption/decryption is in-browser; secrets never leave your device.</li>
+            <li>Keep the shared secret private; without it, messages can’t be decrypted.</li>
+            <li>If you lose the shared secret, past chats are unrecoverable and lost to oblivion.</li>
+          </ul>
+          <h6>Troubleshooting</h6>
+          <ul>
+            <li><strong>Unable to decrypt media:</strong> Wait for spinner; click again to retry. Check network or re-enter secret.</li>
+            <li><strong>Messages not loading:</strong> Click refresh; reselect group and confirm secret if needed.</li>
+            <li><strong>Size/type limits:</strong> Compress large files or use supported types.</li>
+          </ul>
+          <h6>Note from the Author</h6>
+          <p>We built HashWhisper because we believe privacy is a right, not a feature. Your secrets stay on your device, encryption is client-side, and security is the default. Keep your secret safe and we’ll keep delivering fast, resilient, encrypted chat.</p>
+          <hr>
+          <p class="small text-muted mb-0"><strong>Author:</strong> Ioannis (Yannis) A. Bouhras &lt;ioannis.bouhras@gmail.com&gt;</p>
+          <p class="small text-muted"><strong>License:</strong> GPLv2</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if show_gr %}
+    <div class="col-12 {% if show_en %}col-lg-6{% endif %}">
+      <div class="card card-glass h-100">
+        <div class="card-body">
+          <h5 class="card-title">Οδηγός Χρήσης HashWhisper (GR)</h5>
+          <hr>
+          <h6>Βασικά</h6>
+          <ul>
+            <li><strong>Σύνδεση:</strong> Μεταφερθείτε στον πίνακα συνομιλίας. Το θέμα ακολουθεί την προτίμησή σας· αλλάξτε με το μισοφέγγαρο.</li>
+            <li><strong>Χώροι (ομάδες):</strong> Η αριστερή στήλη δείχνει τις ομάδες σας. Κάντε κλικ για άνοιγμα. Ενδείξεις παρουσίας/λήξης στην κεφαλίδα.</li>
+            <li><strong>Μυστικά:</strong> Επικολλήστε το κοινό μυστικό όταν ζητηθεί· μπορείτε να το θυμάστε για τη συνεδρία.</li>
+          </ul>
+          <h6>Δημιουργία & Συμμετοχή</h6>
+          <ul>
+            <li><strong>Δημιουργία ομάδας:</strong> Πατήστε <strong>+</strong> στους «Χώρους», δώστε όνομα και μοιραστείτε το μυστικό.</li>
+            <li><strong>Συμμετοχή με μυστικό:</strong> Επικολλήστε το μυστικό, δώστε όνομα εμφάνισης, πατήστε <strong>Join securely</strong>.</li>
+            <li><strong>Αγαπημένα:</strong> Αστέρι για να καρφιτσώσετε χρήστες.</li>
+          </ul>
+          <h6>Μηνύματα</h6>
+          <ul>
+            <li><strong>Κείμενο:</strong> Πληκτρολογήστε και στείλτε με Enter ή το χαρταετό. Η κρυπτογράφηση γίνεται τοπικά (AES-GCM).</li>
+            <li><strong>Emojis:</strong> Ανοίξτε το πάνελ, κάντε κλικ σε πολλά emojis· μένει ανοιχτό μέχρι να το κλείσετε.</li>
+            <li><strong>Αναφορές & αντιδράσεις:</strong> Καρδιά/Thumbs-down κάτω από κάθε φούσκα· οι μετρητές ενημερώνονται.</li>
+            <li><strong>Διαγραφή (αν επιτρέπεται):</strong> Διαγράψτε τα δικά σας μηνύματα με τον κάδο.</li>
+          </ul>
+          <h6>Πολυμέσα & Αρχεία</h6>
+          <ul>
+            <li><strong>Επισύναψη:</strong> Συνδετήρας → επιλέξτε εικόνα/βίντεο/ήχο/έγγραφο. Μεγάλες εικόνες συμπιέζονται σε WebP ~2.5MB.</li>
+            <li><strong>Κανόνες:</strong> Επιτρέπονται μόνο MIME που ορίζει ο διαχειριστής· όριο μεγέθους μέσω <code>MAX_CONTENT_LENGTH</code>.</li>
+            <li><strong>Προβολή:</strong> Αποκρυπτογράφηση στο κλικ/προεπισκόπηση με δείκτη φόρτωσης.</li>
+            <li><strong>Λήψη:</strong> Εικονίδιο λήψης· retry σε αποτυχία αποκρυπτογράφησης.</li>
+          </ul>
+          <h6>Φωνητικά Μηνύματα</h6>
+          <ul>
+            <li><strong>Εγγραφή:</strong> Το μικρόφωνο ξεκινά/σταματά· παίζουν inline μετά την αποστολή.</li>
+          </ul>
+          <h6>Προγραμματισμένες Συνομιλίες</h6>
+          <ul>
+            <li><strong>Προσθήκη/επεξεργασία:</strong> Στο «Scheduled chats» → <strong>+</strong>; ορίστε όνομα, έναρξη/λήξη, «Never expire» αν χρειάζεται.</li>
+            <li><strong>Σύνδεση μέσω συνδέσμου:</strong> Το shared link ζητά μυστικό και ανοίγει την ομάδα.</li>
+            <li><strong>Λήξη:</strong> Ληγμένες συνομιλίες καθαρίζονται· προειδοποιήσεις κοντά στη λήξη.</li>
+          </ul>
+          <h6>Παρουσία & Ειδοποιήσεις</h6>
+          <ul>
+            <li><strong>Ετικέτα παρουσίας:</strong> Δείχνει σύνδεση. Toasts/ειδοποιήσεις browser για νέα μηνύματα (δώστε άδεια).</li>
+            <li><strong>Κύλιση:</strong> Το «Scroll to top/bottom» εμφανίζεται σε μεγάλο ιστορικό.</li>
+          </ul>
+          <h6>Εντολές</h6>
+          <ul>
+            <li><code>/ai &lt;prompt&gt;</code> — Στέλνει προτροπή στον AI βοηθό (🤖).</li>
+            <li><code>/slap &lt;όνομα&gt;</code> — “Εσύ χτυπάς το &lt;όνομα&gt; με μια βρεγμένη πέστροφα” (🤚🐟 + GIF).</li>
+            <li><code>/wave</code> — Κούνημα χεριού με 👋 και GIF.</li>
+            <li><code>/shrug</code> — Ύφος απορίας με 🤷 και GIF.</li>
+            <li><code>/me &lt;κείμενο&gt;</code> — Εμφανίζει ενέργεια/συναίσθημα ως εσύ.</li>
+          </ul>
+          <h6>Θέμα & Γλώσσα</h6>
+          <ul>
+            <li><strong>Εναλλαγή θέματος:</strong> Κύκλος/μισοφέγγαρο αλλάζει φωτεινό/σκοτεινό και αποθηκεύει τοπικά.</li>
+            <li><strong>Γλώσσα:</strong> Ακολουθεί την προτίμησή σας· προσθέστε <code>?lang=&lt;code&gt;</code> για εναλλαγή.</li>
+          </ul>
+          <h6>Σημειώσεις Ασφάλειας</h6>
+          <ul>
+            <li>Όλη η κρυπτογράφηση/αποκρυπτογράφηση γίνεται στον browser· τα μυστικά δεν φεύγουν από τη συσκευή.</li>
+            <li>Κρατήστε το κοινό μυστικό ιδιωτικό· χωρίς αυτό δεν αποκρυπτογραφούνται τα μηνύματα.</li>
+            <li>Αν χάσεις το κοινό μυστικό, οι συνομιλίες είναι μη ανακτήσιμες και χάνονται οριστικά.</li>
+          </ul>
+          <h6>Αντιμετώπιση Προβλημάτων</h6>
+          <ul>
+            <li><strong>Αδυναμία αποκρυπτογράφησης πολυμέσων:</strong> Περιμένετε τον δείκτη· πατήστε ξανά για retry. Ελέγξτε σύνδεση ή μυστικό.</li>
+            <li><strong>Μηνύματα δεν φορτώνουν:</strong> Πατήστε ανανέωση· ξαναεπιλέξτε ομάδα/μυστικό αν χρειάζεται.</li>
+            <li><strong>Όρια μεγέθους/τύπων:</strong> Συμπιέστε μεγάλα αρχεία ή χρησιμοποιήστε επιτρεπτούς τύπους.</li>
+          </ul>
+          <h6>Σημείωμα από τον Δημιουργό</h6>
+          <p>Φτιάξαμε το HashWhisper επειδή πιστεύουμε ότι η ιδιωτικότητα είναι δικαίωμα, όχι προαιρετικό πρόσθετο. Τα μυστικά σου μένουν στη συσκευή σου, η κρυπτογράφηση γίνεται στον δικό σου browser και η ασφάλεια είναι η προεπιλογή. Κράτησε το μυστικό σου ασφαλές και εμείς θα συνεχίσουμε να σου προσφέρουμε γρήγορη, ανθεκτική, κρυπτογραφημένη επικοινωνία.</p>
+          <hr>
+          <p class="small text-muted mb-0"><strong>Δημιουργός:</strong> Ιωάννης Α. Μπούχρας &lt;ioannis.bouhras@gmail.com&gt;</p>
+          <p class="small text-muted"><strong>Άδεια:</strong> GPLv2</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

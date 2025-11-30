@@ -120,10 +120,10 @@
 <!-- Schedule modal -->
 <div class="modal fade" id="scheduleModal" tabindex="-1" aria-labelledby="scheduleModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content bg-dark text-light">
+    <div class="modal-content modal-schedule">
       <div class="modal-header border-0">
         <h5 class="modal-title" id="scheduleModalLabel">{{ _('Schedule chat') }}</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
@@ -144,7 +144,7 @@
         </div>
       </div>
       <div class="modal-footer border-0">
-        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
         <button type="button" class="btn btn-soft" id="sched-save">{{ _('Create') }}</button>
       </div>
     </div>

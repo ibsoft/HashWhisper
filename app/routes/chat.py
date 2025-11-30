@@ -13,7 +13,7 @@ from pathlib import Path
 import qrcode
 from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, url_for, redirect
 from flask_login import current_user, login_required
-from flask_babel import _
+from flask_babel import _, get_locale
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from werkzeug.exceptions import NotFound
@@ -105,6 +105,13 @@ def ensure_not_expired(group_id: int):
 @chat_bp.route("/")
 def index():
     return render_template("auth/landing.html")
+
+
+@chat_bp.route("/help")
+@login_required
+def help_page():
+    current_locale = str(get_locale())
+    return render_template("help.html", locale=current_locale)
 
 
 @chat_bp.route("/avatars/<path:filename>")
@@ -747,12 +754,17 @@ def download_blob(blob_id):
     upload_root = Path(current_app.config["UPLOAD_FOLDER"]).resolve()
     if not file_path.resolve().is_file() or upload_root not in file_path.resolve().parents:
         return jsonify({"error": "invalid_path"}), 400
+    file_size = file_path.stat().st_size
     return Response(
         file_path.read_bytes(),
         headers={
             "Content-Disposition": f"attachment; filename={secure_filename(blob.original_name)}",
             "Content-Type": blob.mime_type or "application/octet-stream",
-            "Cache-Control": "private, max-age=3600, immutable",
+            "Content-Length": str(file_size),
+            "Cache-Control": "private, max-age=0, no-store",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Accept-Ranges": "none",
         },
     )
 
@@ -804,9 +816,7 @@ def react_message(message_id: int):
     })
 
 
-@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
-@login_required
-def delete_message(message_id: int):
+def _delete_message_core(message_id: int):
     cfg = current_app.config
     if not cfg.get("ALLOW_MESSAGE_DELETE", False):
         return jsonify({"error": "disabled", "message": "Message deletion is disabled"}), 403
@@ -844,6 +854,19 @@ def delete_message(message_id: int):
         created_at=datetime.utcnow().isoformat(),
     )
     return jsonify({"ok": True, "id": message_id, "group_id": group_id})
+
+
+@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
+@login_required
+def delete_message(message_id: int):
+    return _delete_message_core(message_id)
+
+
+@chat_bp.route("/api/messages/<int:message_id>/delete", methods=["POST"])
+@login_required
+def delete_message_via_post(message_id: int):
+    # Some environments may block DELETE; provide a POST fallback.
+    return _delete_message_core(message_id)
 
 
 @chat_bp.route("/api/ai/ask", methods=["POST"])
