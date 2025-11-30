@@ -1657,6 +1657,7 @@ async function handleAiQuestion(question) {
   });
   const thinkingBubble = appendLocalBubble('Thinking...', { ai: true, spinner: true, small: true });
   await sendEncryptedMessage(questionText, { action: 'ai', icon: '🤖', act_text: questionText });
+  let appendedAnswer = false;
   try {
     const resp = await fetch('/api/ai/ask', {
       method: 'POST',
@@ -1685,6 +1686,7 @@ async function handleAiQuestion(question) {
     const answer = data.answer || 'No response.';
     const answerText = `AI: ${answer}`;
     await sendEncryptedMessage(answerText, { action: 'ai', icon: '🤖', act_text: answerText });
+    appendedAnswer = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
   } catch (err) {
     if (window.showToast) {
       window.showToast('error', 'AI error', err?.message || 'AI unavailable right now.');
@@ -1706,7 +1708,9 @@ async function handleAiQuestion(question) {
     }
     if (userBubble) userBubble.remove();
     if (thinkingBubble) thinkingBubble.remove();
-    await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
+    if (!appendedAnswer) {
+      await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
+    }
   }
 }
 
