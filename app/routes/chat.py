@@ -599,6 +599,64 @@ def list_messages():
     return jsonify(serialized)
 
 
+@chat_bp.route("/api/messages/latest")
+@login_required
+@limiter.exempt
+def latest_message():
+    purge_expired_scheduled()
+    group_id = request.args.get("group_id", type=int)
+    after_raw = request.args.get("after")
+    after_dt = None
+    if after_raw:
+        try:
+            after_dt = datetime.fromisoformat(after_raw.replace("Z", "+00:00"))
+        except ValueError:
+            after_dt = None
+    if not group_id:
+        return jsonify({})
+    if not ensure_not_expired(group_id):
+        current_app.logger.info("Group %s expired during latest fetch", group_id)
+        return jsonify({"error": "expired"}), 410
+    membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not membership:
+        return jsonify({"error": "forbidden"}), 403
+    query = Message.query.filter_by(group_id=group_id)
+    if after_dt:
+        query = query.filter(Message.created_at > after_dt)
+    msg = query.order_by(Message.created_at.desc()).first()
+    if not msg:
+        return jsonify({})
+    reactions = MessageReaction.query.filter_by(message_id=msg.id).all()
+    likes = len([r for r in reactions if r.value == "like"])
+    dislikes = len([r for r in reactions if r.value == "dislike"])
+    like_usernames = [
+        (r.user.username if r.user else str(r.user_id))
+        for r in reactions
+        if r.value == "like"
+    ]
+    dislike_usernames = [
+        (r.user.username if r.user else str(r.user_id))
+        for r in reactions
+        if r.value == "dislike"
+    ]
+    return jsonify(
+        {
+            "id": msg.id,
+            "ciphertext": msg.ciphertext.hex(),
+            "nonce": msg.nonce,
+            "auth_tag": msg.auth_tag,
+            "meta": msg.meta,
+            "sender_id": msg.sender_id,
+            "sender_name": getattr(msg.sender, "username", "user"),
+            "created_at": msg.created_at.replace(tzinfo=timezone.utc).isoformat(),
+            "likes": likes,
+            "dislikes": dislikes,
+            "liked_by": like_usernames,
+            "disliked_by": dislike_usernames,
+        }
+    )
+
+
 @chat_bp.route("/api/messages", methods=["POST"])
 @login_required
 def post_message():

@@ -43,6 +43,7 @@ let isRecording = false;
 let presenceSource = null;
 let sseRetryDelay = 1000;
 let sseRefreshDebounce = null;
+let sseAppendDebounce = null;
 let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
@@ -82,13 +83,38 @@ function scrollToBottom(listEl) {
   if (!listEl) return;
   const go = () => {
     listEl.scrollTop = listEl.scrollHeight;
-    if (listEl.lastElementChild) {
-      listEl.lastElementChild.scrollIntoView({ block: 'end' });
-    }
   };
   go();
   requestAnimationFrame(go);
   setTimeout(go, 80);
+}
+
+function forceScrollToBottom(listEl, { smooth = false } = {}) {
+  if (!listEl) return;
+  const go = () => {
+    listEl.scrollTop = listEl.scrollHeight;
+  };
+  if (smooth && typeof listEl.scrollTo === 'function') {
+    listEl.scrollTo({ top: listEl.scrollHeight, behavior: 'smooth' });
+    setTimeout(go, 400);
+    return;
+  }
+  const steps = [0, 60, 140, 280, 560, 1000, 1500, 2000];
+  steps.forEach((delay) => setTimeout(go, delay));
+}
+
+function stickToBottom(listEl, attempts = 8) {
+  if (!listEl) return;
+  let tries = 0;
+  const tick = () => {
+    listEl.scrollTop = listEl.scrollHeight;
+    tries += 1;
+    if (tries < attempts) requestAnimationFrame(tick);
+  };
+  tick();
+  [60, 140, 280, 560, 1000].forEach((delay) => setTimeout(() => {
+    listEl.scrollTop = listEl.scrollHeight;
+  }, delay));
 }
 
 function linkify(text) {
@@ -1050,6 +1076,7 @@ async function loadMessages(groupId, opts = {}) {
   state.loadingMessages[groupId] = true;
   const allowSpinner = showSpinner && !prepend;
   let spinnerShown = false;
+  let appliedMinHeight = false;
   try {
     if (!state.messages[groupId]) state.messages[groupId] = [];
     if (!state.oldest[groupId]) state.oldest[groupId] = null;
@@ -1098,22 +1125,33 @@ async function loadMessages(groupId, opts = {}) {
       : hasExisting
         ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
         : data;
-    if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) return;
+    if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) {
+      stickToBottom(list);
+      return;
+    }
     if (forceRefresh) {
-      list.innerHTML = '';
+      if (list) {
+        const height = list.scrollHeight;
+        if (height) {
+          list.style.minHeight = `${height}px`;
+          appliedMinHeight = true;
+        }
+        list.innerHTML = '';
+      }
       state.messages[groupId] = [];
     } else if (!hasExisting) {
-      list.innerHTML = '';
+      if (list) list.innerHTML = '';
       state.messages[groupId] = [];
     }
     const secret = state.secrets[groupId];
     let playedInbound = false;
-    const targetMessages = newMessages;
-    for (const msg of targetMessages) {
-      const bubble = list.querySelector(`[data-message-id="${msg.id}"]`);
-      if (forceRefresh && bubble) {
-        updateBubbleReactions(bubble, msg);
-        continue;
+  const targetMessages = newMessages;
+  let appendedNew = false;
+  for (const msg of targetMessages) {
+    const bubble = list.querySelector(`[data-message-id="${msg.id}"]`);
+    if (forceRefresh && bubble) {
+      updateBubbleReactions(bubble, msg);
+      continue;
       }
       if (state.messages[groupId].includes(msg.id) && prepend) continue;
       let plaintext = '[encrypted]';
@@ -1125,6 +1163,7 @@ async function loadMessages(groupId, opts = {}) {
       await renderMessage(list, msg, isSelf, groupId, { prepend });
       if (!state.messages[groupId].includes(msg.id)) {
         state.messages[groupId].push(msg.id);
+        appendedNew = true;
       }
       if (notify && !isSelf) {
         const mentionHit = messageMentionsUser(plaintext);
@@ -1145,9 +1184,12 @@ async function loadMessages(groupId, opts = {}) {
       const delta = newHeight - prevHeight;
       list.scrollTop = prevScrollTop + delta;
     } else if (forceLatest && list) {
-      [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+      stickToBottom(list);
     } else if (wasNearBottom && !prepend && list?.lastElementChild) {
       list.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+    if (list && (forceLatest || (!prepend && appendedNew))) {
+      stickToBottom(list);
     }
     // Update scroll-top control visibility after rendering messages.
     requestAnimationFrame(() => {
@@ -1166,6 +1208,9 @@ async function loadMessages(groupId, opts = {}) {
   } finally {
     state.loadingMessages[groupId] = false;
     if (spinnerShown) toggleMessageSpinner(false);
+    if (appliedMinHeight && list) {
+      list.style.minHeight = '';
+    }
   }
 }
 
@@ -1195,11 +1240,17 @@ async function sendMessage() {
   });
   if (ok) {
     input.value = '';
-    await loadMessages(state.currentGroup, { notify: false, forceLatest: true });
-    const list = document.getElementById('message-list');
-    // Focus composer and force bottom scroll to avoid mid-list positioning
     input.focus();
-    [0, 80, 200, 400, 800, 1200].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+    appendTempMessage(payloadText);
+    const list = document.getElementById('message-list');
+    const beforeCount = state.messages[state.currentGroup]?.length || 0;
+    const appended = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
+    const afterCount = state.messages[state.currentGroup]?.length || 0;
+    if (!appended || beforeCount === afterCount) {
+      setTimeout(() => appendLatestMessage(state.currentGroup, { ignoreAfter: true }), 120);
+      setTimeout(() => loadMessages(state.currentGroup, { notify: false, forceLatest: true, showSpinner: false, forceRefresh: false }), 320);
+    }
+    stickToBottom(list);
     startAutoRefresh();
     playSound('outbound');
   }
@@ -1406,6 +1457,82 @@ function trimBlankLines(text) {
   let t = (text || '').replace(/\r\n/g, '\n');
   t = t.replace(/^\n+/, '').replace(/\n+$/, '');
   return t;
+}
+
+function appendTempMessage(text) {
+  const list = document.getElementById('message-list');
+  if (!list) return;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble self temp-message';
+  const body = document.createElement('div');
+  body.textContent = text;
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = 'Sending...';
+  bubble.appendChild(body);
+  bubble.appendChild(meta);
+  list.appendChild(bubble);
+  scrollToBottom(list);
+}
+
+function removeTempMessages() {
+  const list = document.getElementById('message-list');
+  if (!list) return;
+  list.querySelectorAll('.temp-message').forEach((el) => el.remove());
+}
+
+async function fetchLatestMessage(groupId, { ignoreAfter = false } = {}) {
+  try {
+    const url = new URL('/api/messages/latest', window.location.origin);
+    url.searchParams.set('group_id', groupId);
+    if (state.seen[groupId] && !ignoreAfter) {
+      const lastIso = new Date(state.seen[groupId]).toISOString();
+      url.searchParams.set('after', lastIso);
+    }
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.id) return null;
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function appendLatestMessage(groupId, opts = {}) {
+  const { ignoreAfter = false, notify = false, scroll = true } = opts;
+  const list = document.getElementById('message-list');
+  if (!list) return false;
+  const msg = await fetchLatestMessage(groupId, { ignoreAfter });
+  if (!msg) return false;
+  if (state.messages[groupId]?.includes(msg.id)) {
+    scrollToBottom(list);
+    return true;
+  }
+  const secret = await ensureSecret(groupId);
+  if (!secret) return false;
+  const plaintext = await decryptText(msg, secret, groupId);
+  msg.plaintext = plaintext;
+  const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
+  state.messages[groupId] = state.messages[groupId] || [];
+  await renderMessage(list, msg, isSelf, groupId, { prepend: false });
+  state.messages[groupId].push(msg.id);
+  state.seen[groupId] = new Date(msg.created_at).getTime();
+  if (!state.oldest[groupId]) state.oldest[groupId] = msg.created_at;
+  removeTempMessages();
+  if (notify && !isSelf) {
+    const mentionHit = messageMentionsUser(plaintext);
+    updateNotificationIcon(1, mentionHit);
+    showBrowserNotification('New message', plaintext.slice(0, 80) || 'Encrypted message');
+    playSound('inbound');
+  }
+  if (scroll) {
+    stickToBottom(list);
+  }
+  requestAnimationFrame(() => {
+    if (typeof updateScrollTopButton === 'function') updateScrollTopButton();
+  });
+  return true;
 }
 
 async function copyMessageContent(bubble, fallbackText) {
@@ -2066,9 +2193,13 @@ function bindUI() {
     resumeAudio();
     toggleRecording();
   });
-  document.getElementById('refresh-btn')?.addEventListener('click', () => {
+  document.getElementById('refresh-btn')?.addEventListener('click', async () => {
     if (state.currentGroup && state.secrets[state.currentGroup]) {
-      loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true, forceLatest: true });
+      const list = document.getElementById('message-list');
+      await loadMessages(state.currentGroup, { skipSecretPrompt: true, notify: false, forceRefresh: true, forceLatest: true });
+      forceScrollToBottom(list);
+      const pageScroller = document.scrollingElement || document.documentElement;
+      forceScrollToBottom(pageScroller);
     }
   });
 
@@ -2458,7 +2589,8 @@ function connectPresence() {
         return;
       }
       if (payload.event === 'message') {
-        scheduleMessageRefresh(payload.group_id, { notify: true, forceRefresh: true });
+        const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
+        scheduleLatestMessageAppend(payload.group_id, { notify: !isSelf });
       }
       if (payload.event === 'reaction') {
         scheduleMessageRefresh(payload.group_id, { notify: false, forceRefresh: true, spinner: false });
@@ -2754,6 +2886,32 @@ function scheduleMessageRefresh(groupId, { notify = true, forceRefresh = false, 
   }, 250);
 }
 
+function scheduleLatestMessageAppend(groupId, { notify = true } = {}) {
+  if (!groupId || groupId !== state.currentGroup) return;
+  if (sseAppendDebounce) return;
+  sseAppendDebounce = setTimeout(async () => {
+    sseAppendDebounce = null;
+    try {
+      if (groupId !== state.currentGroup) return;
+      const list = document.getElementById('message-list');
+      const nearBottom = isNearBottom(list);
+      const appended = await appendLatestMessage(groupId, { ignoreAfter: true, notify, scroll: false });
+      if (list && nearBottom) {
+        stickToBottom(list);
+      }
+      if (!appended) {
+        await loadMessages(groupId, { skipSecretPrompt: true, notify, forceRefresh: true, forceLatest: true, showSpinner: false });
+      }
+    } catch (err) {
+      console.error('scheduleLatestMessageAppend failed', err);
+    } finally {
+      requestAnimationFrame(() => {
+        if (typeof updateScrollTopButton === 'function') updateScrollTopButton();
+      });
+    }
+  }, 250);
+}
+
 async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) {
   if (GROUP_DEBUG) console.debug('[group] setCurrentGroup start', { groupId, groupName, forceLatest });
   state.currentGroup = Number(groupId);
@@ -2774,7 +2932,9 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   if (GROUP_DEBUG) console.debug('[group] secret obtained, loading messages');
   await loadMessages(state.currentGroup, { notify: false, forceLatest });
   if (forceLatest && list) {
-    [0, 80, 200, 400].forEach((delay) => setTimeout(() => scrollToBottom(list), delay));
+    forceScrollToBottom(list, { smooth: true });
+    const pageScroller = document.scrollingElement || document.documentElement;
+    forceScrollToBottom(pageScroller, { smooth: true });
   }
   loadGroupUsers(state.currentGroup);
   updateSecretDots();

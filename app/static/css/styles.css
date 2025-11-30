@@ -227,6 +227,36 @@ html, body {
     white-space: nowrap;
     font-size: 0.78rem;
   }
+  .nav-inline-scroll {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+  }
+  .nav-inline-scroll .nav-token {
+    flex: 0 1 auto;
+  }
+  .nav-inline-scroll .nav-chip,
+  .nav-inline-scroll .btn-ghost {
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-inline-scroll {
+    gap: 0.25rem;
+  }
+  .nav-inline-scroll .chip,
+  .nav-inline-scroll .btn-ghost {
+    padding-inline: 6px;
+    min-width: 0;
+  }
+  .nav-inline-scroll .chip span,
+  .nav-inline-scroll .btn-ghost span {
+    display: none;
+  }
+  .chip-user {
+    max-width: 110px;
+  }
 }
 
 .navbar .badge {
