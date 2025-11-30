@@ -3236,10 +3236,22 @@ function removeGroupFromSidebar(groupId) {
   if (wrapper) wrapper.remove();
 }
 function updateLoadOlderButton() {
-  const btn = document.getElementById('load-older-btn-floating');
-  if (!btn) return;
   const groupId = state.currentGroup;
   const visible = Boolean(groupId && state.hasMoreOlder[groupId]);
-  btn.classList.toggle('show', visible);
-  btn.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  const btn = document.getElementById('load-older-btn-floating');
+  if (btn) {
+    btn.classList.toggle('show', visible);
+    btn.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+  updateLoadOlderBanner(visible);
+}
+
+function updateLoadOlderBanner(visible) {
+  const banner = document.querySelector('.load-older-banner');
+  if (!banner) return;
+  const groupId = state.currentGroup;
+  const shouldShow = typeof visible === 'boolean'
+    ? visible
+    : Boolean(groupId && state.hasMoreOlder[groupId]);
+  banner.classList.toggle('d-none', !shouldShow);
 }
