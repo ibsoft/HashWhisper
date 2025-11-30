@@ -250,7 +250,7 @@ html, body {
     padding-inline: 6px;
     min-width: 0;
   }
-  .nav-inline-scroll .chip span,
+  .nav-inline-scroll .chip span:not(.dot-pulse),
   .nav-inline-scroll .btn-ghost span {
     display: none;
   }
