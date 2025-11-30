@@ -293,6 +293,24 @@ html, body {
   border-radius: 18px;
 }
 
+.doc-card {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.doc-card .card-title {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.doc-card .doc-btn {
+  border-radius: 999px;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+[data-bs-theme="light"] .doc-card {
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
 .btn-soft {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   border: none;
