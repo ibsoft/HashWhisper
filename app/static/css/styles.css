@@ -85,7 +85,15 @@ html, body {
 
 .fancy-nav .brand-row { position: relative; z-index: 1; }
 .fancy-bar .navbar-brand { padding-right: 4px; }
-.nav-logo { width: var(--nav-token-height); height: var(--nav-token-height); }
+.nav-logo {
+  width: var(--nav-token-height);
+  height: var(--nav-token-height);
+  object-fit: contain;
+  display: block;
+}
+.navbar-brand {
+  overflow: hidden;
+}
 .brand-glow {
   width: 12px;
   height: 12px;
