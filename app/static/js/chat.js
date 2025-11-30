@@ -1,4 +1,5 @@
 const encoder = new TextEncoder();
+const MESSAGE_PAGE_LIMIT = 50;
 
 const state = {
   currentGroup: null,
@@ -11,6 +12,8 @@ const state = {
   copyCounts: {},
   mediaCache: new Map(),
   messages: {},
+  hasMoreOlder: {},
+  messageCount: {},
   notifications: { count: 0, mention: false },
   emojiPickerReady: false,
   notificationsAllowed: false,
@@ -71,6 +74,41 @@ function updateScrollTopButton() {
   scrollTopBtn.title = direction === 'down' ? 'Go to newest' : 'Go to top';
   scrollTopBtn.classList.add('show');
   scrollTopBtn.setAttribute('aria-hidden', 'false');
+}
+
+function updateMessageCountDisplay() {
+  const el = document.getElementById('message-count');
+  if (!el) return;
+  const groupId = state.currentGroup;
+  const stored = groupId ? state.messageCount[groupId] : undefined;
+  const count = typeof stored === 'number'
+    ? stored
+    : (groupId ? (state.messages[groupId]?.length || 0) : 0);
+  const singular = el.dataset.singular || 'whisper';
+  const plural = el.dataset.plural || 'whispers';
+  const label = count === 1 ? singular : plural;
+  el.textContent = `${count} ${label}`;
+}
+
+async function fetchMessageCount(groupId, { force = false } = {}) {
+  if (!groupId) return;
+  if (!force && typeof state.messageCount[groupId] === 'number') {
+    updateMessageCountDisplay();
+    return;
+  }
+  try {
+    const url = new URL('/api/messages/count', window.location.origin);
+    url.searchParams.set('group_id', groupId);
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (typeof data.count === 'number') {
+      state.messageCount[groupId] = data.count;
+      updateMessageCountDisplay();
+    }
+  } catch (err) {
+    // ignore
+  }
 }
 
 function isNearBottom(listEl, threshold = 120) {
@@ -918,7 +956,11 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   if (prepend && container.firstChild) {
     container.insertBefore(bubble, container.firstChild);
   } else {
-    container.appendChild(bubble);
+    if (prepend && container.firstChild) {
+      container.insertBefore(bubble, container.firstChild);
+    } else {
+      container.appendChild(bubble);
+    }
     container.scrollTop = container.scrollHeight;
   }
 }
@@ -1196,9 +1238,11 @@ async function loadMessages(groupId, opts = {}) {
     const lastSeen = state.seen[groupId] || 0;
     const newMessages = forceRefresh
       ? data
-      : hasExisting
-        ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
-        : data;
+      : prepend
+        ? data
+        : hasExisting
+          ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
+          : data;
     if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) {
       stickToBottom(list);
       return;
@@ -1279,6 +1323,9 @@ async function loadMessages(groupId, opts = {}) {
     } else if (!prepend) {
       state.seen[groupId] = 0;
     }
+    state.hasMoreOlder[groupId] = newMessages.length >= MESSAGE_PAGE_LIMIT;
+    updateLoadOlderButton();
+    updateMessageCountDisplay();
   } finally {
     state.loadingMessages[groupId] = false;
     if (spinnerShown) toggleMessageSpinner(false);
@@ -1288,6 +1335,26 @@ async function loadMessages(groupId, opts = {}) {
   }
 }
 
+async function loadOlderChunk(groupId) {
+  if (!groupId) return;
+  if (state.loadingOlder[groupId]) return;
+  console.debug('[loadOlderChunk] group', groupId, 'oldest', state.oldest[groupId]);
+  const marker = state.oldest[groupId];
+  if (!marker) return;
+  state.loadingOlder[groupId] = true;
+  try {
+    await loadMessages(groupId, {
+      skipSecretPrompt: true,
+      notify: false,
+      forceRefresh: false,
+      before: marker,
+      prepend: true,
+      showSpinner: false,
+    });
+  } finally {
+    state.loadingOlder[groupId] = false;
+  }
+}
 
 async function sendMessage() {
   if (!state.currentGroup) {
@@ -1320,6 +1387,8 @@ async function sendMessage() {
     const beforeCount = state.messages[state.currentGroup]?.length || 0;
     const appended = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
     const afterCount = state.messages[state.currentGroup]?.length || 0;
+    state.messageCount[state.currentGroup] = (state.messageCount[state.currentGroup] || 0) + (afterCount - beforeCount);
+    updateMessageCountDisplay();
     if (!appended || beforeCount === afterCount) {
       setTimeout(() => appendLatestMessage(state.currentGroup, { ignoreAfter: true }), 120);
       setTimeout(() => loadMessages(state.currentGroup, { notify: false, forceLatest: true, showSpinner: false, forceRefresh: false }), 320);
@@ -1611,6 +1680,8 @@ async function appendLatestMessage(groupId, opts = {}) {
   requestAnimationFrame(() => {
     if (typeof updateScrollTopButton === 'function') updateScrollTopButton();
   });
+  updateMessageCountDisplay();
+  fetchMessageCount(groupId, { force: true });
   return true;
 }
 
@@ -2387,6 +2458,12 @@ function bindUI() {
       btnContainer.style.padding = '0 0.25rem 0.5rem 0.25rem';
     }
     window.addEventListener('scroll', updateScrollTopButton, { passive: true });
+    document.getElementById('load-older-btn')?.addEventListener('click', () => {
+      if (state.currentGroup) {
+        loadOlderChunk(state.currentGroup);
+      }
+    });
+
   }
 
   const msgList = list;
@@ -2938,6 +3015,7 @@ async function deleteMessage(id, groupId, bubble) {
   } catch (err) {
     showInfoModal('Deleted', 'Message removed.');
   }
+  updateMessageCountDisplay();
   return true;
 }
 
@@ -3026,6 +3104,7 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
     const pageScroller = document.scrollingElement || document.documentElement;
     forceScrollToBottom(pageScroller, { smooth: true });
   }
+  await fetchMessageCount(state.currentGroup, { force: true });
   loadGroupUsers(state.currentGroup);
   updateSecretDots();
   await fetchScheduled();
@@ -3155,4 +3234,24 @@ function removeGroupFromSidebar(groupId) {
   const btn = document.querySelector(`#group-list [data-group-id="${groupId}"]`);
   const wrapper = btn?.closest('.list-group-item');
   if (wrapper) wrapper.remove();
+}
+function updateLoadOlderButton() {
+  const groupId = state.currentGroup;
+  const visible = Boolean(groupId && state.hasMoreOlder[groupId]);
+  const btn = document.getElementById('load-older-btn-floating');
+  if (btn) {
+    btn.classList.toggle('show', visible);
+    btn.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+  updateLoadOlderBanner(visible);
+}
+
+function updateLoadOlderBanner(visible) {
+  const banner = document.querySelector('.load-older-banner');
+  if (!banner) return;
+  const groupId = state.currentGroup;
+  const shouldShow = typeof visible === 'boolean'
+    ? visible
+    : Boolean(groupId && state.hasMoreOlder[groupId]);
+  banner.classList.toggle('d-none', !shouldShow);
 }

@@ -83,6 +83,18 @@ html, body {
 }
 .nav-inline-scroll::-webkit-scrollbar { display: none; }
 
+.load-older-banner {
+  background: var(--glass);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 1rem;
+  border-radius: 0 0 18px 18px;
+}
+.load-older-banner .btn-soft {
+  padding-inline: 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
 .fancy-nav .brand-row { position: relative; z-index: 1; }
 .fancy-bar .navbar-brand { padding-right: 4px; }
 .nav-logo {

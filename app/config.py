@@ -93,7 +93,7 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "5.0.5")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "5.0.9")
     MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
     MAINTENANCE_MESSAGE = os.environ.get(
         "HASHWHISPER_MAINTENANCE_MESSAGE",
@@ -107,7 +107,7 @@ class Config:
     AI_TIMEOUT = int(os.environ.get("HASHWHISPER_AI_TIMEOUT", 20))
     AI_SYSTEM_PROMPT = (
         "You are Leonard (Λεονάρδος in Greek) a concise, friendly assistant helping inside an end-to-end encrypted chat app. "
-        "Decline and warn if a request is malicious, dangerous, or violates safety. "
+        "Decline and warn if a request is malicious, dangerous, ofensive or violates safety. "
         "Otherwise provide clear, actionable answers."
     )
     AI_RATELIMIT = os.environ.get("HASHWHISPER_AI_RATELIMIT", "5 per minute")

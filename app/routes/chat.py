@@ -599,6 +599,23 @@ def list_messages():
     return jsonify(serialized)
 
 
+@chat_bp.route("/api/messages/count")
+@login_required
+@limiter.exempt
+def message_count():
+    purge_expired_scheduled()
+    group_id = request.args.get("group_id", type=int)
+    if not group_id:
+        return jsonify({"error": "missing_group"}), 400
+    if not ensure_not_expired(group_id):
+        return jsonify({"error": "expired"}), 410
+    membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not membership:
+        return jsonify({"error": "forbidden"}), 403
+    total = Message.query.filter_by(group_id=group_id).count()
+    return jsonify({"count": total})
+
+
 @chat_bp.route("/api/messages/latest")
 @login_required
 @limiter.exempt
