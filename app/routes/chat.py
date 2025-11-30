@@ -13,7 +13,7 @@ from pathlib import Path
 import qrcode
 from flask import Blueprint, Response, current_app, flash, jsonify, render_template, request, url_for, redirect
 from flask_login import current_user, login_required
-from flask_babel import _
+from flask_babel import _, get_locale
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from werkzeug.exceptions import NotFound
@@ -105,6 +105,13 @@ def ensure_not_expired(group_id: int):
 @chat_bp.route("/")
 def index():
     return render_template("auth/landing.html")
+
+
+@chat_bp.route("/help")
+@login_required
+def help_page():
+    current_locale = str(get_locale())
+    return render_template("help.html", locale=current_locale)
 
 
 @chat_bp.route("/avatars/<path:filename>")

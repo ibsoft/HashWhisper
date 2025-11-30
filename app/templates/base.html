@@ -39,13 +39,14 @@
     </div>
     <div class="nav-inline-scroll d-flex align-items-center gap-2 flex-nowrap ms-auto">
       {% if current_user.is_authenticated %}
+      <a class="btn btn-sm btn-ghost flex-shrink-0 nav-token nav-chip" href="{{ url_for('chat.help_page') }}" aria-label="{{ _('Help') }}" title="{{ _('Help') }}"><i class="fa-solid fa-circle-question"></i></a>
       <span class="chip chip-secure flex-shrink-0 nav-token"><i class="fa-solid fa-lock"></i> {{ _('E2EE') }}</span>
       <span class="chip chip-user flex-shrink-0 nav-token chip-tight d-flex align-items-center gap-2">
         <span class="dot-pulse" aria-label="{{ _('Online') }}" title="{{ _('Online') }}"></span>
         {{ current_user.username }}
       </span>
-      <a class="btn btn-sm btn-outline-light btn-ghost flex-shrink-0 nav-token" href="{{ url_for('settings.settings') }}"><i class="fa-solid fa-gear"></i> <span class="d-none d-sm-inline">{{ _('Settings') }}</span></a>
-      <a class="btn btn-sm btn-outline-warning btn-ghost flex-shrink-0 nav-token" href="{{ url_for('auth.logout') }}" data-logout><i class="fa-solid fa-right-from-bracket"></i> <span class="d-none d-sm-inline">{{ _('Logout') }}</span></a>
+      <a class="btn btn-sm btn-ghost flex-shrink-0 nav-token nav-chip" href="{{ url_for('settings.settings') }}"><i class="fa-solid fa-gear"></i> <span class="d-none d-sm-inline">{{ _('Settings') }}</span></a>
+      <a class="btn btn-sm btn-ghost flex-shrink-0 nav-token nav-chip nav-chip-warn" href="{{ url_for('auth.logout') }}" data-logout><i class="fa-solid fa-right-from-bracket"></i> <span class="d-none d-sm-inline">{{ _('Logout') }}</span></a>
       {% endif %}
     </div>
   </div>

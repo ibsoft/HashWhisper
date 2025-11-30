@@ -1099,11 +1099,12 @@ async function loadMessages(groupId, opts = {}) {
         ? data.filter((m) => new Date(m.created_at).getTime() > lastSeen)
         : data;
     if (hasExisting && newMessages.length === 0 && !forceRefresh && !prepend) return;
-    if (!hasExisting || forceRefresh) {
-      if (!forceRefresh) {
-        list.innerHTML = '';
-        state.messages[groupId] = [];
-      }
+    if (forceRefresh) {
+      list.innerHTML = '';
+      state.messages[groupId] = [];
+    } else if (!hasExisting) {
+      list.innerHTML = '';
+      state.messages[groupId] = [];
     }
     const secret = state.secrets[groupId];
     let playedInbound = false;
@@ -1194,7 +1195,7 @@ async function sendMessage() {
   });
   if (ok) {
     input.value = '';
-    await loadMessages(state.currentGroup, { notify: false });
+    await loadMessages(state.currentGroup, { notify: false, forceLatest: true });
     startAutoRefresh();
     playSound('outbound');
   }
@@ -2805,8 +2806,11 @@ function initEmojiPicker() {
         const before = input.value.slice(0, cursor);
         const after = input.value.slice(cursor);
         input.value = `${before}${emoji}${after}`;
-        input.focus();
-        toggleEmojiPicker(false);
+        const nextCursor = before.length + emoji.length;
+        requestAnimationFrame(() => {
+          input.focus();
+          input.setSelectionRange(nextCursor, nextCursor);
+        });
       });
       picker.appendChild(b);
     });

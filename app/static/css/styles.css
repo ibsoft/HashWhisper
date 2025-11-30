@@ -136,6 +136,34 @@ html, body {
 .chip-secure { border-color: rgba(158, 242, 176, 0.5); }
 .chip-user { border-color: rgba(111, 211, 255, 0.45); }
 .chip-tight { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-bs-theme="light"] .navbar-glass .chip {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+[data-bs-theme="light"] .navbar-glass .chip i { color: #fff; opacity: 0.95; }
+[data-bs-theme="light"] .navbar-glass .chip-secure { border-color: rgba(158, 242, 176, 0.6); }
+[data-bs-theme="light"] .navbar-glass .chip-user { border-color: rgba(111, 211, 255, 0.6); }
+.nav-chip {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.nav-chip i { color: #fff; }
+.nav-chip-warn {
+  border-color: rgba(255, 143, 177, 0.5);
+  background: linear-gradient(135deg, rgba(255, 143, 177, 0.25), rgba(242, 187, 92, 0.22));
+  color: #fff;
+}
+[data-bs-theme="light"] .navbar-glass .nav-chip {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+[data-bs-theme="light"] .navbar-glass .nav-chip-warn {
+  background: linear-gradient(135deg, rgba(255, 143, 177, 0.3), rgba(242, 187, 92, 0.28));
+  border-color: rgba(255, 143, 177, 0.6);
+}
 .avatar {
   width: 32px;
   height: 32px;
