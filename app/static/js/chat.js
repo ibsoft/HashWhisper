@@ -87,7 +87,16 @@ function updateMessageCountDisplay() {
   const singular = el.dataset.singular || 'whisper';
   const plural = el.dataset.plural || 'whispers';
   const label = count === 1 ? singular : plural;
-  el.textContent = `${count} ${label}`;
+  const displayCount = abbreviateCount(count);
+  el.textContent = `${displayCount} ${label}`;
+}
+
+function abbreviateCount(count) {
+  if (typeof count !== 'number' || count < 1000) {
+    return `${count}`;
+  }
+  const thousands = Math.floor(count / 1000);
+  return `${thousands}k`;
 }
 
 async function fetchMessageCount(groupId, { force = false } = {}) {
