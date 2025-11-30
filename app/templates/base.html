@@ -33,13 +33,13 @@
 <nav class="navbar navbar-dark navbar-glass sticky-top fancy-nav">
   <div class="container-fluid fancy-bar py-2">
     <div class="d-flex align-items-center gap-3 flex-shrink-0">
-      <a class="navbar-brand fw-bold d-flex align-items-center gap-2 flex-shrink-0" href="{{ url_for('chat.chat') }}">
+      <a class="navbar-brand fw-bold d-flex align-items-center gap-1 flex-shrink-0" href="{{ url_for('chat.chat') }}">
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" width="32" height="32" class="d-inline-block align-text-top nav-logo">
       </a>
     </div>
     <div class="nav-inline-scroll d-flex align-items-center gap-2 flex-nowrap ms-auto">
       {% if current_user.is_authenticated %}
-      <span class="chip chip-secure flex-shrink-0 nav-token"><i class="fa-solid fa-lock"></i> {{ _('E2EE') }}</span>
+      <span class="chip chip-secure flex-shrink-0 nav-token" title="{{ _('AES-GCM encryption') }}"><i class="fa-solid fa-shield-halved"></i> AES-GCM</span>
       <span class="chip chip-user flex-shrink-0 nav-token chip-tight d-flex align-items-center gap-2">
         <span class="dot-pulse" aria-label="{{ _('Online') }}" title="{{ _('Online') }}"></span>
         {{ current_user.username }}
