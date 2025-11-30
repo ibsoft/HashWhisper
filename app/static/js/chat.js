@@ -653,41 +653,47 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   if (meta.type === 'media') {
     body.className = 'd-flex flex-column gap-2';
     bubble.classList.add('media-wide');
+    const displayName = meta.name || meta.orig_name || meta.original_name || 'Document';
     const preview = document.createElement('div');
     preview.className = 'w-100 mt-1 media-preview';
+    const previewBody = document.createElement('div');
+    previewBody.className = 'media-preview-body';
+    const previewSpinner = document.createElement('div');
+    previewSpinner.className = 'media-spinner d-none';
+    previewSpinner.innerHTML = '<div class="spinner-border spinner-border-sm text-accent" role="status" aria-label="Decrypting media"></div>';
+    preview.appendChild(previewBody);
+    preview.appendChild(previewSpinner);
     if (meta.blob_id) {
       const mime = (meta.mime || '').toLowerCase();
       const isAudio = mime.startsWith('audio/');
       const isDoc = mime.startsWith('application/');
       if (isAudio) {
         preview.classList.add('media-audio');
-        preview.innerHTML = '';
         const iconWrap = document.createElement('div');
         iconWrap.className = 'd-flex justify-content-center';
         iconWrap.innerHTML = '<i class="fa-solid fa-music fa-2x text-muted"></i>';
         const nameRow = document.createElement('div');
         nameRow.className = 'text-muted small fw-semibold filename-row text-center';
-        nameRow.textContent = meta.name || 'Audio';
+        nameRow.textContent = displayName || 'Audio';
         const playerWrap = document.createElement('div');
         playerWrap.className = 'w-100 mt-2';
-        preview.appendChild(iconWrap);
-        preview.appendChild(nameRow);
-        preview.appendChild(playerWrap);
-        const renderInline = () => decryptMedia(msg, meta, { target: playerWrap, inline: true, groupId });
+        previewBody.appendChild(iconWrap);
+        previewBody.appendChild(nameRow);
+        previewBody.appendChild(playerWrap);
+        const renderInline = () => decryptMedia(msg, meta, { target: playerWrap, inline: true, groupId, spinner: previewSpinner });
         if (!state.secrets[groupId]) {
           ensureSecret(groupId).then((secret) => { if (secret) renderInline(); });
         } else {
           renderInline();
         }
       } else if (!isDoc) {
-        preview.innerHTML = '';
         if (meta.name) {
           const nameRow = document.createElement('div');
           nameRow.className = 'text-muted small fw-semibold filename-row';
-          nameRow.textContent = meta.name;
+          nameRow.textContent = displayName;
           body.appendChild(nameRow);
         }
-        const renderInline = () => decryptMedia(msg, meta, { target: preview, inline: true, groupId });
+        const renderInline = () => decryptMedia(msg, meta, { target: previewBody, inline: true, groupId, spinner: previewSpinner });
         if (!state.secrets[groupId]) {
           ensureSecret(groupId).then((secret) => { if (secret) renderInline(); });
         } else {
@@ -695,12 +701,11 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
         }
         preview.addEventListener('click', async () => {
           if (!meta.renderedUrl) {
-            await decryptMedia(msg, meta, { inline: false, groupId });
+            await decryptMedia(msg, meta, { inline: false, groupId, spinner: previewSpinner });
           }
           openMediaModal(meta);
         });
       } else {
-        preview.innerHTML = '';
         const docWrap = document.createElement('div');
         docWrap.className = 'd-flex flex-column align-items-center text-center w-100';
         const iconRow = document.createElement('div');
@@ -712,14 +717,15 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
         }
         const nameRow = document.createElement('div');
         nameRow.className = 'text-muted small filename-row mt-1';
-        nameRow.textContent = meta.name || 'Document';
+        nameRow.textContent = displayName || 'Document';
         docWrap.appendChild(iconRow);
         docWrap.appendChild(nameRow);
-        preview.appendChild(docWrap);
+        previewBody.appendChild(docWrap);
       }
       const dlBtn = document.createElement('button');
       dlBtn.className = 'btn btn-sm reaction-download align-self-start';
       dlBtn.innerHTML = '<i class="fa-solid fa-download"></i>';
+      dlBtn.title = displayName ? `Download ${displayName}` : 'Download';
       dlBtn.addEventListener('click', () => decryptMedia(msg, meta, { download: true, groupId }));
       actions.appendChild(dlBtn);
       if (mime.startsWith('image/')) {
@@ -819,9 +825,58 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   }
 }
 
+function clearMediaCache(meta) {
+  if (!meta?.blob_id) return;
+  const cached = state.mediaCache.get(meta.blob_id);
+  if (cached?.url) {
+    try { URL.revokeObjectURL(cached.url); } catch (err) { /* ignore */ }
+  }
+  state.mediaCache.delete(meta.blob_id);
+  meta.renderedUrl = null;
+}
+
+async function fetchEncryptedBlob(meta, opts = {}) {
+  if (!meta?.blob_id) throw new Error('missing_blob_id');
+  const { cacheBust = false } = opts;
+  const strategies = cacheBust ? ['no-store'] : ['force-cache', 'reload'];
+  let lastError = null;
+  const urlBase = `/api/blob/${meta.blob_id}`;
+  const url = cacheBust ? `${urlBase}?t=${Date.now()}` : urlBase;
+  for (const cacheMode of strategies) {
+    try {
+      const resp = await fetch(url, { cache: cacheMode });
+      if (!resp.ok) {
+        lastError = new Error(`status_${resp.status}`);
+        continue;
+      }
+      const buf = await resp.arrayBuffer();
+      if (meta.size && buf.byteLength && buf.byteLength !== meta.size) {
+        lastError = new Error(`size_mismatch:${buf.byteLength}:${meta.size}`);
+        continue;
+      }
+      return buf;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('download_failed');
+}
+
 async function decryptMedia(msg, meta, opts = {}) {
-  const { download = false, inline = false, target = null, groupId = state.currentGroup } = opts;
+  const {
+    download = false,
+    inline = false,
+    target = null,
+    groupId = state.currentGroup,
+    spinner = null,
+    cacheBust = false,
+    _retry = false,
+  } = opts;
+  const shouldSpin = spinner && !meta.renderedUrl;
+  const showSpinner = () => { if (spinner) spinner.classList.remove('d-none'); };
+  const hideSpinner = () => { if (spinner) spinner.classList.add('d-none'); };
   try {
+    if (shouldSpin) showSpinner();
     const secret = await ensureSecret(groupId);
     if (!secret) return;
     // Use cached decrypted URL if available
@@ -831,9 +886,7 @@ async function decryptMedia(msg, meta, opts = {}) {
     }
     let url = meta.renderedUrl;
     if (!url) {
-      const resp = await fetch(`/api/blob/${meta.blob_id}`, { cache: 'force-cache' });
-      if (!resp.ok) return showInfoModal('Download failed', 'Could not fetch the encrypted media.');
-      const cipherBuffer = await resp.arrayBuffer();
+      const cipherBuffer = await fetchEncryptedBlob(meta, { cacheBust });
       const key = await deriveKey(secret, groupId);
       const nonce = new Uint8Array(fromHex(msg.nonce));
       const tag = new Uint8Array(fromHex(msg.auth_tag));
@@ -852,7 +905,7 @@ async function decryptMedia(msg, meta, opts = {}) {
       state.mediaCache.set(meta.blob_id, { url });
     }
     if (inline && target) {
-      target.innerHTML = '';
+      while (target.firstChild) target.removeChild(target.firstChild);
       const mime = (meta.mime || '').toLowerCase();
       if (mime.startsWith('image/')) {
         const img = document.createElement('img');
@@ -883,18 +936,27 @@ async function decryptMedia(msg, meta, opts = {}) {
     if (download) {
       const a = document.createElement('a');
       a.href = url;
-      a.download = meta.name || 'media';
+      a.download = meta.name || meta.orig_name || 'media';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     }
   } catch (err) {
     console.error('Media decrypt failed', err);
-    if (target) {
-      target.innerHTML = '<div class="text-danger small">Unable to decrypt media.</div>';
-    } else {
-      showInfoModal('Decrypt failed', 'Unable to decrypt media with provided secret.');
+    const sizeIssue = (err?.message || '').includes('size_mismatch');
+    if (!_retry) {
+      clearMediaCache(meta);
+      if (target) target.innerHTML = '<div class="text-muted small">Retrying download...</div>';
+      return decryptMedia(msg, meta, { download, inline, target, groupId, spinner, cacheBust: true, _retry: true });
     }
+    const msgText = sizeIssue ? 'Media download incomplete. Please retry.' : 'Unable to decrypt media.';
+    if (target) {
+      target.innerHTML = `<div class="text-danger small">${msgText}</div>`;
+    } else {
+      showInfoModal('Decrypt failed', msgText);
+    }
+  } finally {
+    if (shouldSpin) hideSpinner();
   }
 }
 
@@ -1751,13 +1813,13 @@ function renderScheduled() {
     const priv = '<span class="badge bg-info ms-2">Private</span>';
     const expireBadge = item.never_expires ? '<span class="badge bg-warning ms-2">No expiry</span>' : '';
     const row = document.createElement('div');
-    row.className = 'list-group-item d-flex flex-column bg-transparent text-start text-light border-0';
+    row.className = 'list-group-item d-flex flex-column bg-transparent text-start border-0 scheduled-row';
     const isOwner = item.host_id === getCurrentUserId();
     row.innerHTML = `
       <div class="d-flex justify-content-between align-items-center w-100">
         <div class="text-truncate">${item.name}${badge}${priv}${expireBadge}</div>
         <div class="d-flex gap-1">
-          ${isOwner ? `<button class="btn btn-sm btn-outline-light" data-copy-sched="${item.id}" title="Copy link"><i class="fa-solid fa-copy"></i></button>` : ''}
+          ${isOwner ? `<button class="btn btn-sm btn-outline-secondary" data-copy-sched="${item.id}" title="Copy link"><i class="fa-solid fa-copy"></i></button>` : ''}
           ${isOwner ? `<button class="btn btn-sm btn-outline-primary" data-edit-sched="${item.id}" title="Edit"><i class="fa-solid fa-pen"></i></button>` : ''}
           ${isOwner ? `<button class="btn btn-sm btn-outline-danger" data-delete-sched="${item.id}" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
         </div>
@@ -2597,10 +2659,17 @@ async function reactMessage(id, value, likeBtn, dislikeBtn, msg) {
 }
 
 async function deleteMessage(id, groupId, bubble) {
-  const resp = await fetch(`/api/messages/${id}`, {
+  let resp = await fetch(`/api/messages/${id}`, {
     method: 'DELETE',
     headers: { 'X-CSRFToken': getCsrfToken() },
   });
+  if (resp.status === 405) {
+    // Fallback for environments blocking DELETE.
+    resp = await fetch(`/api/messages/${id}/delete`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrfToken() },
+    });
+  }
   if (!resp.ok) {
     try {
       const data = await resp.json();

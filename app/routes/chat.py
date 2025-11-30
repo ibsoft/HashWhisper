@@ -747,12 +747,17 @@ def download_blob(blob_id):
     upload_root = Path(current_app.config["UPLOAD_FOLDER"]).resolve()
     if not file_path.resolve().is_file() or upload_root not in file_path.resolve().parents:
         return jsonify({"error": "invalid_path"}), 400
+    file_size = file_path.stat().st_size
     return Response(
         file_path.read_bytes(),
         headers={
             "Content-Disposition": f"attachment; filename={secure_filename(blob.original_name)}",
             "Content-Type": blob.mime_type or "application/octet-stream",
-            "Cache-Control": "private, max-age=3600, immutable",
+            "Content-Length": str(file_size),
+            "Cache-Control": "private, max-age=0, no-store",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Accept-Ranges": "none",
         },
     )
 
@@ -804,9 +809,7 @@ def react_message(message_id: int):
     })
 
 
-@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
-@login_required
-def delete_message(message_id: int):
+def _delete_message_core(message_id: int):
     cfg = current_app.config
     if not cfg.get("ALLOW_MESSAGE_DELETE", False):
         return jsonify({"error": "disabled", "message": "Message deletion is disabled"}), 403
@@ -844,6 +847,19 @@ def delete_message(message_id: int):
         created_at=datetime.utcnow().isoformat(),
     )
     return jsonify({"ok": True, "id": message_id, "group_id": group_id})
+
+
+@chat_bp.route("/api/messages/<int:message_id>", methods=["DELETE"])
+@login_required
+def delete_message(message_id: int):
+    return _delete_message_core(message_id)
+
+
+@chat_bp.route("/api/messages/<int:message_id>/delete", methods=["POST"])
+@login_required
+def delete_message_via_post(message_id: int):
+    # Some environments may block DELETE; provide a POST fallback.
+    return _delete_message_core(message_id)
 
 
 @chat_bp.route("/api/ai/ask", methods=["POST"])
