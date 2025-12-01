@@ -373,6 +373,10 @@ function updateChatLayout() {
   if (!chatPanel || !inputCard) return;
   const messageArea = chatPanel.querySelector('.message-area');
   if (!messageArea) return;
+  if (window.matchMedia('(max-width: 991px)').matches) {
+    messageArea.style.removeProperty('--auto-message-height');
+    return;
+  }
   const footer = document.querySelector('footer');
   const footerHeight = footer?.offsetHeight || 0;
   const chatRect = chatPanel.getBoundingClientRect();
@@ -2431,13 +2435,25 @@ function bindUI() {
     e.target.value = '';
   });
 
+  let sidebarExpanded = true;
+  const setSidebarState = (expanded) => {
+    sidebarExpanded = expanded;
+    if (!sidebarEl || !chatShell) return;
+    sidebarEl.classList.toggle('sidebar-collapsed', !expanded);
+    chatShell.classList.toggle('sidebar-hidden', !expanded);
+    sidebarToggleBtn?.setAttribute('aria-expanded', expanded.toString());
+  };
   if (sidebarToggleBtn && sidebarEl && chatShell) {
     sidebarToggleBtn.addEventListener('click', () => {
-      const collapsed = sidebarEl.classList.toggle('sidebar-collapsed');
-      chatShell.classList.toggle('sidebar-hidden', collapsed);
-      sidebarToggleBtn.setAttribute('aria-expanded', (!collapsed).toString());
+      setSidebarState(!sidebarExpanded);
     });
   }
+  window.addEventListener('resize', () => {
+    if (window.matchMedia('(min-width: 992px)').matches) {
+      setSidebarState(true);
+    }
+  });
+  setSidebarState(true);
 
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
@@ -2972,7 +2988,6 @@ function bindUI() {
 }
 
 function connectPresence() {
-  const label = document.getElementById('presence-label');
   const typingIndicator = document.getElementById('typing-indicator');
   if (presenceSource) {
     presenceSource.close();
@@ -2982,12 +2997,10 @@ function connectPresence() {
     presenceSource = source;
     source.onopen = () => {
       sseRetryDelay = 1000;
-      if (label) label.textContent = 'Live updates';
     };
     source.onerror = () => {
       source.close();
       presenceSource = null;
-      if (label) label.textContent = 'Reconnecting…';
       setTimeout(connectPresence, Math.min(sseRetryDelay, 30000));
       sseRetryDelay = Math.min(sseRetryDelay * 2, 30000);
       startAutoRefresh();
@@ -3001,9 +3014,6 @@ function connectPresence() {
       }
       if (!payload || payload.type === 'ping') return;
       if (!payload.event || payload.event === 'presence') {
-        if (label && payload.status) {
-          label.textContent = `Presence: ${payload.status}`;
-        }
         if (typingIndicator) {
           const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
           typingIndicator.classList.toggle('d-none', !payload.typing || isSelf);

@@ -160,7 +160,7 @@ msgid "Join securely"
 msgstr "Σύνδεση με ασφάλεια"
 
 msgid "Join via secret hash"
-msgstr "Συμμετοχή μέσω μυστικού κατακερματισμού"
+msgstr "Συμμετοχή μέσω μυστικού μυστικού"
 
 msgid "Cancel"
 msgstr "Άκυρο"

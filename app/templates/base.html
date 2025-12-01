@@ -35,6 +35,7 @@
     <div class="d-flex align-items-center gap-3 flex-shrink-0">
       <a class="navbar-brand fw-bold d-flex align-items-center gap-1 flex-shrink-0" href="{{ url_for('chat.chat') }}">
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" width="32" height="32" class="d-inline-block align-text-top nav-logo">
+        <span class="navbar-app-name d-none d-lg-inline ms-2">{{ config.APP_TITLE }}</span>
       </a>
     </div>
     <div class="nav-inline-scroll d-flex align-items-center gap-2 flex-nowrap ms-auto">
