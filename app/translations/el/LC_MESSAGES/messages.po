@@ -150,6 +150,15 @@ msgstr "Πρόσκληση αγαπημένων"
 msgid "No favorites yet."
 msgstr "Δεν υπάρχουν αγαπημένοι ακόμη."
 
+msgid "Whisper Rooms"
+msgstr "Δωμάτια ψιθύρων!"
+
+msgid "Users"
+msgstr "Χρήστες"
+
+msgid "Join securely"
+msgstr "Σύνδεση με ασφάλεια"
+
 msgid "Cancel"
 msgstr "Άκυρο"
 
@@ -171,11 +180,23 @@ msgstr "Δεν υπάρχουν προγραμματισμένες συνομι�
 msgid "Paste shared secret"
 msgstr "Επικόλληση κοινόχρηστου μυστικού"
 
+msgid "Select a group"
+msgstr "Επιλέξτε μια ομάδα"
+
+msgid "Documentation"
+msgstr "Τεκμηρίωση"
+
+msgid "User Manual"
+msgstr "Εγχειρίδιο χρήστη"
+
 msgid "Scan QR code"
 msgstr "Σάρωση QR κώδικα"
 
 msgid "Point your camera at the QR to join instantly."
 msgstr "Κατευθύνετε την κάμερά σας στο QR για να μπείτε αμέσως."
+
+msgid "Review the essentials or catch up on features without leaving the chat."
+msgstr "Ανασκοπήστε τα βασικά ή ενημερωθείτε για νέες δυνατότητες χωρίς να φύγετε από τη συζήτηση."
 
 msgid "Logout"
 msgstr "Αποσύνδεση"
