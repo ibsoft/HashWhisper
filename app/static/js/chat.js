@@ -2435,35 +2435,29 @@ function bindUI() {
     e.target.value = '';
   });
 
-  const isMobileViewport = () => window.matchMedia('(max-width: 991px)').matches;
-  let sidebarExpanded = true;
-  const sidebarCollapse =
-    sidebarEl && typeof bootstrap !== 'undefined'
-      ? bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false })
-      : null;
+  const mediaQuery = window.matchMedia('(min-width: 992px)');
+  let sidebarExpanded = false;
   const setSidebarState = (expanded) => {
     sidebarExpanded = expanded;
     if (!sidebarEl || !chatShell) return;
-    sidebarEl.classList.toggle('sidebar-collapsed', !expanded);
+    chatShell.classList.toggle('sidebar-expanded', expanded);
     chatShell.classList.toggle('sidebar-hidden', !expanded);
     sidebarToggleBtn?.setAttribute('aria-expanded', expanded.toString());
-    if (sidebarCollapse) {
-      if (expanded) sidebarCollapse.show();
-      else sidebarCollapse.hide();
-    }
   };
   if (sidebarToggleBtn && sidebarEl && chatShell) {
     sidebarToggleBtn.addEventListener('click', () => {
       setSidebarState(!sidebarExpanded);
     });
   }
-  window.addEventListener('resize', () => {
-    if (window.matchMedia('(min-width: 992px)').matches) {
-      setSidebarState(true);
-    }
-  });
-  const initialMobile = isMobileViewport();
-  setSidebarState(!initialMobile);
+  const applyResponsiveSidebar = () => {
+    setSidebarState(mediaQuery.matches);
+  };
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener('change', applyResponsiveSidebar);
+  } else if (mediaQuery.addListener) {
+    mediaQuery.addListener(applyResponsiveSidebar);
+  }
+  applyResponsiveSidebar();
 
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
