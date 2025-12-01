@@ -6,7 +6,9 @@
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Whisper Rooms') }}</h5>
         <div class="btn-group">
-          <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="{{ _('Create group') }}"><i class="fa-solid fa-plus"></i></a>
+          <button class="btn btn-sm btn-soft" type="button" title="{{ _('Create group') }}" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+            <i class="fa-solid fa-plus"></i>
+          </button>
         </div>
       </div>
         <div class="contact-list list-group list-group-flush" id="group-list">
@@ -49,6 +51,7 @@
           data-join-failed="{{ _('Unable to join the space from this QR code.') }}"
           data-library-missing="{{ _('Unable to load the QR decoder.') }}"
         ></div>
+        <div id="qr-join-config" data-join-url="{{ url_for('chat.join_group') }}"></div>
       </div>
       <hr class="text-secondary">
       <div>
@@ -144,6 +147,60 @@
       </div>
       <div class="text-center text-info small mt-1">
         <span id="typing-indicator" class="d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create group modal -->
+<div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content modal-schedule" id="create-group-form" action="{{ url_for('chat.create_group') }}" method="post">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="createGroupModalLabel">{{ _('Create secure group') }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      </div>
+      <div class="modal-body">
+        {{ create_group_form.hidden_tag() }}
+        <div class="mb-3">
+          {{ create_group_form.name.label(class="form-label") }}
+          {{ create_group_form.name(class="form-control", id="create-group-name") }}
+        </div>
+        <div class="mb-3">
+          {{ create_group_form.secret.label(class="form-label mb-1") }}
+          <div class="input-group">
+            {{ create_group_form.secret(class="form-control", autocomplete="off", id="create-group-secret") }}
+            <button type="button" class="btn btn-outline-light" id="create-gen-secret"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button type="button" class="btn btn-outline-light" id="create-copy-secret"><i class="fa-solid fa-copy"></i></button>
+          </div>
+          <small class="text-muted">{{ _('Use a strong secret (16+ characters recommended). This shared secret never leaves clients—distribute out-of-band.') }}</small>
+        </div>
+        <div class="alert alert-danger d-none" id="create-group-error" role="alert"></div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="submit" class="btn btn-soft" id="create-group-submit">{{ create_group_form.submit.label.text }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Group created modal -->
+<div class="modal fade" id="groupCreatedModal" tabindex="-1" aria-labelledby="groupCreatedModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content card-glass p-4 text-center">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="groupCreatedModalLabel">{{ _('Group created') }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 bg-dark rounded-3 qr-card-wrapper">
+          <img id="group-created-qr" src="" alt="{{ _('Group QR') }}" class="img-fluid rounded">
+        </div>
+        <p class="mt-3 text-muted small" id="group-created-hint">{{ _('Share this QR offline with trusted members. The server only stores a salted hash of the secret.') }}</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-soft w-100" data-bs-dismiss="modal">{{ _('Close') }}</button>
       </div>
     </div>
   </div>
@@ -365,6 +422,135 @@
     };
     window.addEventListener('resize', syncSidebar);
     syncSidebar();
+  })();
+</script>
+<script>
+  (() => {
+    const form = document.getElementById('create-group-form');
+    const modalEl = document.getElementById('createGroupModal');
+    if (!form || !modalEl || typeof bootstrap === 'undefined') return;
+    const submitBtn = document.getElementById('create-group-submit');
+    const errorEl = document.getElementById('create-group-error');
+    const qrModalEl = document.getElementById('groupCreatedModal');
+    const qrImg = document.getElementById('group-created-qr');
+    const qrTitle = document.getElementById('groupCreatedModalLabel');
+    const qrHint = document.getElementById('group-created-hint');
+    const genBtn = document.getElementById('create-gen-secret');
+    const copyBtn = document.getElementById('create-copy-secret');
+    const secretInput = document.getElementById('create-group-secret');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const qrModalInstance = bootstrap.Modal.getOrCreateInstance(qrModalEl);
+
+    const randomSecret = (len = 24) => {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+';
+      let out = '';
+      const arr = crypto.getRandomValues(new Uint32Array(len));
+      for (let i = 0; i < len; i += 1) {
+        out += chars[arr[i] % chars.length];
+      }
+      return out;
+    };
+
+    const copySecretValue = async (value) => {
+      if (!value) return false;
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+      } catch (err) {
+        // fall through to legacy path
+      }
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-1000px';
+        textarea.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        const succeeded = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return succeeded;
+      } catch (err) {
+        return false;
+      }
+    };
+
+    const showError = (message) => {
+      if (!errorEl) return;
+      errorEl.textContent = message;
+      errorEl.classList.remove('d-none');
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (submitBtn) submitBtn.disabled = true;
+      if (errorEl) errorEl.classList.add('d-none');
+      try {
+        const response = await fetch(form.action, {
+          method: form.method || 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: new FormData(form),
+        });
+        let payload;
+        try {
+          payload = await response.json();
+        } catch (err) {
+          payload = null;
+        }
+        if (!response.ok || !payload?.ok) {
+          const errors = payload?.errors;
+          const details = errors ? Object.values(errors).flat().join(' ') : payload?.message;
+          showError(details || "{{ _('Unable to create group at the moment.') }}");
+          return;
+        }
+        modalInstance.hide();
+        if (payload?.group?.name) {
+          qrTitle.textContent = `${payload.group.name} {{ _('created') }}`;
+        }
+        if (qrHint) {
+          qrHint.textContent = payload?.message || "{{ _('Share this QR offline with trusted members. The server only stores a salted hash of the secret.') }}";
+        }
+        if (qrImg && payload?.qr_data) {
+          qrImg.src = payload.qr_data;
+        }
+        qrModalInstance.show();
+        form.reset();
+        if (window.showToast) {
+          window.showToast('success', payload?.message || "{{ _('Group created') }}");
+        }
+        if (typeof fetchGroups === 'function') {
+          fetchGroups().catch(() => {});
+        }
+      } catch (err) {
+        console.error('create group modal failed', err);
+        showError("{{ _('Unable to reach the server. Try again shortly.') }}");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    genBtn?.addEventListener('click', () => {
+      if (secretInput) {
+        secretInput.value = randomSecret();
+      }
+    });
+
+    copyBtn?.addEventListener('click', async () => {
+      const ok = await copySecretValue(secretInput?.value || '');
+      try {
+        window.showToast?.(
+          ok ? 'success' : 'error',
+          ok ? "{{ _('Copied') }}" : "{{ _('Copy failed') }}",
+          ok ? "{{ _('Secret copied to clipboard.') }}" : "{{ _('Clipboard is blocked in this browser.') }}"
+        );
+      } catch (err) {
+        // ignore toast errors
+      }
+    });
   })();
 </script>
 {% endblock %}

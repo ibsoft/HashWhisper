@@ -2600,9 +2600,12 @@ function bindUI() {
     return data;
   }
 
+  const joinGroupConfigEl = document.getElementById('qr-join-config');
+  const joinGroupUrl = joinGroupConfigEl?.dataset?.joinUrl || '/groups/join';
+
   async function attemptGroupJoin(payload, secret, fallbackName, failureText, options = {}) {
     try {
-      const resp = await fetch('/groups/join', {
+      const resp = await fetch(joinGroupUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify(payload),
