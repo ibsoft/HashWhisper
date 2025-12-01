@@ -566,19 +566,26 @@ function renderRichText(text) {
   return parts.join('');
 }
 
-function loadPersistedSecrets() {
+function _parseSecretStore(raw) {
+  if (!raw) return {};
   try {
-    const uid = getCurrentUserId();
-    const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
-    const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
-    const rawSession = sessionStorage.getItem(keySession);
-    const rawLocal = localStorage.getItem(keyLocal);
-    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
-    if (parsed && typeof parsed === 'object') {
-      state.secrets = { ...parsed, ...state.secrets };
-    }
-  } catch (e) {
-    // ignore parse errors
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function loadPersistedSecrets() {
+  const uid = getCurrentUserId();
+  const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+  const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
+  const parsed = {
+    ..._parseSecretStore(sessionStorage.getItem(keySession)),
+    ..._parseSecretStore(localStorage.getItem(keyLocal)),
+  };
+  if (Object.keys(parsed).length) {
+    state.secrets = { ...parsed, ...state.secrets };
   }
 }
 
@@ -617,9 +624,10 @@ function persistSecret(groupId, secret) {
     const uid = getCurrentUserId();
     const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
     const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
-    const rawSession = sessionStorage.getItem(keySession);
-    const rawLocal = localStorage.getItem(keyLocal);
-    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
+    const parsed = {
+      ..._parseSecretStore(sessionStorage.getItem(keySession)),
+      ..._parseSecretStore(localStorage.getItem(keyLocal)),
+    };
     parsed[gid] = secret;
     const serialized = JSON.stringify(parsed);
     sessionStorage.setItem(keySession, serialized);
@@ -636,9 +644,10 @@ function removePersistedSecret(groupId) {
     const uid = getCurrentUserId();
     const keySession = uid ? `hw-secrets-${uid}` : 'hw-secrets';
     const keyLocal = uid ? `hw-secrets-${uid}` : 'hw-secrets';
-    const rawSession = sessionStorage.getItem(keySession);
-    const rawLocal = localStorage.getItem(keyLocal);
-    const parsed = rawSession ? JSON.parse(rawSession) : rawLocal ? JSON.parse(rawLocal) : {};
+    const parsed = {
+      ..._parseSecretStore(sessionStorage.getItem(keySession)),
+      ..._parseSecretStore(localStorage.getItem(keyLocal)),
+    };
     delete parsed[gid];
     const serialized = JSON.stringify(parsed);
     sessionStorage.setItem(keySession, serialized);
