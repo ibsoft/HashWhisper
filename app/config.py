@@ -109,7 +109,7 @@ class Config:
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
     MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "6.0.8")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "6.0.9")
     MAINTENANCE_MESSAGE = os.environ.get(
         "HASHWHISPER_MAINTENANCE_MESSAGE",
         "We are updating HashWhisper. Please check back in a few minutes.",
