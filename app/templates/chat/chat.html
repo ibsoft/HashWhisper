@@ -36,6 +36,19 @@
         </div>
         <input type="text" class="form-control mt-2" id="join-group-name" placeholder="{{ _('Group name') }}">
         <button class="btn btn-outline-light w-100 mt-2" id="join-btn">{{ _('Join securely') }}</button>
+        <button type="button" class="btn btn-info w-100 mt-2 d-lg-none" id="scan-qr-btn">
+          <i class="fa-solid fa-qrcode me-1"></i>{{ _('Scan QR code') }}
+        </button>
+        <p class="text-muted small mt-1 d-lg-none">{{ _('Point your camera at the QR to join instantly.') }}</p>
+        <div
+          id="qr-scan-text"
+          class="d-none"
+          data-camera-missing="{{ _('Scanning requires a device camera.') }}"
+          data-camera-denied="{{ _('Allow camera access to continue.') }}"
+          data-invalid="{{ _('This QR code does not contain a valid invitation.') }}"
+          data-join-failed="{{ _('Unable to join the space from this QR code.') }}"
+          data-library-missing="{{ _('Unable to load the QR decoder.') }}"
+        ></div>
       </div>
       <hr class="text-secondary">
       <div>
@@ -123,7 +136,9 @@
       <span id="message-count" class="text-muted"
         data-singular="{{ _('whisper') }}"
         data-plural="{{ _('whispers') }}">0 {{ _('whispers') }}</span>
-      <span id="typing-indicator" class="text-info d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
+    </div>
+    <div class="text-center text-info small mt-1">
+      <span id="typing-indicator" class="d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
     </div>
     </div>
   </div>
@@ -158,6 +173,29 @@
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
         <button type="button" class="btn btn-soft" id="sched-save">{{ _('Create') }}</button>
+      </div>
+  </div>
+</div>
+</div>
+
+<!-- QR Scanner modal -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-centered">
+    <div class="modal-content bg-dark text-light overflow-hidden">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="qrScannerModalLabel">{{ _('Scan QR code') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      </div>
+      <div class="modal-body p-0 position-relative">
+        <video id="qr-video" class="w-100 qr-scanner-video" playsinline muted></video>
+        <canvas id="qr-canvas" class="d-none" aria-hidden="true"></canvas>
+        <div class="qr-scanner-overlay">
+          <span class="qr-scanner-target"></span>
+        </div>
+      </div>
+      <div class="modal-footer border-0 justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <span id="qr-scan-hint" class="text-muted small">{{ _('Point your camera at the QR to join instantly.') }}</span>
       </div>
     </div>
   </div>
@@ -297,6 +335,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="{{ url_for('static', filename='js/chat.js', v=config.APP_VERSION) }}"></script>
 {% include 'modals/scheduled_delete.html' %}
 <script>

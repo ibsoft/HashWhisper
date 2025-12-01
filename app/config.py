@@ -1,5 +1,19 @@
 import os
 from datetime import timedelta
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+def _resolve_storage_path(env_var: str, default: Path) -> str:
+    raw_value = os.environ.get(env_var)
+    if raw_value:
+        candidate = Path(os.path.expanduser(raw_value))
+        if not candidate.is_absolute():
+            candidate = BASE_DIR / candidate
+    else:
+        candidate = default
+    return str(candidate.resolve())
 
 
 class Config:
@@ -25,7 +39,8 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     WTF_CSRF_TIME_LIMIT = 3600
     MAX_CONTENT_LENGTH = int(os.environ.get("HASHWHISPER_MAX_UPLOAD", 10 * 1024 * 1024))
-    UPLOAD_FOLDER = os.environ.get("HASHWHISPER_UPLOAD_FOLDER", "app/storage")
+    _upload_default = BASE_DIR / "app" / "storage"
+    UPLOAD_FOLDER = _resolve_storage_path("HASHWHISPER_UPLOAD_FOLDER", _upload_default)
     ALLOWED_MIMETYPES = {
         "image/jpeg",
         "image/png",
@@ -93,7 +108,7 @@ class Config:
     BABEL_DEFAULT_LOCALE = "en"
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "6.0.0")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "6.0.1")
     MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
     MAINTENANCE_MESSAGE = os.environ.get(
         "HASHWHISPER_MAINTENANCE_MESSAGE",
@@ -114,5 +129,6 @@ class Config:
 
     # User controls
     ALLOW_MESSAGE_DELETE = os.environ.get("HASHWHISPER_ALLOW_MESSAGE_DELETE", "true").lower() == "true"
-    AVATAR_UPLOAD_FOLDER = os.environ.get("HASHWHISPER_AVATAR_UPLOAD_FOLDER", os.path.join("app", "storage", "avatars"))
+    _avatar_default = _upload_default / "avatars"
+    AVATAR_UPLOAD_FOLDER = _resolve_storage_path("HASHWHISPER_AVATAR_UPLOAD_FOLDER", _avatar_default)
     MAX_AVATAR_SIZE = int(os.environ.get("HASHWHISPER_MAX_AVATAR_SIZE", 2 * 1024 * 1024))  # 2MB default

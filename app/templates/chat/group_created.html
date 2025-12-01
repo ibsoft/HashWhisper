@@ -8,7 +8,7 @@
       <div class="p-3 bg-dark rounded-3">
         <img src="{{ qr_data }}" alt="Group QR" class="img-fluid rounded">
       </div>
-      <p class="mt-3 text-muted small">Payload includes only group id and shared secret. Clients derive AES-GCM keys locally.</p>
+      <p class="mt-3 text-muted small">{{ _('Payload includes the group id, name, and shared secret so trusted members can join instantly.') }}</p>
       <a class="btn btn-soft mt-2" href="{{ url_for('chat.chat') }}">Go to chat</a>
     </div>
   </div>

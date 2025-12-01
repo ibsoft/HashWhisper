@@ -162,7 +162,7 @@ def create_group():
         IntegrityChain.append_event(group.id, "group_created", name)
         db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
         db.session.commit()
-        qr_payload = {"group": group.id, "secret": secret}
+        qr_payload = {"group": group.id, "secret": secret, "name": group.name}
         img = qrcode.make(json.dumps(qr_payload))
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -193,11 +193,22 @@ def verify_group_secret():
 @login_required
 def join_group():
     payload = request.get_json(silent=True) or {}
-    secret = payload.get("secret", "").strip()
-    group_name = payload.get("group_name", "").strip()
-    if not secret or not group_name:
+    secret = (payload.get("secret") or "").strip()
+    group_name = (payload.get("group_name") or "").strip()
+    group_id_raw = payload.get("group_id")
+    group_id = None
+    if group_id_raw is not None:
+        try:
+            group_id = int(group_id_raw)
+        except (TypeError, ValueError):
+            group_id = None
+    if not secret or (not group_name and not group_id):
         return jsonify({"error": "missing"}), 400
-    group = Group.query.filter_by(name=group_name).first()
+    group = None
+    if group_id:
+        group = Group.query.get(group_id)
+    if not group and group_name:
+        group = Group.query.filter_by(name=group_name).first()
     if not group:
         return jsonify({"error": "not_found"}), 404
     if hash_secret(secret) != group.secret_hash:
@@ -206,7 +217,7 @@ def join_group():
         db.session.add(GroupMembership(user_id=current_user.id, group_id=group.id))
         IntegrityChain.append_event(group.id, "member_join", str(current_user.id))
         db.session.commit()
-    return jsonify({"ok": True, "group_id": group.id})
+    return jsonify({"ok": True, "group_id": group.id, "name": group.name})
 
 
 @chat_bp.route("/api/dm/start", methods=["POST"])

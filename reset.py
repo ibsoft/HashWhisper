@@ -44,6 +44,19 @@ def wipe_storage(storage_path: Path):
             shutil.rmtree(child, ignore_errors=True)
 
 
+REPO_ROOT = Path(__file__).resolve().parent
+
+def _resolve_storage_root() -> Path:
+    raw = os.environ.get("HASHWHISPER_UPLOAD_FOLDER")
+    if raw:
+        candidate = Path(os.path.expanduser(raw))
+        if not candidate.is_absolute():
+            candidate = REPO_ROOT / candidate
+    else:
+        candidate = REPO_ROOT / "app" / "storage"
+    return candidate.resolve()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Wipe HashWhisper data (Postgres).")
     parser.add_argument("--yes", action="store_true", help="Confirm destructive wipe.")
@@ -75,7 +88,7 @@ def main():
         sys.exit(1)
 
     if args.delete_storage:
-        storage_root = Path(os.environ.get("HASHWHISPER_UPLOAD_FOLDER", "app/storage"))
+        storage_root = _resolve_storage_root()
         wipe_storage(storage_root)
         print(f"Storage cleared: {storage_root}")
 
