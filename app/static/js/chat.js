@@ -143,6 +143,16 @@ function focusSendButton() {
   }
 }
 
+function focusSendCard() {
+  const sendCard = document.getElementById('send-card');
+  if (!sendCard) return;
+  try {
+    sendCard.focus({ preventScroll: true });
+  } catch (err) {
+    sendCard.focus();
+  }
+}
+
 function isNearBottom(listEl, threshold = 120) {
   if (!listEl) return true;
   const distance = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
@@ -1496,7 +1506,7 @@ async function sendMessage() {
     stickToBottom(list);
     startAutoRefresh();
     playSound('outbound');
-    focusSendButton();
+    focusSendCard();
   }
 }
 
