@@ -2437,12 +2437,20 @@ function bindUI() {
 
   const isMobileViewport = () => window.matchMedia('(max-width: 991px)').matches;
   let sidebarExpanded = true;
+  const sidebarCollapse =
+    sidebarEl && typeof bootstrap !== 'undefined'
+      ? bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false })
+      : null;
   const setSidebarState = (expanded) => {
     sidebarExpanded = expanded;
     if (!sidebarEl || !chatShell) return;
     sidebarEl.classList.toggle('sidebar-collapsed', !expanded);
     chatShell.classList.toggle('sidebar-hidden', !expanded);
     sidebarToggleBtn?.setAttribute('aria-expanded', expanded.toString());
+    if (sidebarCollapse) {
+      if (expanded) sidebarCollapse.show();
+      else sidebarCollapse.hide();
+    }
   };
   if (sidebarToggleBtn && sidebarEl && chatShell) {
     sidebarToggleBtn.addEventListener('click', () => {
