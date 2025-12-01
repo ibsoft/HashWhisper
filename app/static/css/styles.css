@@ -565,6 +565,8 @@ main > .container-fluid {
 
 .bubble.new-message {
   animation: fadeUp 0.25s ease both;
+  animation-delay: var(--bubble-delay, 0s);
+  opacity: 0;
 }
 
 .bubble.long-text {

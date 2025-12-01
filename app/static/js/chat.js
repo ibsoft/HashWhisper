@@ -121,6 +121,7 @@ async function fetchMessageCount(groupId, { force = false } = {}) {
 }
 
 let chatLayoutObserver;
+let bubbleAnimationSequence = 0;
 
 function focusMessageInput() {
   const input = document.getElementById('message-input');
@@ -1045,6 +1046,9 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   if (likedBy.textContent) bubble.appendChild(likedBy);
   const shouldAnimate = animate && !prepend;
   if (shouldAnimate) {
+    const delay = (bubbleAnimationSequence % 4) * 0.04;
+    bubble.style.setProperty('--bubble-delay', `${delay}s`);
+    bubbleAnimationSequence = (bubbleAnimationSequence + 1) % 4;
     bubble.classList.add('new-message');
     bubble.addEventListener('animationend', () => {
       bubble.classList.remove('new-message');
