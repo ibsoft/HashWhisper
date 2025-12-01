@@ -9,7 +9,7 @@
   --bubble-self: linear-gradient(135deg, #9ef2b0, #6fd3ff);
   --bubble-other: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
-  --nav-token-height: 36px;
+  --nav-token-height: 32px;
 }
 
 
@@ -170,7 +170,7 @@ html, body {
   color: #fff;
   border-radius: 12px;
   padding: 0.32rem 0.85rem;
-  min-height: 38px;
+  min-height: calc(var(--nav-token-height) + 2px);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -182,7 +182,7 @@ html, body {
   color: #fff;
   border-radius: 12px;
   padding: 0.32rem 0.85rem;
-  min-height: 38px;
+  min-height: calc(var(--nav-token-height) + 2px);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -193,7 +193,7 @@ html, body {
   color: #fff;
   border-radius: 12px;
   padding: 0.32rem 0.85rem;
-  min-height: 38px;
+  min-height: calc(var(--nav-token-height) + 2px);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -203,7 +203,7 @@ html, body {
   border-color: rgba(255, 143, 177, 0.6);
   border-radius: 12px;
   padding: 0.32rem 0.85rem;
-  min-height: 38px;
+  min-height: calc(var(--nav-token-height) + 2px);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
