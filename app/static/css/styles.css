@@ -961,3 +961,29 @@ main .container-fluid {
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 #presence-label{display:none!important;}
+
+.qr-scanner-video {
+  border-radius: 0.75rem;
+  background: #000;
+  min-height: 320px;
+  height: clamp(300px, 60vh, 680px);
+  object-fit: cover;
+}
+.qr-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  padding: 1rem;
+}
+.qr-scanner-target {
+  width: 70%;
+  max-width: 260px;
+  aspect-ratio: 1 / 1;
+  border: 2px solid rgba(158, 242, 176, 0.8);
+  border-radius: 1rem;
+  box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.35), 0 0 24px rgba(158, 242, 176, 0.35);
+  animation: pulse 1.6s ease-in-out infinite alternate;
+}
