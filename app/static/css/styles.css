@@ -1136,11 +1136,27 @@ main .container-fluid {
 
 @media (max-width: 991px) {
   .chat-shell {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .desktop-spaces {
+    order: 0;
+    width: 100%;
+    flex: none;
+  }
+  .chat-area {
+    order: 1;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+  .sidebar-column {
+    height: auto;
+    max-height: none;
   }
   #groupSidebar {
     position: static;
-    display: block;
+    display: none;
     width: 100%;
     max-width: 100%;
     transform: none;
@@ -1149,6 +1165,10 @@ main .container-fluid {
     border-radius: 18px;
     overflow: visible !important;
     max-height: none !important;
+    z-index: auto;
+  }
+  .chat-shell.sidebar-expanded #groupSidebar {
+    display: block;
   }
   #groupSidebar.sidebar-collapsed {
     display: none;
@@ -1168,6 +1188,19 @@ main .container-fluid {
     width: 0;
     height: 0;
     display: none;
+  }
+  main {
+    min-height: auto;
+    height: auto;
+    overflow: visible;
+  }
+  main .container-fluid {
+    min-height: 0;
+    height: auto;
+  }
+  .chat-shell {
+    width: 100%;
+    height: auto;
   }
 }
 
