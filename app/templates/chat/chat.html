@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="chat-shell" data-user-id="{{ current_user.id }}" data-username="{{ current_user.username }}" data-max-bytes="{{ config.MAX_CONTENT_LENGTH }}" data-user-tz="{{ current_user.timezone or 'UTC' }}" data-ai-enabled="{{ 'true' if config.AI_ENABLED else 'false' }}" data-allow-delete="{{ 'true' if config.ALLOW_MESSAGE_DELETE else 'false' }}" data-default-avatar="{{ default_avatar }}">
-  <div class="collapse d-lg-block desktop-spaces" id="groupSidebar">
+<div class="desktop-spaces sidebar-column" id="groupSidebar">
     <div class="card card-glass p-3 sidebar-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Whisper Rooms') }}</h5>
@@ -77,46 +77,51 @@
         <div class="text-muted small">{{ _('No scheduled chats yet.') }}</div>
       </div>
     </div>
-    <div class="card card-glass p-3 sidebar-card doc-card mt-3">
-      <div class="d-flex align-items-center mb-2">
-        <h6 class="card-title mb-0 doc-label"><i class="fa-solid fa-book-open me-2"></i>{{ _('Documentation') }}</h6>
-      </div>
-      <hr class="text-secondary my-2">
-      <p class="text-muted small mb-3 text-center">{{ _('Review the essentials or catch up on features without leaving the chat.') }}</p>
-      <a class="btn btn-soft w-100 doc-btn" href="{{ url_for('chat.help_page') }}">{{ _('User Manual') }}</a>
-    </div>
+    {# Documentation card removed per new UI request #}
   </div>
 
-  <div class="card card-glass p-3 position-relative" id="chat-panel">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-light" data-bs-toggle="collapse" data-bs-target="#groupSidebar">
-          <i class="fa-solid fa-bars"></i>
-        </button>
-        <div>
-          <h5 class="mb-0" id="chat-title">{{ _('Select a group') }}</h5>
-          <small class="text-muted" id="presence-label"><i class="fa-solid fa-signal"></i> {{ _('waiting') }}</small>
+  <div class="chat-area d-flex flex-column">
+    <div class="card card-glass p-3 position-relative chat-card" id="chat-panel">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <button id="sidebar-toggle-btn" class="btn btn-outline-light" aria-expanded="true" aria-label="{{ _('Toggle sidebar') }}">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div>
+            <h5 class="mb-0" id="chat-title">{{ _('Select a group') }}</h5>
+            <small class="text-muted" id="presence-label"><i class="fa-solid fa-signal"></i> {{ _('waiting') }}</small>
+          </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <button class="btn btn-sm btn-outline-light position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
+            <i class="fa-solid fa-circle-info"></i>
+            <span class="notification-dot d-none" id="info-dot"></span>
+            <span class="notification-count d-none" id="info-count"></span>
+          </button>
+          <a class="btn btn-sm btn-outline-light top-menu-btn" href="{{ url_for('chat.help_page') }}" title="{{ _('Documentation') }}">
+            <i class="fa-solid fa-book-open"></i>
+          </a>
+          <button class="btn btn-sm btn-outline-light top-menu-btn" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
         </div>
       </div>
-      <div class="d-flex gap-2 align-items-center">
-        <button class="btn btn-sm btn-outline-light position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
-          <i class="fa-solid fa-circle-info"></i>
-          <span class="notification-dot d-none" id="info-dot"></span>
-          <span class="notification-count d-none" id="info-count"></span>
-        </button>
-        <button class="btn btn-sm btn-outline-light top-menu-btn" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
+
+      <div class="chat-panel-body d-flex flex-column">
+        <div class="d-flex justify-content-center align-items-center load-older-banner d-none">
+          <button type="button" class="btn btn-soft btn-sm" id="load-older-btn">{{ _('Load earlier messages') }}</button>
+        </div>
+
+        <div class="message-area flex-grow-1 d-flex flex-column position-relative">
+          <div class="message-list" id="message-list"></div>
+          <div class="message-loading d-none" id="message-loading">
+            <div class="spinner-border text-accent" role="status" aria-label="{{ _('Loading messages') }}"></div>
+          </div>
+          <button type="button" class="scroll-top-btn" id="scroll-top-btn" aria-label="{{ _('Scroll to top') }}" aria-hidden="true">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+        </div>
       </div>
     </div>
-    <div class="d-flex justify-content-center align-items-center load-older-banner d-none">
-      <button type="button" class="btn btn-soft btn-sm" id="load-older-btn">{{ _('Load earlier messages') }}</button>
-    </div>
-    <div class="message-list" id="message-list"></div>
-    <div class="message-loading d-none" id="message-loading">
-      <div class="spinner-border text-accent" role="status" aria-label="{{ _('Loading messages') }}"></div>
-    </div>
-    <button type="button" class="scroll-top-btn" id="scroll-top-btn" aria-label="{{ _('Scroll to top') }}" aria-hidden="true">
-      <i class="fa-solid fa-arrow-up"></i>
-    </button>
+
     <div class="card card-glass input-card mt-3 p-2 position-relative sticky-input d-flex flex-column">
       <div class="d-flex gap-2 align-items-center flex-wrap flex-md-nowrap input-row">
         <input type="file" id="file-input" class="d-none" accept="image/*,video/*,audio/*">
@@ -132,15 +137,15 @@
       </div>
       <div class="text-danger small mt-2 d-none" id="recording-indicator">{{ _('Recording… click mic to stop.') }}</div>
       <div class="emoji-picker d-none" id="emoji-picker" aria-label="Emoji picker"></div>
-    <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
-      <span><i class="fa-solid fa-lock"></i> {{ _('Client-side cryptography!') }}</span>
-      <span id="message-count" class="text-muted"
-        data-singular="{{ _('whisper') }}"
-        data-plural="{{ _('whispers') }}">0 {{ _('whispers') }}</span>
-    </div>
-    <div class="text-center text-info small mt-1">
-      <span id="typing-indicator" class="d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
-    </div>
+      <div class="d-flex justify-content-between align-items-center mt-2 text-muted small">
+        <span><i class="fa-solid fa-lock"></i> {{ _('Client-side cryptography!') }}</span>
+        <span id="message-count" class="text-muted"
+          data-singular="{{ _('whisper') }}"
+          data-plural="{{ _('whispers') }}">0 {{ _('whispers') }}</span>
+      </div>
+      <div class="text-center text-info small mt-1">
+        <span id="typing-indicator" class="d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
+      </div>
     </div>
   </div>
 </div>

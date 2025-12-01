@@ -120,6 +120,18 @@ async function fetchMessageCount(groupId, { force = false } = {}) {
   }
 }
 
+let chatLayoutObserver;
+
+function focusMessageInput() {
+  const input = document.getElementById('message-input');
+  if (!input) return;
+  try {
+    input.focus({ preventScroll: true });
+  } catch (err) {
+    input.focus();
+  }
+}
+
 function isNearBottom(listEl, threshold = 120) {
   if (!listEl) return true;
   const distance = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
@@ -353,6 +365,41 @@ function ensureToastBridge() {
     toast.show();
     toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
   };
+}
+
+function updateChatLayout() {
+  const chatPanel = document.getElementById('chat-panel');
+  const inputCard = document.querySelector('.input-card');
+  if (!chatPanel || !inputCard) return;
+  const messageArea = chatPanel.querySelector('.message-area');
+  if (!messageArea) return;
+  const footer = document.querySelector('footer');
+  const footerHeight = footer?.offsetHeight || 0;
+  const chatRect = chatPanel.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  const available = viewportHeight - chatRect.top - footerHeight - 24;
+  const inputHeight = inputCard.offsetHeight;
+  const messageHeight = Math.max(120, available - inputHeight - 12);
+  messageArea.style.setProperty('--auto-message-height', `${messageHeight}px`);
+  const list = document.getElementById('message-list');
+  if (list && isNearBottom(list)) {
+    stickToBottom(list);
+  }
+}
+
+function initChatLayoutObserver() {
+  const chatPanel = document.getElementById('chat-panel');
+  const inputCard = document.querySelector('.input-card');
+  if (!chatPanel || !inputCard) return;
+  updateChatLayout();
+  window.addEventListener('resize', updateChatLayout);
+  window.addEventListener('orientationchange', updateChatLayout);
+  if (typeof ResizeObserver === 'function') {
+    if (chatLayoutObserver) chatLayoutObserver.disconnect();
+    chatLayoutObserver = new ResizeObserver(updateChatLayout);
+    chatLayoutObserver.observe(chatPanel);
+    chatLayoutObserver.observe(inputCard);
+  }
 }
 
 function parseChatCommand(text) {
@@ -1410,7 +1457,7 @@ async function sendMessage() {
   });
   if (ok) {
     input.value = '';
-    input.focus();
+    focusMessageInput();
     appendTempMessage(payloadText);
     const list = document.getElementById('message-list');
     const beforeCount = state.messages[state.currentGroup]?.length || 0;
@@ -1425,6 +1472,7 @@ async function sendMessage() {
     stickToBottom(list);
     startAutoRefresh();
     playSound('outbound');
+    focusMessageInput();
   }
 }
 
@@ -2356,6 +2404,9 @@ async function writeClipboardText(text) {
 function bindUI() {
   const list = document.getElementById('message-list');
   const scrollTopBtn = document.getElementById('scroll-top-btn');
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+  const sidebarEl = document.getElementById('groupSidebar');
+  const chatShell = document.querySelector('.chat-shell');
   loadPersistedSecrets();
   fetchGroups();
   document.getElementById('send-btn')?.addEventListener('click', (e) => {
@@ -2379,6 +2430,14 @@ function bindUI() {
     sendFile(file);
     e.target.value = '';
   });
+
+  if (sidebarToggleBtn && sidebarEl && chatShell) {
+    sidebarToggleBtn.addEventListener('click', () => {
+      const collapsed = sidebarEl.classList.toggle('sidebar-collapsed');
+      chatShell.classList.toggle('sidebar-hidden', collapsed);
+      sidebarToggleBtn.setAttribute('aria-expanded', (!collapsed).toString());
+    });
+  }
 
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
@@ -2428,21 +2487,6 @@ function bindUI() {
   })();
 
   document.querySelectorAll('.delete-group').forEach(attachDeleteGroupHandler);
-
-  const sidebarEl = document.getElementById('groupSidebar');
-  if (sidebarEl) {
-    const collapseInst = bootstrap.Collapse.getOrCreateInstance(sidebarEl, { toggle: false });
-    collapseInst.hide();
-    const sidebarToggle = document.querySelector('[data-bs-target="#groupSidebar"]');
-    if (sidebarToggle) {
-      sidebarToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        collapseInst.toggle();
-      });
-    }
-    sidebarEl.addEventListener('show.bs.collapse', () => { state.freezeRefresh = true; });
-    sidebarEl.addEventListener('hide.bs.collapse', () => { state.freezeRefresh = false; startAutoRefresh(); });
-  }
 
   const expiryModalEl = document.getElementById('expiryModal');
   if (expiryModalEl) {
@@ -2512,6 +2556,9 @@ function bindUI() {
     });
     updateScrollTopButton();
   }
+
+  focusMessageInput();
+  initChatLayoutObserver();
 
   async function handleGroupJoinSuccess(data, secret, fallbackName, { persistSecret: persist = false } = {}) {
     if (!data || !data.group_id) return null;
