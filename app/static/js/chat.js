@@ -409,7 +409,14 @@ function toHex(buffer) {
 }
 
 function fromHex(hex) {
-  const bytes = new Uint8Array(hex.match(/.{1,2}/g).map((b) => parseInt(b, 16)));
+  if (!hex || typeof hex !== 'string') {
+    return new ArrayBuffer(0);
+  }
+  const matches = hex.match(/.{1,2}/g);
+  if (!matches) {
+    return new ArrayBuffer(0);
+  }
+  const bytes = new Uint8Array(matches.map((b) => parseInt(b, 16)));
   return bytes.buffer;
 }
 
@@ -444,6 +451,10 @@ async function encryptText(message, secret, groupId) {
 }
 
 async function decryptText(payload, secret, groupId) {
+  if (!payload?.ciphertext || !payload?.nonce || !payload?.auth_tag) {
+    console.warn('Decrypt failed, payload missing encryption fields', { payload, groupId });
+    return '[unable to decrypt]';
+  }
   try {
     const key = await deriveKey(secret, groupId);
     const nonce = new Uint8Array(fromHex(payload.nonce));
@@ -1668,7 +1679,10 @@ async function appendLatestMessage(groupId, opts = {}) {
   }
   const secret = await ensureSecret(groupId);
   if (!secret) return false;
-  const plaintext = await decryptText(msg, secret, groupId);
+  let plaintext = '[encrypted]';
+  if (msg.ciphertext) {
+    plaintext = await decryptText(msg, secret, groupId);
+  }
   msg.plaintext = plaintext;
   const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
   state.messages[groupId] = state.messages[groupId] || [];
@@ -2490,31 +2504,207 @@ function bindUI() {
     updateScrollTopButton();
   }
 
+  async function handleGroupJoinSuccess(data, secret, fallbackName) {
+    if (!data || !data.group_id) return null;
+    const groupId = Number(data.group_id);
+    if (!groupId) return null;
+    const label = fallbackName || data.name || `Space ${groupId}`;
+    state.secrets[groupId] = secret || '';
+    const existing = document.querySelector(`#group-list [data-group-id="${groupId}"]`);
+    if (existing) {
+      existing.setAttribute('data-group-name', label);
+      const nameEl = existing.querySelector('.group-name');
+      if (nameEl) nameEl.textContent = label;
+    } else {
+      addGroupToSidebar(groupId, label, { deletable: false });
+    }
+    await setCurrentGroup(groupId, label, { forceLatest: true });
+    fetchGroups();
+    return data;
+  }
+
+  async function attemptGroupJoin(payload, secret, fallbackName, failureText) {
+    try {
+      const resp = await fetch('/groups/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        const detail = data?.error ? `${failureText} (${data.error}).` : failureText;
+        showInfoModal('Join failed', detail);
+        return null;
+      }
+      return handleGroupJoinSuccess(data, secret, fallbackName);
+    } catch (err) {
+      showInfoModal('Join failed', failureText);
+      return null;
+    }
+  }
+
   document.getElementById('join-btn')?.addEventListener('click', async () => {
     const secret = document.getElementById('join-secret').value.trim();
     const groupName = (document.getElementById('join-group-name')?.value || '').trim();
     if (!groupName || !secret) return showInfoModal('Join failed', 'Provide group name and secret.');
-    const resp = await fetch('/groups/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
-      body: JSON.stringify({ group_name: groupName, secret }),
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      state.secrets[data.group_id] = secret;
-      const list = document.querySelector('.contact-list');
-      if (list && !list.querySelector(`[data-group-id="${data.group_id}"]`)) {
-        addGroupToSidebar(data.group_id, groupName);
-      }
-      setCurrentGroup(data.group_id, groupName, { forceLatest: true });
-      fetchGroups();
+    const result = await attemptGroupJoin(
+      { group_name: groupName, secret },
+      secret,
+      groupName,
+      'Unable to join this group with the provided secret.'
+    );
+    if (result) {
       document.getElementById('join-secret').value = '';
       const nameInput = document.getElementById('join-group-name');
       if (nameInput) nameInput.value = '';
-    } else {
-      showInfoModal('Join failed', 'Unable to join this group with the provided secret.');
     }
   });
+
+  const scanBtn = document.getElementById('scan-qr-btn');
+  const scannerModalEl = document.getElementById('qrScannerModal');
+  const scannerVideo = document.getElementById('qr-video');
+  const scannerCanvas = document.getElementById('qr-canvas');
+  const scannerCopy = document.getElementById('qr-scan-text');
+  const scanCopyStrings = {
+    cameraMissing: scannerCopy?.dataset?.cameraMissing || 'Scanning requires a device camera.',
+    cameraDenied: scannerCopy?.dataset?.cameraDenied || 'Allow camera access to continue.',
+    invalid: scannerCopy?.dataset?.invalid || 'This QR code is not a valid invitation.',
+    joinFailed: scannerCopy?.dataset?.joinFailed || 'Unable to join the space from this QR code.',
+    libraryMissing: scannerCopy?.dataset?.libraryMissing || 'Unable to load the QR decoder.',
+  };
+  let scannerStream = null;
+  let scannerFrame = null;
+  let scannerCtx = null;
+  let scanningBusy = false;
+  let scannerModalInstance = null;
+
+  function stopScanner() {
+    scanningBusy = false;
+    if (scannerFrame) {
+      cancelAnimationFrame(scannerFrame);
+      scannerFrame = null;
+    }
+    if (scannerStream) {
+      scannerStream.getTracks().forEach((track) => track.stop());
+      scannerStream = null;
+    }
+    if (scannerVideo) {
+      scannerVideo.pause();
+      scannerVideo.srcObject = null;
+    }
+  }
+
+  function scheduleScanFrame() {
+    if (scannerFrame) {
+      cancelAnimationFrame(scannerFrame);
+    }
+    scannerFrame = requestAnimationFrame(scanFrame);
+  }
+
+  async function startScanner() {
+    if (!scannerVideo || !scannerCanvas) return;
+    stopScanner();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showInfoModal('Scanning unavailable', scanCopyStrings.cameraMissing);
+      scannerModalInstance?.hide();
+      return;
+    }
+    try {
+      scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      scannerVideo.srcObject = scannerStream;
+      await scannerVideo.play();
+      scannerCtx = scannerCanvas.getContext('2d');
+      scanningBusy = false;
+      scheduleScanFrame();
+    } catch (err) {
+      showInfoModal('Camera access denied', scanCopyStrings.cameraDenied);
+      scannerModalInstance?.hide();
+    }
+  }
+
+  async function handleScannedCode(rawValue) {
+    let parsed;
+    try {
+      parsed = JSON.parse(rawValue);
+    } catch (err) {
+      showInfoModal('Scan failed', scanCopyStrings.invalid);
+      scanningBusy = false;
+      scheduleScanFrame();
+      return;
+    }
+    const secret = (parsed?.secret || parsed?.secret_hash || '').trim();
+    const groupId = Number(parsed?.group ?? parsed?.group_id);
+    const fallbackName = parsed?.name || parsed?.group_name || '';
+    if (!secret || !groupId) {
+      showInfoModal('Scan failed', scanCopyStrings.invalid);
+      scanningBusy = false;
+      scheduleScanFrame();
+      return;
+    }
+    const payload = { secret, group_id: groupId };
+    if (fallbackName) payload.group_name = fallbackName;
+    const result = await attemptGroupJoin(payload, secret, fallbackName, scanCopyStrings.joinFailed);
+    if (result) {
+      stopScanner();
+      scannerModalInstance?.hide();
+      return;
+    }
+    scanningBusy = false;
+    scheduleScanFrame();
+  }
+
+  function scanFrame() {
+    if (scanningBusy || !scannerVideo || !scannerCanvas || typeof window.jsQR !== 'function') {
+      scheduleScanFrame();
+      return;
+    }
+    if (scannerVideo.readyState < scannerVideo.HAVE_ENOUGH_DATA) {
+      scheduleScanFrame();
+      return;
+    }
+    const width = scannerVideo.videoWidth || scannerVideo.clientWidth;
+    const height = scannerVideo.videoHeight || scannerVideo.clientHeight;
+    if (!width || !height) {
+      scheduleScanFrame();
+      return;
+    }
+    scannerCanvas.width = width;
+    scannerCanvas.height = height;
+    scannerCtx?.drawImage(scannerVideo, 0, 0, width, height);
+    const imageData = scannerCtx?.getImageData(0, 0, width, height);
+    if (!imageData) {
+      scheduleScanFrame();
+      return;
+    }
+    const qr = window.jsQR(imageData.data, imageData.width, imageData.height);
+    if (qr?.data) {
+      scanningBusy = true;
+      handleScannedCode(qr.data);
+      return;
+    }
+    scheduleScanFrame();
+  }
+
+  if (scanBtn && scannerModalEl) {
+    scannerModalInstance = bootstrap.Modal.getOrCreateInstance(scannerModalEl, { backdrop: 'static', keyboard: false });
+    scanBtn.addEventListener('click', () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        showInfoModal('Scanning unavailable', scanCopyStrings.cameraMissing);
+        return;
+      }
+      if (typeof window.jsQR !== 'function') {
+        showInfoModal('Scanning unavailable', scanCopyStrings.libraryMissing);
+        return;
+      }
+      scannerModalInstance?.show();
+    });
+    scannerModalEl.addEventListener('shown.bs.modal', () => {
+      startScanner();
+    });
+    scannerModalEl.addEventListener('hidden.bs.modal', () => {
+      stopScanner();
+    });
+  }
 
   const modalEl = document.getElementById('secretModal');
   if (modalEl) {
