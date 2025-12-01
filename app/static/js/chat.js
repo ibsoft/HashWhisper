@@ -121,6 +121,7 @@ async function fetchMessageCount(groupId, { force = false } = {}) {
 }
 
 let chatLayoutObserver;
+let bubbleAnimationSequence = 0;
 
 function focusMessageInput() {
   const input = document.getElementById('message-input');
@@ -129,6 +130,16 @@ function focusMessageInput() {
     input.focus({ preventScroll: true });
   } catch (err) {
     input.focus();
+  }
+}
+
+function focusSendButton() {
+  const sendBtn = document.getElementById('send-btn');
+  if (!sendBtn) return;
+  try {
+    sendBtn.focus({ preventScroll: true });
+  } catch (err) {
+    sendBtn.focus();
   }
 }
 
@@ -850,7 +861,7 @@ async function encryptFile(file, secret, groupId) {
 }
 
 async function renderMessage(container, msg, self, groupId, opts = {}) {
-  const { prepend = false } = opts;
+  const { prepend = false, animate = true } = opts;
   const bubble = document.createElement('div');
   bubble.className = `bubble ${self ? 'self' : 'other'}`;
   bubble.setAttribute('data-message-id', msg.id);
@@ -1033,6 +1044,16 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   bubble.appendChild(metaLine);
   bubble.appendChild(actions);
   if (likedBy.textContent) bubble.appendChild(likedBy);
+  const shouldAnimate = animate && !prepend;
+  if (shouldAnimate) {
+    const delay = (bubbleAnimationSequence % 4) * 0.04;
+    bubble.style.setProperty('--bubble-delay', `${delay}s`);
+    bubbleAnimationSequence = (bubbleAnimationSequence + 1) % 4;
+    bubble.classList.add('new-message');
+    bubble.addEventListener('animationend', () => {
+      bubble.classList.remove('new-message');
+    }, { once: true });
+  }
   if (prepend && container.firstChild) {
     container.insertBefore(bubble, container.firstChild);
   } else {
@@ -1358,7 +1379,7 @@ async function loadMessages(groupId, opts = {}) {
       }
       msg.plaintext = plaintext;
       const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
-      await renderMessage(list, msg, isSelf, groupId, { prepend });
+      await renderMessage(list, msg, isSelf, groupId, { prepend, animate: !forceRefresh });
       if (!state.messages[groupId].includes(msg.id)) {
         state.messages[groupId].push(msg.id);
         appendedNew = true;
@@ -1461,7 +1482,6 @@ async function sendMessage() {
   });
   if (ok) {
     input.value = '';
-    focusMessageInput();
     appendTempMessage(payloadText);
     const list = document.getElementById('message-list');
     const beforeCount = state.messages[state.currentGroup]?.length || 0;
@@ -1476,7 +1496,7 @@ async function sendMessage() {
     stickToBottom(list);
     startAutoRefresh();
     playSound('outbound');
-    focusMessageInput();
+    focusSendButton();
   }
 }
 
