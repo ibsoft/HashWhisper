@@ -1202,6 +1202,9 @@ main .container-fluid {
     width: 100%;
     height: auto;
   }
+  .message-list {
+    scroll-behavior: auto;
+  }
 }
 
 @media (min-width: 992px) {
