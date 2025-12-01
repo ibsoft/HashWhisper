@@ -11,6 +11,7 @@
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
   --nav-token-height: 32px;
   --nav-height: 64px;
+  --footer-height: 56px;
   --bottom-gutter: 16px;
 }
 
@@ -511,7 +512,9 @@ main > .container-fluid {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(4, 6, 23, 0.35);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
   border-radius: 18px;
   z-index: 5;
   transition: opacity 0.2s ease;
@@ -822,6 +825,13 @@ main > .container-fluid {
   margin-top: auto;
   width: 100%;
 }
+
+@media (max-width: 768px) {
+  /* Prevent keyboard-induced repositioning on phones */
+  .sticky-input {
+    position: static;
+  }
+}
 .input-row { align-items: stretch !important; }
 .send-btn {
   display: flex;
@@ -954,12 +964,21 @@ main > .container-fluid {
 
 .bg-gradient { min-height: 100vh; }
 
+@media (min-height: 720px) {
+.qr-page {
+  max-height: calc(100vh - var(--nav-height) - var(--footer-height) - 2rem);
+  overflow-y: auto;
+  padding-bottom: 1rem;
+}
+}
+
 main {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   padding-bottom: 0;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--nav-height) - var(--footer-height) - var(--bottom-gutter));
+  height: calc(100vh - var(--nav-height) - var(--footer-height) - var(--bottom-gutter));
   overflow: hidden;
 }
 
@@ -989,11 +1008,15 @@ main .container-fluid {
   flex-direction: column;
   gap: 1rem;
   min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 #groupSidebar.desktop-spaces {
   overflow-y: auto;
-  max-height: calc(100vh - 160px);
+  max-height: 100%;
+  height: 100%;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -1066,21 +1089,8 @@ main .container-fluid {
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding-bottom: 6rem;
+  scroll-behavior: smooth;
 }
-
-.message-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 18px;
-  z-index: 5;
-  transition: opacity 0.2s ease;
-}
-.message-loading.d-none { opacity: 0; }
-.message-loading:not(.d-none) { opacity: 1; }
 
 .scroll-top-btn {
   position: absolute;
@@ -1167,7 +1177,7 @@ main .container-fluid {
   }
   #groupSidebar.desktop-spaces {
     align-self: stretch;
-    max-height: none;
+    max-height: 100%;
     height: 100%;
     padding-bottom: 0.5rem;
   }
@@ -1205,4 +1215,9 @@ main .container-fluid {
   border-radius: 1rem;
   box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.35), 0 0 24px rgba(158, 242, 176, 0.35);
   animation: pulse 1.6s ease-in-out infinite alternate;
+}
+.qr-card-wrapper {
+  width: 100%;
+  max-width: clamp(240px, 70vw, 420px);
+  margin: 0 auto;
 }

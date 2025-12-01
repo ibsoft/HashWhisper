@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center qr-page">
   <div class="col-lg-6">
     <div class="card card-glass p-4 text-center">
       <h3 class="mb-2">{{ group.name }} created</h3>
       <p class="text-muted">Share this QR offline with trusted members. The server only stores a salted hash of the secret.</p>
-      <div class="p-3 bg-dark rounded-3">
+      <div class="p-3 bg-dark rounded-3 qr-card-wrapper">
         <img src="{{ qr_data }}" alt="Group QR" class="img-fluid rounded">
       </div>
       <p class="mt-3 text-muted small">{{ _('Payload includes the group id, name, and shared secret so trusted members can join instantly.') }}</p>

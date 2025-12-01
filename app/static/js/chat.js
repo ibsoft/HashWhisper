@@ -2435,6 +2435,7 @@ function bindUI() {
     e.target.value = '';
   });
 
+  const isMobileViewport = () => window.matchMedia('(max-width: 991px)').matches;
   let sidebarExpanded = true;
   const setSidebarState = (expanded) => {
     sidebarExpanded = expanded;
@@ -2453,7 +2454,8 @@ function bindUI() {
       setSidebarState(true);
     }
   });
-  setSidebarState(true);
+  const initialMobile = isMobileViewport();
+  setSidebarState(!initialMobile);
 
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
