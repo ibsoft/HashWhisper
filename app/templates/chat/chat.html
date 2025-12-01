@@ -61,7 +61,7 @@
 
     <div class="card card-glass p-3 sidebar-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0"><i class="fa-solid fa-star me-2 text-success"></i>{{ _('Favorites') }}</h6>
+        <h6 class="mb-0 favorites-title"><i class="fa-solid fa-star me-2"></i>{{ _('Favorites') }}</h6>
       </div>
       <div class="contact-list list-group list-group-flush" id="favorite-list">
         <div class="text-muted small">{{ _('No favorites yet.') }}</div>
@@ -78,11 +78,12 @@
       </div>
     </div>
     <div class="card card-glass p-3 sidebar-card doc-card mt-3">
-      <div class="card-body text-center">
-        <h6 class="card-title mb-2">{{ _('Documentation') }}</h6>
-        <p class="text-muted small mb-3">{{ _('Review the essentials or catch up on features without leaving the chat.') }}</p>
-        <a class="btn btn-soft w-100 doc-btn" href="{{ url_for('chat.help_page') }}">{{ _('User Manual') }}</a>
+      <div class="d-flex align-items-center mb-2">
+        <h6 class="card-title mb-0 doc-label"><i class="fa-solid fa-book-open me-2"></i>{{ _('Documentation') }}</h6>
       </div>
+      <hr class="text-secondary my-2">
+      <p class="text-muted small mb-3 text-center">{{ _('Review the essentials or catch up on features without leaving the chat.') }}</p>
+      <a class="btn btn-soft w-100 doc-btn" href="{{ url_for('chat.help_page') }}">{{ _('User Manual') }}</a>
     </div>
   </div>
 

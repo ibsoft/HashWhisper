@@ -317,10 +317,11 @@ html, body {
   border-color: rgba(255, 255, 255, 0.12);
 }
 .doc-card .card-title {
-  font-size: 0.85rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
   font-weight: 600;
+  color: inherit;
 }
 .doc-card .doc-btn {
   border-radius: 999px;
@@ -434,6 +435,19 @@ html, body {
 }
 [data-bs-theme="light"] .contact-list .list-group-item .username {
   color: #0b1a2d;
+}
+.contact-list .btn-link {
+  text-decoration: none;
+}
+.contact-list .btn-link:hover,
+.contact-list .btn-link:focus {
+  text-decoration: none;
+}
+.favorites-title i {
+  color: #ffffff;
+}
+.doc-label {
+  text-transform: lowercase;
 }
 
 #chat-panel {
