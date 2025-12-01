@@ -2504,7 +2504,7 @@ function bindUI() {
     updateScrollTopButton();
   }
 
-  async function handleGroupJoinSuccess(data, secret, fallbackName) {
+  async function handleGroupJoinSuccess(data, secret, fallbackName, { persistSecret: persist = false } = {}) {
     if (!data || !data.group_id) return null;
     const groupId = Number(data.group_id);
     if (!groupId) return null;
@@ -2520,10 +2520,13 @@ function bindUI() {
     }
     await setCurrentGroup(groupId, label, { forceLatest: true });
     fetchGroups();
+    if (persist && secret) {
+      persistSecret(groupId, secret);
+    }
     return data;
   }
 
-  async function attemptGroupJoin(payload, secret, fallbackName, failureText) {
+  async function attemptGroupJoin(payload, secret, fallbackName, failureText, options = {}) {
     try {
       const resp = await fetch('/groups/join', {
         method: 'POST',
@@ -2536,7 +2539,7 @@ function bindUI() {
         showInfoModal('Join failed', detail);
         return null;
       }
-      return handleGroupJoinSuccess(data, secret, fallbackName);
+      return handleGroupJoinSuccess(data, secret, fallbackName, options);
     } catch (err) {
       showInfoModal('Join failed', failureText);
       return null;
@@ -2643,7 +2646,7 @@ function bindUI() {
     }
     const payload = { secret, group_id: groupId };
     if (fallbackName) payload.group_name = fallbackName;
-    const result = await attemptGroupJoin(payload, secret, fallbackName, scanCopyStrings.joinFailed);
+    const result = await attemptGroupJoin(payload, secret, fallbackName, scanCopyStrings.joinFailed, { persistSecret: true });
     if (result) {
       stopScanner();
       scannerModalInstance?.hide();
@@ -3198,14 +3201,13 @@ async function deleteMessage(id, groupId, bubble) {
     existing?.remove();
   }
   if (groupId) {
-    // Immediately prune the DOM to avoid stale view; server refresh will follow.
+    // Remove any other matching nodes in case the bubble is duplicated.
     const list = document.getElementById('message-list');
     const el = bubble || document.querySelector(`[data-message-id="${id}"]`);
     el?.remove();
     if (list) {
       list.querySelectorAll(`[data-message-id="${id}"]`).forEach((node) => node.remove());
     }
-    scheduleMessageRefresh(groupId, { notify: false, forceRefresh: true, spinner: false });
   }
   try {
     if (window.showToast) {
