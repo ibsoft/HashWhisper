@@ -4,7 +4,7 @@
   <div class="collapse d-lg-block desktop-spaces" id="groupSidebar">
     <div class="card card-glass p-3 sidebar-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Spaces') }}</h5>
+        <h5 class="mb-0"><i class="fa-solid fa-layer-group me-2"></i>{{ _('Whisper Rooms') }}</h5>
         <div class="btn-group">
           <a class="btn btn-sm btn-soft" href="{{ url_for('chat.create_group') }}" title="{{ _('Create group') }}"><i class="fa-solid fa-plus"></i></a>
         </div>
@@ -99,12 +99,12 @@
         </div>
       </div>
       <div class="d-flex gap-2 align-items-center">
-        <button class="btn btn-sm btn-outline-light position-relative" id="info-indicator" title="{{ _('No new notifications') }}">
+        <button class="btn btn-sm btn-outline-light position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
           <i class="fa-solid fa-circle-info"></i>
           <span class="notification-dot d-none" id="info-dot"></span>
           <span class="notification-count d-none" id="info-count"></span>
         </button>
-        <button class="btn btn-sm btn-outline-light" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
+        <button class="btn btn-sm btn-outline-light top-menu-btn" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
       </div>
     </div>
     <div class="d-flex justify-content-center align-items-center load-older-banner d-none">
