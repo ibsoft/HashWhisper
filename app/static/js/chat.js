@@ -132,6 +132,16 @@ function focusMessageInput() {
   }
 }
 
+function focusSendButton() {
+  const sendBtn = document.getElementById('send-btn');
+  if (!sendBtn) return;
+  try {
+    sendBtn.focus({ preventScroll: true });
+  } catch (err) {
+    sendBtn.focus();
+  }
+}
+
 function isNearBottom(listEl, threshold = 120) {
   if (!listEl) return true;
   const distance = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight;
@@ -1468,7 +1478,6 @@ async function sendMessage() {
   });
   if (ok) {
     input.value = '';
-    focusMessageInput();
     appendTempMessage(payloadText);
     const list = document.getElementById('message-list');
     const beforeCount = state.messages[state.currentGroup]?.length || 0;
@@ -1483,7 +1492,7 @@ async function sendMessage() {
     stickToBottom(list);
     startAutoRefresh();
     playSound('outbound');
-    focusMessageInput();
+    focusSendButton();
   }
 }
 
