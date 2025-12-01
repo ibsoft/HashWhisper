@@ -2435,6 +2435,7 @@ function bindUI() {
     e.target.value = '';
   });
 
+  const isMobileViewport = () => window.matchMedia('(max-width: 991px)').matches;
   let sidebarExpanded = true;
   const setSidebarState = (expanded) => {
     sidebarExpanded = expanded;
@@ -2453,7 +2454,8 @@ function bindUI() {
       setSidebarState(true);
     }
   });
-  setSidebarState(true);
+  const initialMobile = isMobileViewport();
+  setSidebarState(!initialMobile);
 
   document.getElementById('record-btn')?.addEventListener('click', () => {
     resumeAudio();
@@ -2598,9 +2600,12 @@ function bindUI() {
     return data;
   }
 
+  const joinGroupConfigEl = document.getElementById('qr-join-config');
+  const joinGroupUrl = joinGroupConfigEl?.dataset?.joinUrl || '/groups/join';
+
   async function attemptGroupJoin(payload, secret, fallbackName, failureText, options = {}) {
     try {
-      const resp = await fetch('/groups/join', {
+      const resp = await fetch(joinGroupUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify(payload),

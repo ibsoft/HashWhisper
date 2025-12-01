@@ -139,13 +139,20 @@ def chat():
     purge_expired_scheduled()
     groups = Group.query.join(GroupMembership).filter(GroupMembership.user_id == current_user.id).all()
     default_avatar = flask.url_for("static", filename="img/user.png")
-    return render_template("chat/chat.html", groups=groups, default_avatar=default_avatar)
+    create_group_form = GroupForm()
+    return render_template(
+        "chat/chat.html",
+        groups=groups,
+        default_avatar=default_avatar,
+        create_group_form=create_group_form,
+    )
 
 
 @chat_bp.route("/groups/create", methods=["GET", "POST"])
 @login_required
 def create_group():
     form = GroupForm()
+    ajax_request = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     if form.validate_on_submit():
         secret = form.secret.data.strip()
         secret_hash = hash_secret(secret)
@@ -154,6 +161,8 @@ def create_group():
         existing = Group.query.filter_by(name=name).first()
         if existing:
             msg = _("A group with this name already exists.")
+            if ajax_request:
+                return jsonify({"ok": False, "message": msg, "errors": {"name": [msg]}}), 409
             flash(msg, "error")
             return render_template("chat/create_group.html", form=form, duplicate_error=msg), 409
         group = Group(name=name, secret_hash=secret_hash, created_by=current_user.id)
@@ -167,8 +176,23 @@ def create_group():
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         qr_data = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+        if ajax_request:
+            return jsonify(
+                {
+                    "ok": True,
+                    "group": {"id": group.id, "name": group.name},
+                    "qr_data": qr_data,
+                    "message": _("Group created. Share the QR offline."),
+                }
+            )
         flash("Group created. Share the QR offline.", "success")
         return render_template("chat/group_created.html", group=group, qr_payload=qr_payload, qr_data=qr_data)
+    if ajax_request:
+        errors = []
+        for field_errors in form.errors.values():
+            errors.extend(field_errors)
+        message = errors[0] if errors else _("Could not create group at this time.")
+        return jsonify({"ok": False, "message": message, "errors": form.errors}), 400
     return render_template("chat/create_group.html", form=form)
 
 @chat_bp.route("/api/groups/verify", methods=["POST"])
