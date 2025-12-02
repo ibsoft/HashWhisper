@@ -1,5 +1,16 @@
 const encoder = new TextEncoder();
 const MESSAGE_PAGE_LIMIT = 50;
+const MOBILE_USER_AGENT = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+
+function isMobileDevice() {
+  return typeof navigator !== 'undefined' && MOBILE_USER_AGENT.test(navigator.userAgent);
+}
+
+function isAndroidDevice() {
+  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+}
+
+let mobileNotificationPromptBound = false;
 
 const state = {
   currentGroup: null,
@@ -29,6 +40,8 @@ const state = {
 let refreshTimer = null;
 let scrollActivityTimer = null;
 let audioCtx = null;
+let typingAudio = null;
+let typingIndicatorVisible = false;
 
 const IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // aim to keep uploads around 2.5MB or less after compression
 const IMAGE_MAX_DIMENSION = 1920; // cap longest image edge for uploads
@@ -780,10 +793,34 @@ async function requestNotificationPermission() {
   }
 }
 
+function ensureMobileNotificationPrompt() {
+  if (!isMobileDevice() || mobileNotificationPromptBound) return;
+  mobileNotificationPromptBound = true;
+  const handler = () => {
+    requestNotificationPermission();
+    resumeAudio();
+  };
+  const attach = () => {
+    if (document.body) {
+      document.body.addEventListener('pointerdown', handler, { once: true, capture: true });
+      document.body.addEventListener('touchstart', handler, { once: true, capture: true });
+    }
+  };
+  if (document.body) {
+    attach();
+  } else {
+    document.addEventListener('DOMContentLoaded', attach, { once: true });
+  }
+}
+
 function showBrowserNotification(title, body) {
   if (!state.notificationsAllowed || !('Notification' in window)) return;
   try {
-    new Notification(title, { body, silent: false });
+    const options = { body, silent: false };
+    if (isAndroidDevice()) {
+      options.requireInteraction = true;
+    }
+    new Notification(title, options);
   } catch (e) {
     // ignore
   }
@@ -837,6 +874,31 @@ function playSound(kind) {
   osc.connect(gain).connect(ctx.destination);
   osc.start();
   osc.stop(ctx.currentTime + duration);
+}
+
+function startTypingSound() {
+  try {
+    if (!typingAudio) {
+      typingAudio = new Audio('/static/sounds/typing.wav');
+      typingAudio.preload = 'auto';
+      typingAudio.loop = true;
+    }
+    typingAudio.currentTime = 0;
+    typingAudio.play().catch(() => {});
+  } catch (err) {
+    // ignore
+  }
+}
+
+function stopTypingSound() {
+  try {
+    if (typingAudio) {
+      typingAudio.pause();
+      typingAudio.currentTime = 0;
+    }
+  } catch (err) {
+    // ignore
+  }
 }
 
 function updateBubbleReactions(bubble, msg) {
@@ -2519,6 +2581,7 @@ function bindUI() {
   const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
   const sidebarEl = document.getElementById('groupSidebar');
   const chatShell = document.querySelector('.chat-shell');
+  ensureMobileNotificationPrompt();
   shareSecretButton = document.getElementById('share-secret-btn');
   shareSecretButton?.addEventListener('click', shareCurrentSecret);
   updateShareSecretButton();
@@ -3140,7 +3203,14 @@ function connectPresence() {
       if (!payload.event || payload.event === 'presence') {
         if (typingIndicator) {
           const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
-          typingIndicator.classList.toggle('d-none', !payload.typing || isSelf);
+          const isTyping = Boolean(payload.typing && !isSelf);
+          typingIndicator.classList.toggle('d-none', !isTyping);
+          if (isTyping && !typingIndicatorVisible) {
+            startTypingSound();
+          } else if (!isTyping && typingIndicatorVisible) {
+            stopTypingSound();
+          }
+          typingIndicatorVisible = isTyping;
         }
         maybeShowPresenceToast(payload);
         return;
