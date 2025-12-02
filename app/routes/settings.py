@@ -33,6 +33,8 @@ def settings():
         # For optional TOTP, default checkbox reflects current status on GET
         if not form.is_submitted():
             form.enable_totp.data = bool(current_user.totp_confirmed)
+    if not form.is_submitted():
+        form.use_gravatar.data = bool(current_user.use_gravatar)
     if totp_disabled:
         form.enable_totp.data = False
         form.enable_totp.render_kw = {**(form.enable_totp.render_kw or {}), "disabled": True}
@@ -42,6 +44,7 @@ def settings():
         current_user.language = lang_choice
         session["lang"] = lang_choice
         current_user.notifications_enabled = form.notifications_enabled.data
+        current_user.use_gravatar = bool(form.use_gravatar.data)
         current_user.timezone = form.timezone.data
         avatar_file = form.avatar.data
         if avatar_file and avatar_file.filename:

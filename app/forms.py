@@ -46,6 +46,7 @@ class SettingsForm(FlaskForm):
     preferred_theme = SelectField(_l("Theme"), choices=[("system", _l("System")), ("light", _l("Light")), ("dark", _l("Dark"))])
     language = SelectField(_l("Language"), choices=[("en", "English"), ("el", "Ελληνικά")], default="en")
     notifications_enabled = BooleanField(_l("Enable notifications"))
+    use_gravatar = BooleanField(_l("Use Gravatar (uses your registered email)"))
     timezone = SelectField(
         _l("Time zone"),
         choices=[

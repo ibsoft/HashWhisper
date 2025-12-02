@@ -13,6 +13,7 @@
   --nav-height: 64px;
   --footer-height: 56px;
   --bottom-gutter: 16px;
+  --bubble-avatar-size: 34px;
   --ui-font-family: 'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
   --ui-font-size: 16px;
 }
@@ -62,6 +63,7 @@ main {
 .auth-page-row .col-lg-5,
 .auth-page-row .col-lg-6 {
   width: 100%;
+  max-width: 480px;
 }
 main > .container-fluid {
   flex: 1 0 auto;
@@ -105,6 +107,31 @@ main > .container-fluid {
 .navbar-glass .nav-inline-scroll a {
   font-family: inherit;
   font-weight: 500;
+}
+
+.error-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at top, rgba(158, 242, 176, 0.06), rgba(10, 15, 25, 0.95));
+}
+.error-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f7ff;
+  font-weight: 600;
+}
+.error-actions .btn {
+  min-width: 120px;
+}
+.error-humor {
+  opacity: 0.85;
 }
 
 .navbar-glass .nav-inline-scroll .btn,
@@ -567,7 +594,8 @@ main > .container-fluid {
 }
 
 .bubble {
-  padding: 0.9rem 1.1rem;
+  padding: 0.9rem 1.1rem 0.9rem 1.1rem;
+  padding-right: calc(1.1rem + var(--bubble-avatar-size) + 0.5rem);
   border-radius: 18px;
   max-width: 85%;
   width: fit-content;
@@ -590,6 +618,28 @@ main > .container-fluid {
   text-justify: auto;
   hyphens: none;
   line-height: 1.5;
+}
+.bubble-avatar {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: var(--bubble-avatar-size);
+  height: var(--bubble-avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.bubble-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+[data-bs-theme="light"] .bubble-avatar {
+  border-color: rgba(10, 15, 25, 0.25);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 @media (max-width: 576px) {
   .bubble.media-wide {

@@ -886,6 +886,18 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   const bubble = document.createElement('div');
   bubble.className = `bubble ${self ? 'self' : 'other'}`;
   bubble.setAttribute('data-message-id', msg.id);
+  const avatarUrl = msg.avatar_url || getDefaultAvatar();
+  const avatarAlt = msg.sender_name ? `${msg.sender_name} avatar` : 'Avatar';
+  const avatarWrap = document.createElement('div');
+  avatarWrap.className = 'bubble-avatar';
+  const avatarImg = document.createElement('img');
+  avatarImg.src = avatarUrl;
+  avatarImg.alt = avatarAlt;
+  avatarImg.addEventListener('error', () => {
+    const fallback = getDefaultAvatar();
+    if (avatarImg.src !== fallback) avatarImg.src = fallback;
+  });
+  avatarWrap.appendChild(avatarImg);
   let meta = {};
   try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
   const body = document.createElement('div');
@@ -1065,6 +1077,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   bubble.appendChild(metaLine);
   bubble.appendChild(actions);
   if (likedBy.textContent) bubble.appendChild(likedBy);
+  bubble.appendChild(avatarWrap);
   const shouldAnimate = animate && !prepend;
   if (shouldAnimate) {
     const delay = (bubbleAnimationSequence % 4) * 0.04;

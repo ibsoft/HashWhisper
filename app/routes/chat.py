@@ -8,6 +8,7 @@ import socket
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+from hashlib import md5
 from pathlib import Path
 
 import qrcode
@@ -37,6 +38,18 @@ from ..presence import get_presence_bus, sse_stream
 from flask import current_app
 
 chat_bp = Blueprint("chat", __name__)
+
+def resolve_avatar_url(user: User | None):
+    default_avatar = url_for("static", filename="img/user.png", _external=False)
+    if not user:
+        return default_avatar
+    if getattr(user, "use_gravatar", False) and user.email:
+        email = user.email.strip().lower().encode("utf-8")
+        digest = md5(email).hexdigest()
+        return f"https://www.gravatar.com/avatar/{digest}?s=100&d=identicon&r=g"
+    if user.avatar_path:
+        return url_for("chat.avatar_file", filename=user.avatar_path, _external=False)
+    return default_avatar
 
 
 def purge_expired_scheduled():
@@ -301,12 +314,7 @@ def list_users():
         .filter(GroupMembership.group_id == group_id, User.id != current_user.id)
         .all()
     )
-    def avatar_url(u: User):
-        if not u.avatar_path:
-            return None
-        return url_for("chat.avatar_file", filename=u.avatar_path, _external=False)
-
-    return jsonify([{"id": u.id, "username": u.username, "avatar_url": avatar_url(u)} for u in users])
+    return jsonify([{"id": u.id, "username": u.username, "avatar_url": resolve_avatar_url(u)} for u in users])
 
 
 @chat_bp.route("/api/favorites", methods=["GET", "POST"])
@@ -315,19 +323,16 @@ def list_users():
 def favorites():
     if request.method == "GET":
         favs = (
-            Favorite.query.filter_by(user_id=current_user.id)
-            .join(User, Favorite.favorite_user_id == User.id)
-            .with_entities(User.id, User.username, User.avatar_path)
+            User.query.join(Favorite, Favorite.favorite_user_id == User.id)
+            .filter(Favorite.user_id == current_user.id)
             .all()
         )
-        def avatar_url(u_avatar):
-            return url_for("chat.avatar_file", filename=u_avatar, _external=False) if u_avatar else None
         return jsonify(
             [
                 {
                     "id": row.id,
                     "username": row.username,
-                    "avatar_url": avatar_url(row.avatar_path),
+                    "avatar_url": resolve_avatar_url(row),
                 }
                 for row in favs
             ]
@@ -624,6 +629,7 @@ def list_messages():
                 "meta": m.meta,
                 "sender_id": m.sender_id,
                 "sender_name": getattr(m.sender, "username", "user"),
+                "avatar_url": resolve_avatar_url(m.sender),
                 "created_at": m.created_at.replace(tzinfo=timezone.utc).isoformat(),
                 "likes": likes,
                 "dislikes": dislikes,
@@ -700,6 +706,7 @@ def latest_message():
             "meta": msg.meta,
             "sender_id": msg.sender_id,
             "sender_name": getattr(msg.sender, "username", "user"),
+            "avatar_url": resolve_avatar_url(msg.sender),
             "created_at": msg.created_at.replace(tzinfo=timezone.utc).isoformat(),
             "likes": likes,
             "dislikes": dislikes,
