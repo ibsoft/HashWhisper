@@ -35,6 +35,7 @@ const state = {
   scheduledEditing: null,
   groups: [],
   expiryMonitor: { lastMinute: null, handledExpire: false, lastWarnTs: 0, modalShown: false, modalInstance: null, lastSystemMinute: null },
+  typingNotifications: new Map(),
 };
 
 let refreshTimer = null;
@@ -3237,6 +3238,7 @@ function connectPresence() {
           }
           typingIndicatorVisible = isTyping;
         }
+        maybeShowTypingToast(payload);
         maybeShowPresenceToast(payload);
         return;
       }
@@ -3283,6 +3285,55 @@ function maybeShowPresenceToast(payload) {
   } catch (err) {
     // ignore presence toast errors
   }
+}
+
+function maybeShowTypingToast(payload) {
+  try {
+    const { user_id: uid, username, typing, group_id: gid } = payload || {};
+    const currentUserId = getCurrentUserId();
+    if (!uid || uid === currentUserId || !gid || gid === state.currentGroup) {
+      return;
+    }
+    const key = `${gid}:${uid}`;
+    if (!typing) {
+      if (state.typingNotifications.has(key)) {
+        state.typingNotifications.delete(key);
+      }
+      return;
+    }
+    if (state.typingNotifications.has(key)) return;
+    state.typingNotifications.set(key, Date.now());
+    const fromDom = document.querySelector(`#group-list [data-group-id="${gid}"] .group-name`)?.textContent?.trim();
+    const storedGroup = state.groups.find((room) => {
+      const id = Number(room.group_id ?? room.id);
+      return Number(gid) === id;
+    });
+    const groupName = fromDom || storedGroup?.name || gid;
+    const groupLabel = typeof groupName === 'string' && groupName.startsWith('#') ? groupName : `#${groupName}`;
+    const name = username || 'Someone';
+    if (window.showToast) {
+      window.showToast('info', 'Typing', `${name} is typing in ${groupLabel}`);
+    }
+    displayTypingToast(`${name} is typing in ${groupLabel}`);
+  } catch (err) {
+    // ignore
+  }
+}
+
+let typingToastTimeout = null;
+function displayTypingToast(message) {
+  let container = document.getElementById('typing-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'typing-toast-container';
+    document.body.appendChild(container);
+  }
+  container.textContent = message;
+  container.classList.add('visible');
+  if (typingToastTimeout) clearTimeout(typingToastTimeout);
+  typingToastTimeout = setTimeout(() => {
+    container.classList.remove('visible');
+  }, 4000);
 }
 
 function openDmModal(userId) {
