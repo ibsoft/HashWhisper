@@ -941,8 +941,8 @@ main > .container-fluid {
   border-radius: 12px;
   box-shadow: var(--shadow);
   padding: 8px;
-  max-width: 280px;
-  max-height: 220px;
+  max-width: 340px;
+  max-height: 420px;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
@@ -957,6 +957,11 @@ main > .container-fluid {
   line-height: 1.2;
   width: 100%;
   height: 36px;
+}
+
+.emoji-picker {
+  max-width: 340px;
+  max-height: 420px;
 }
 
 .secret-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #64748b; }

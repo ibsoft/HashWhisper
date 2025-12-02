@@ -49,6 +49,7 @@ let sseRetryDelay = 1000;
 let sseRefreshDebounce = null;
 let sseAppendDebounce = null;
 let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
+let shareSecretButton = null;
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
 const PRESENCE_TOAST_COOLDOWN = null; // deprecated: we now show once per user per group
@@ -2465,12 +2466,62 @@ async function writeClipboardText(text) {
   }
 }
 
+function getSharedSecretInfo() {
+  const groupId = state.currentGroup;
+  if (!groupId) return null;
+  const secret = state.secrets[groupId];
+  if (!secret) return null;
+  const titleEl = document.getElementById('chat-title');
+  const displayName = titleEl?.textContent?.trim() || 'HashWhisper';
+  return { groupId, secret, displayName };
+}
+
+async function shareCurrentSecret() {
+  if (!shareSecretButton) return;
+  const info = getSharedSecretInfo();
+  if (!info) {
+    showInfoModal('Secret missing', 'Open this space with its shared secret before sharing it.');
+    return;
+  }
+  const sharePayload = {
+    title: `${info.displayName} secret`,
+    text: `${info.displayName} shared secret for HashWhisper:\n${info.secret}`,
+    url: window.location.href,
+  };
+  if (navigator.share) {
+    try {
+      await navigator.share(sharePayload);
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return;
+      }
+    }
+  }
+  const copied = await writeClipboardText(info.secret);
+  if (copied) {
+    showInfoModal('Secret copied', 'The secret was copied to your clipboard. Paste it into your messaging app or email.');
+  } else {
+    showInfoModal('Copy failed', 'Unable to copy automatically. Please copy the secret manually.');
+  }
+}
+
+function updateShareSecretButton() {
+  if (!shareSecretButton) return;
+  const enabled = Boolean(getSharedSecretInfo());
+  shareSecretButton.disabled = !enabled;
+  shareSecretButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+}
+
 function bindUI() {
   const list = document.getElementById('message-list');
   const scrollTopBtn = document.getElementById('scroll-top-btn');
   const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
   const sidebarEl = document.getElementById('groupSidebar');
   const chatShell = document.querySelector('.chat-shell');
+  shareSecretButton = document.getElementById('share-secret-btn');
+  shareSecretButton?.addEventListener('click', shareCurrentSecret);
+  updateShareSecretButton();
   loadPersistedSecrets();
   fetchGroups();
   document.getElementById('send-btn')?.addEventListener('click', (e) => {
@@ -2878,6 +2929,7 @@ function bindUI() {
         }
         errorEl.classList.add('d-none');
         state.secrets[gid] = val;
+        updateShareSecretButton();
         if (remember) {
           persistSecret(gid, val);
         } else {
@@ -3451,6 +3503,7 @@ async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) 
   startAutoRefresh();
   persistLastGroup(state.currentGroup);
   sendPresenceStatus(state.currentGroup, { typing: false, status: 'online' });
+  updateShareSecretButton();
   if (GROUP_DEBUG) console.debug('[group] setCurrentGroup done', { currentGroup: state.currentGroup });
 }
 
