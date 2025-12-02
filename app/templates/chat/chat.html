@@ -30,13 +30,13 @@
       </div>
       <div class="mt-3" id="join-inline">
         <label class="form-label">{{ _('Join via secret hash') }}</label>
+        <input type="text" class="form-control mb-2" id="join-group-name" placeholder="{{ _('Group name') }}">
         <div class="input-group">
           <input type="password" class="form-control" id="join-secret" placeholder="{{ _('Paste shared secret') }}" autocomplete="off">
           <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="{{ _('Show secret') }}">
             <i class="fa-solid fa-eye"></i>
           </button>
         </div>
-        <input type="text" class="form-control mt-2" id="join-group-name" placeholder="{{ _('Group name') }}">
         <button class="btn btn-outline-light w-100 mt-2" id="join-btn">{{ _('Join securely') }}</button>
         <button type="button" class="btn btn-info w-100 mt-2 d-lg-none" id="scan-qr-btn">
           <i class="fa-solid fa-qrcode me-1"></i>{{ _('Scan QR code') }}
@@ -101,6 +101,9 @@
             <span class="notification-count d-none" id="info-count"></span>
           </button>
           <button class="btn btn-sm btn-outline-light top-menu-btn" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
+          <button class="btn btn-sm btn-outline-light top-menu-btn" id="share-secret-btn" title="{{ _('Share secret') }}" disabled>
+            <i class="fa-solid fa-share-nodes"></i>
+          </button>
         </div>
       </div>
 
