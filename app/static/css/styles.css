@@ -13,6 +13,7 @@
   --nav-height: 64px;
   --footer-height: 56px;
   --bottom-gutter: 16px;
+  --bubble-avatar-size: 34px;
   --ui-font-family: 'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
   --ui-font-size: 16px;
 }
@@ -593,7 +594,8 @@ main > .container-fluid {
 }
 
 .bubble {
-  padding: 0.9rem 1.1rem;
+  padding: 0.9rem 1.1rem 0.9rem 1.1rem;
+  padding-right: calc(1.1rem + var(--bubble-avatar-size) + 0.5rem);
   border-radius: 18px;
   max-width: 85%;
   width: fit-content;
@@ -616,6 +618,28 @@ main > .container-fluid {
   text-justify: auto;
   hyphens: none;
   line-height: 1.5;
+}
+.bubble-avatar {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: var(--bubble-avatar-size);
+  height: var(--bubble-avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.bubble-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+[data-bs-theme="light"] .bubble-avatar {
+  border-color: rgba(10, 15, 25, 0.25);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 @media (max-width: 576px) {
   .bubble.media-wide {

@@ -27,6 +27,7 @@ class User(UserMixin, db.Model):
     preferred_theme = db.Column(db.String(16), default="system")
     language = db.Column(db.String(8), default="en")
     notifications_enabled = db.Column(db.Boolean, default=True)
+    use_gravatar = db.Column(db.Boolean, default=False)
     timezone = db.Column(db.String(64), default="UTC")
     avatar_path = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
