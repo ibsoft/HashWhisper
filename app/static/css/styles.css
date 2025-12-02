@@ -53,6 +53,16 @@ main {
   flex-direction: column;
   min-height: 0;
 }
+
+.auth-page-row {
+  min-height: calc(100vh - var(--nav-height) - var(--footer-height) - 2rem);
+  padding-block: 1rem;
+}
+
+.auth-page-row .col-lg-5,
+.auth-page-row .col-lg-6 {
+  width: 100%;
+}
 main > .container-fluid {
   flex: 1 0 auto;
   display: flex;
@@ -1113,7 +1123,8 @@ main .container-fluid {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #0b1a2d;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-  display: none;
+  display: inline-flex;
+  opacity: 0;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -1121,8 +1132,10 @@ main .container-fluid {
   z-index: 10;
 }
 .scroll-top-btn.show {
-  display: inline-flex;
+  opacity: 0.55;
   pointer-events: auto;
+}
+.scroll-top-btn.active {
   opacity: 1;
 }
 .scroll-top-btn:hover { transform: translateY(-2px); }
