@@ -13,6 +13,8 @@
   --nav-height: 64px;
   --footer-height: 56px;
   --bottom-gutter: 16px;
+  --ui-font-family: 'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --ui-font-size: 16px;
 }
 
 
@@ -35,10 +37,12 @@ html, body {
               radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.05), transparent 25%),
               var(--bg);
   color: var(--text);
-  font-family: 'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-family: var(--ui-font-family, 'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif);
+  font-size: var(--ui-font-size, 16px);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 [data-bs-theme="light"] body {
   background: #f6f8fb;
@@ -1130,10 +1134,15 @@ main .container-fluid {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.2);
   margin-top: 0rem;
+  flex-shrink: 0;
 }
 
 .chat-shell.sidebar-hidden {
   grid-template-columns: 1fr;
+}
+
+.chat-shell.sidebar-hidden #groupSidebar {
+  display: none;
 }
 
 #groupSidebar.sidebar-collapsed {
@@ -1262,4 +1271,9 @@ main .container-fluid {
   width: 100%;
   max-width: clamp(240px, 70vw, 420px);
   margin: 0 auto;
+}
+
+#qrScannerModal .modal-content {
+  background-color: rgba(12, 15, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.16);
 }
