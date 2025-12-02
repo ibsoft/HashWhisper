@@ -148,6 +148,20 @@ main > .container-fluid {
               radial-gradient(circle at 80% 0%, rgba(111, 211, 255, 0.15), transparent 40%),
               linear-gradient(145deg, rgba(8, 12, 24, 0.9), rgba(5, 10, 22, 0.95));
 }
+.landing-hero .row {
+  width: 100%;
+  justify-content: center;
+  margin-left: 0;
+  margin-right: 0;
+  margin: 0 auto;
+}
+
+.landing-hero__content {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+}
 .landing-hero__glow {
   position: absolute;
   inset: 0;
