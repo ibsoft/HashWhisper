@@ -11,6 +11,9 @@ msgstr ""
 msgid "Preferences"
 msgstr "Προτιμήσεις"
 
+msgid "Quick Actions"
+msgstr "Γρήγορες ενέργειες"
+
 msgid "Back to chat"
 msgstr "Πίσω στη συνομιλία"
 

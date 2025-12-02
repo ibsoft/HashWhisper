@@ -107,6 +107,41 @@ main > .container-fluid {
   }
 }
 
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.quick-action-btn {
+  flex: 1;
+}
+.logout-btn {
+  border-color: #fff;
+  color: #fff;
+}
+.logout-btn:hover,
+.logout-btn:focus-visible {
+  border-color: #fff;
+  color: #fff;
+}
+
+.users-divider {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding-top: 0.75rem;
+}
+
+#groupSidebar .contact-list.list-group {
+  border: none;
+}
+
+@media (max-width: 768px) {
+  .navbar-app-name {
+    display: none;
+  }
+}
+
 .navbar-glass .chip,
 .navbar-glass .btn,
 .navbar-glass .nav-inline-scroll span,

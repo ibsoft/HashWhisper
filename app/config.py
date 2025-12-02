@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -14,6 +15,15 @@ def _resolve_storage_path(env_var: str, default: Path) -> str:
     else:
         candidate = default
     return str(candidate.resolve())
+
+
+def _normalize_font_size(raw: str | None, default: str) -> str:
+    value = (raw or "").strip()
+    if not value:
+        return default
+    if re.fullmatch(r"\d+(\.\d+)?", value):
+        return f"{value}px"
+    return value
 
 
 class Config:
@@ -137,4 +147,4 @@ class Config:
         "HASHWHISPER_FONT_FAMILY",
         "'Space Grotesk', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif"
     )
-    FONT_SIZE = os.environ.get("HASHWHISPER_FONT_SIZE", "12px")
+    FONT_SIZE = _normalize_font_size(os.environ.get("HASHWHISPER_FONT_SIZE"), "12px")
