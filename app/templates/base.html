@@ -100,7 +100,7 @@
     }
   })();
   (() => {
-    const hasToastr = Boolean(window.toastr);
+    let hasToastr = Boolean(window.toastr);
     if (hasToastr) {
       toastr.options = {
         closeButton: true,
@@ -128,6 +128,41 @@
       if (type === 'error') alert(text);
       else console.log(text);
     };
+    const showBootstrapToast = (() => {
+      let container = null;
+      const typeClass = (type) => {
+        const map = { success: 'success', info: 'info', warning: 'warning', error: 'danger' };
+        return map[type] || 'info';
+      };
+      const ensureContainer = () => {
+        if (container) return container;
+        container = document.createElement('div');
+        container.id = 'hw-toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+        return container;
+      };
+      return (type = 'info', title = '', message = '') => {
+        if (!document.body || typeof window.bootstrap?.Toast === 'undefined') return false;
+        const parent = ensureContainer();
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-bg-${typeClass(type)} border-0`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">
+              ${title ? `<strong class="me-1">${title}</strong>` : ''}${message || ''}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        `;
+        parent.appendChild(toastEl);
+        const toast = window.bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4000, autohide: true });
+        toast.show();
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        return true;
+      };
+    })();
     window.showToast =
       window.showToast ||
       ((type = 'info', title = '', message = '', options = {}) => {
@@ -139,9 +174,11 @@
             return;
           }
         } catch (err) {
+          hasToastr = false;
           // fall through
         }
         if (options.forceModal && showModal(title, message)) return;
+        if (showBootstrapToast(type, title, message)) return;
         fallbackToast(type, title, message);
       });
     if (Array.isArray(window.FLASH_MESSAGES)) {
