@@ -596,9 +596,8 @@ main > .container-fluid {
 .bubble {
   padding: 0.9rem 1.1rem;
   border-radius: 18px;
-  max-width: 520px;
+  max-width: 640px;
   width: fit-content;
-  align-self: center;
   position: relative;
   box-shadow: 0 10px 25px rgba(0,0,0,0.25);
   word-break: break-word;
@@ -645,10 +644,12 @@ main > .container-fluid {
   align-items: flex-start;
   gap: 0.75rem;
   width: 100%;
-  max-width: 520px;
+  max-width: 680px;
+  justify-content: flex-start;
 }
 .message-row.self {
   justify-content: flex-end;
+  margin-left: auto;
 }
 @media (max-width: 576px) {
   .bubble.media-wide {
@@ -1313,6 +1314,21 @@ main .container-fluid {
   }
   .chat-card {
     max-height: 75vh;
+  }
+  .chat-area {
+    position: relative;
+  }
+  .scroll-control-wrapper {
+    position: absolute;
+    bottom: calc(var(--bottom-gutter, 1rem) + 6rem);
+    right: 1.25rem;
+    padding-right: 0;
+    background: transparent;
+    width: auto;
+    z-index: 7;
+  }
+  .scroll-control-wrapper .scroll-top-btn {
+    margin-left: 0;
   }
   main {
     min-height: auto;

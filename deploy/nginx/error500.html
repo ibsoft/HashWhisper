@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HashWhisper · Internal error</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      background-color: #020b16;
+      color: #e5ecf3;
+      font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: radial-gradient(circle at top, rgba(94,173,255,0.15), transparent 60%), #020b16;
+    }
+    .card {
+      max-width: 520px;
+      width: 100%;
+      border-radius: 24px;
+      background: rgba(8, 18, 32, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(61, 178, 255, 0.15);
+      padding: 2.5rem;
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(2.2rem, 3vw, 2.8rem);
+      letter-spacing: 0.04em;
+    }
+    p {
+      margin: 0 0 1rem;
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.6;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: #041523;
+      background: linear-gradient(135deg, #6ef1c7, #3f7cff);
+      margin-bottom: 1.25rem;
+    }
+    .quote {
+      margin-top: 1.25rem;
+      font-size: 0.95rem;
+      color: rgba(255, 255, 255, 0.6);
+      font-style: italic;
+    }
+    .footer {
+      margin-top: 1.75rem;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">500 · Internal error</div>
+    <h1>Our backend just hiccuped</h1>
+    <p>The servers were busy decrypting a whisper and their brain cells decided to take a short nap. The problem is on our side, not yours.</p>
+    <p>The engineers are already investigating. In the meantime, refreshing or patiently waiting usually does the trick.</p>
+    <p class="quote">“Experience is simply the name we give our mistakes.” – Oscar Wilde (and we’re learning from this one).</p>
+    <div class="footer">Still stuck? Report the issue with a brief timestamp for faster debugging.</div>
+  </div>
+</body>
+</html>
