@@ -101,6 +101,12 @@ main > .container-fluid {
   letter-spacing: 0.02em;
 }
 
+@media (max-width: 768px) {
+  .navbar-app-name {
+    display: none;
+  }
+}
+
 .navbar-glass .chip,
 .navbar-glass .btn,
 .navbar-glass .nav-inline-scroll span,
