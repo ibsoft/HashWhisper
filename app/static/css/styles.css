@@ -594,10 +594,9 @@ main > .container-fluid {
 }
 
 .bubble {
-  padding: 0.9rem 1.1rem 0.9rem 1.1rem;
-  padding-right: calc(1.1rem + var(--bubble-avatar-size) + 0.5rem);
+  padding: 0.9rem 1.1rem;
   border-radius: 18px;
-  max-width: 85%;
+  max-width: 640px;
   width: fit-content;
   position: relative;
   box-shadow: 0 10px 25px rgba(0,0,0,0.25);
@@ -620,16 +619,15 @@ main > .container-fluid {
   line-height: 1.5;
 }
 .bubble-avatar {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.55rem;
   width: var(--bubble-avatar-size);
   height: var(--bubble-avatar-size);
-  border-radius: 50%;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
 }
 .bubble-avatar img {
   width: 100%;
@@ -639,7 +637,19 @@ main > .container-fluid {
 }
 [data-bs-theme="light"] .bubble-avatar {
   border-color: rgba(10, 15, 25, 0.25);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 680px;
+  justify-content: flex-start;
+}
+.message-row.self {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 @media (max-width: 576px) {
   .bubble.media-wide {
@@ -1148,6 +1158,14 @@ main .container-fluid {
   overflow: hidden;
 }
 
+.scroll-control-wrapper {
+  padding-right: 0.5rem;
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: transparent;
+}
+
 .message-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -1155,17 +1173,15 @@ main .container-fluid {
   padding: 0.75rem 1rem 0.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 1rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding-bottom: 6rem;
+  padding-bottom: 2rem;
   scroll-behavior: smooth;
 }
 
 .scroll-top-btn {
-  position: absolute;
-  bottom: 1rem;
-  right: 16px;
+  position: relative;
   width: 46px;
   height: 46px;
   border-radius: 50%;
@@ -1180,6 +1196,7 @@ main .container-fluid {
   pointer-events: none;
   transition: transform 0.2s ease, opacity 0.2s ease;
   z-index: 10;
+  margin-left: auto;
 }
 .scroll-top-btn.show {
   opacity: 0.55;
@@ -1297,6 +1314,21 @@ main .container-fluid {
   }
   .chat-card {
     max-height: 75vh;
+  }
+  .chat-area {
+    position: relative;
+  }
+  .scroll-control-wrapper {
+    position: absolute;
+    bottom: calc(var(--bottom-gutter, 1rem) + 6rem);
+    right: 1.25rem;
+    padding-right: 0;
+    background: transparent;
+    width: auto;
+    z-index: 7;
+  }
+  .scroll-control-wrapper .scroll-top-btn {
+    margin-left: 0;
   }
   main {
     min-height: auto;

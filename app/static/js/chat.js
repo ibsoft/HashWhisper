@@ -1077,7 +1077,12 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
   bubble.appendChild(metaLine);
   bubble.appendChild(actions);
   if (likedBy.textContent) bubble.appendChild(likedBy);
-  bubble.appendChild(avatarWrap);
+  const row = document.createElement('div');
+  row.className = `message-row${self ? ' self' : ''}`;
+  if (!self) {
+    row.appendChild(avatarWrap);
+  }
+  row.appendChild(bubble);
   const shouldAnimate = animate && !prepend;
   if (shouldAnimate) {
     const delay = (bubbleAnimationSequence % 4) * 0.04;
@@ -1088,13 +1093,14 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
       bubble.classList.remove('new-message');
     }, { once: true });
   }
+  const targetNode = row;
   if (prepend && container.firstChild) {
-    container.insertBefore(bubble, container.firstChild);
+    container.insertBefore(targetNode, container.firstChild);
   } else {
     if (prepend && container.firstChild) {
-      container.insertBefore(bubble, container.firstChild);
+      container.insertBefore(targetNode, container.firstChild);
     } else {
-      container.appendChild(bubble);
+      container.appendChild(targetNode);
     }
     container.scrollTop = container.scrollHeight;
   }
