@@ -3289,7 +3289,7 @@ function maybeShowPresenceToast(payload) {
 
 function maybeShowTypingToast(payload) {
   try {
-    const { user_id: uid, username, typing, group_id: gid } = payload || {};
+    const { user_id: uid, username, typing, group_id: gid, group_name: payloadGroupName } = payload || {};
     const currentUserId = getCurrentUserId();
     if (!uid || uid === currentUserId || !gid || gid === state.currentGroup) {
       return;
@@ -3308,7 +3308,16 @@ function maybeShowTypingToast(payload) {
       const id = Number(room.group_id ?? room.id);
       return Number(gid) === id;
     });
-    const groupName = fromDom || storedGroup?.name || gid;
+    const cleaned = (value) => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) return trimmed;
+      }
+      return null;
+    };
+    const payloadName = cleaned(payloadGroupName);
+    const storedName = cleaned(storedGroup?.name);
+    const groupName = payloadName || fromDom || storedName || `${gid}`;
     const groupLabel = typeof groupName === 'string' && groupName.startsWith('#') ? groupName : `#${groupName}`;
     const name = username || 'Someone';
     if (window.showToast) {
