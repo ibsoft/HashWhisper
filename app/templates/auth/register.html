@@ -1,10 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="row justify-content-center align-items-center auth-page-row">
-  <div class="col-lg-6">
-    <div class="card card-glass p-4">
+<div class="landing-hero auth-hero">
+  <div class="landing-hero__glow"></div>
+  <div class="landing-hero__particles" aria-hidden="true">
+    {% for _ in range(4) %}
+      <span></span>
+    {% endfor %}
+  </div>
+  <div class="row justify-content-center align-items-center auth-page-row">
+    <div class="col-lg-7">
+      <div class="card card-glass p-4 landing-card">
       <div class="text-center mb-2">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ config.APP_TITLE }}" class="register-logo">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="{{ config.APP_TITLE }}" class="register-logo landing-logo">
       </div>
       <h2 class="mb-3 text-center">{{ _('Create account') }}</h2>
       <form method="post" novalidate>
@@ -51,6 +58,7 @@
         </div>
         <button class="btn btn-soft w-100" type="submit">{{ form.submit.label.text }}</button>
       </form>
+      <p class="mt-3 text-muted">{{ _('Already have an account?') }} <a href="{{ url_for('auth.login') }}">{{ _('Sign in') }}</a></p>
       {% if require_totp %}
       <div class="alert alert-info mt-3">{{ _('Strong password + TOTP are mandatory.') }}</div>
       {% elif totp_disabled %}
@@ -58,5 +66,6 @@
       {% endif %}
     </div>
   </div>
+</div>
 </div>
 {% endblock %}
