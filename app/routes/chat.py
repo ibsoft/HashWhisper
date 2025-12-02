@@ -1080,8 +1080,20 @@ def update_presence():
         group_id = int(group_id_raw) if group_id_raw is not None else None
     except (TypeError, ValueError):
         group_id = None
+    group_name = None
+    if group_id:
+        group = Group.query.get(group_id)
+        if group and group.name:
+            group_name = group.name
     bus = get_presence_bus()
-    bus.publish(current_user.id, status, typing, username=current_user.username, group_id=group_id)
+    bus.publish(
+        current_user.id,
+        status,
+        typing,
+        username=current_user.username,
+        group_id=group_id,
+        group_name=group_name,
+    )
     PresenceEvent.touch(current_user.id, status, typing)
     return jsonify({"ok": True})
 
