@@ -11,7 +11,7 @@
           </button>
         </div>
       </div>
-        <div class="contact-list list-group list-group-flush" id="group-list">
+      <div class="contact-list list-group list-group-flush" id="group-list">
           {% for g in groups %}
             <div class="list-group-item d-flex justify-content-between align-items-center bg-transparent text-start text-light border-0">
               <button class="btn btn-link text-start text-light flex-grow-1 position-relative" data-group-id="{{ g.id }}" data-group-name="{{ g.name }}">
@@ -28,38 +28,39 @@
             <p class="text-muted">{{ _('No groups yet. Create or join using a secret hash.') }}</p>
           {% endfor %}
       </div>
-      <div class="mt-3" id="join-inline">
-        <label class="form-label">{{ _('Join via secret hash') }}</label>
-        <input type="text" class="form-control mb-2" id="join-group-name" placeholder="{{ _('Group name') }}">
-        <div class="input-group">
-          <input type="password" class="form-control" id="join-secret" placeholder="{{ _('Paste shared secret') }}" autocomplete="off">
-          <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="{{ _('Show secret') }}">
-            <i class="fa-solid fa-eye"></i>
-          </button>
-        </div>
-        <button class="btn btn-outline-light w-100 mt-2" id="join-btn">{{ _('Join securely') }}</button>
-        <button type="button" class="btn btn-info w-100 mt-2 d-lg-none" id="scan-qr-btn">
-          <i class="fa-solid fa-qrcode me-1"></i>{{ _('Scan QR code') }}
-        </button>
-        <p class="text-muted small mt-1 d-lg-none">{{ _('Point your camera at the QR to join instantly.') }}</p>
-        <div
-          id="qr-scan-text"
-          class="d-none"
-          data-camera-missing="{{ _('Scanning requires a device camera.') }}"
-          data-camera-denied="{{ _('Allow camera access to continue.') }}"
-          data-invalid="{{ _('This QR code does not contain a valid invitation.') }}"
-          data-join-failed="{{ _('Unable to join the space from this QR code.') }}"
-          data-library-missing="{{ _('Unable to load the QR decoder.') }}"
-        ></div>
-        <div id="qr-join-config" data-join-url="{{ url_for('chat.join_group') }}"></div>
-      </div>
-      <hr class="text-secondary">
-      <div>
+      <div class="users-divider">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="mb-0"><i class="fa-solid fa-user-group me-2"></i>{{ _('Users') }}</h6>
         </div>
-        <div class="contact-list list-group list-group-flush" id="user-list"></div>
       </div>
+      <div class="contact-list list-group list-group-flush" id="user-list"></div>
+    </div>
+    <div class="card card-glass p-3 sidebar-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">{{ _('Join via secret hash') }}</h6>
+      </div>
+      <input type="text" class="form-control mb-2" id="join-group-name" placeholder="{{ _('Group name') }}">
+      <div class="input-group">
+        <input type="password" class="form-control" id="join-secret" placeholder="{{ _('Paste shared secret') }}" autocomplete="off">
+        <button class="btn btn-outline-light" type="button" id="join-secret-toggle" aria-label="{{ _('Show secret') }}">
+          <i class="fa-solid fa-eye"></i>
+        </button>
+      </div>
+      <button class="btn btn-outline-light w-100 mt-2" id="join-btn">{{ _('Join securely') }}</button>
+      <button type="button" class="btn btn-info w-100 mt-2 d-lg-none" id="scan-qr-btn">
+        <i class="fa-solid fa-qrcode me-1"></i>{{ _('Scan QR code') }}
+      </button>
+      <p class="text-muted small mt-1 d-lg-none">{{ _('Point your camera at the QR to join instantly.') }}</p>
+      <div
+        id="qr-scan-text"
+        class="d-none"
+        data-camera-missing="{{ _('Scanning requires a device camera.') }}"
+        data-camera-denied="{{ _('Allow camera access to continue.') }}"
+        data-invalid="{{ _('This QR code does not contain a valid invitation.') }}"
+        data-join-failed="{{ _('Unable to join the space from this QR code.') }}"
+        data-library-missing="{{ _('Unable to load the QR decoder.') }}"
+      ></div>
+      <div id="qr-join-config" data-join-url="{{ url_for('chat.join_group') }}"></div>
     </div>
 
     <div class="card card-glass p-3 sidebar-card mb-3">
@@ -68,6 +69,28 @@
       </div>
       <div class="contact-list list-group list-group-flush" id="favorite-list">
         <div class="text-muted small">{{ _('No favorites yet.') }}</div>
+      </div>
+    </div>
+
+    <div class="card card-glass p-3 sidebar-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="fa-solid fa-sliders me-2"></i>{{ _('Quick Actions') }}</h6>
+      </div>
+      <div class="quick-actions-grid">
+        <button class="btn btn-sm btn-outline-light quick-action-btn position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
+          <i class="fa-solid fa-circle-info"></i>
+          <span class="notification-dot d-none" id="info-dot"></span>
+          <span class="notification-count d-none" id="info-count"></span>
+        </button>
+        <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" href="{{ url_for('settings.settings') }}" title="{{ _('Settings') }}">
+          <i class="fa-solid fa-gear"></i>
+        </a>
+        <button class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" id="theme-toggle" data-theme-toggle>
+          <i class="fa-solid fa-circle-half-stroke"></i>
+        </button>
+        <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn logout-btn" href="{{ url_for('auth.logout') }}" data-logout title="{{ _('Logout') }}">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
       </div>
     </div>
 
@@ -95,12 +118,6 @@
           </div>
         </div>
         <div class="d-flex gap-2 align-items-center">
-          <button class="btn btn-sm btn-outline-light position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
-            <i class="fa-solid fa-circle-info"></i>
-            <span class="notification-dot d-none" id="info-dot"></span>
-            <span class="notification-count d-none" id="info-count"></span>
-          </button>
-          <button class="btn btn-sm btn-outline-light top-menu-btn" id="theme-toggle" data-theme-toggle><i class="fa-solid fa-circle-half-stroke"></i></button>
           <button class="btn btn-sm btn-outline-light top-menu-btn" id="share-secret-btn" title="{{ _('Share secret') }}" disabled>
             <i class="fa-solid fa-share-nodes"></i>
           </button>
