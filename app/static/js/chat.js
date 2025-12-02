@@ -27,6 +27,7 @@ const state = {
 };
 
 let refreshTimer = null;
+let scrollActivityTimer = null;
 let audioCtx = null;
 
 const IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // aim to keep uploads around 2.5MB or less after compression
@@ -60,7 +61,7 @@ function updateScrollTopButton() {
   const scroller = hasListOverflow ? list : document.scrollingElement || document.documentElement;
   const scrollable = scroller && scroller.scrollHeight - scroller.clientHeight > 20;
   if (!scrollable) {
-    scrollTopBtn.classList.remove('show');
+    scrollTopBtn.classList.remove('show', 'active');
     scrollTopBtn.setAttribute('aria-hidden', 'true');
     return;
   }
@@ -74,6 +75,16 @@ function updateScrollTopButton() {
   scrollTopBtn.title = direction === 'down' ? 'Go to newest' : 'Go to top';
   scrollTopBtn.classList.add('show');
   scrollTopBtn.setAttribute('aria-hidden', 'false');
+}
+
+function markScrollTopButtonActive() {
+  const scrollTopBtn = document.getElementById('scroll-top-btn');
+  if (!scrollTopBtn || !scrollTopBtn.classList.contains('show')) return;
+  scrollTopBtn.classList.add('active');
+  if (scrollActivityTimer) clearTimeout(scrollActivityTimer);
+  scrollActivityTimer = setTimeout(() => {
+    scrollTopBtn.classList.remove('active');
+  }, 1500);
 }
 
 function updateMessageCountDisplay() {
@@ -2583,7 +2594,11 @@ function bindUI() {
       btnContainer.style.justifyContent = 'flex-end';
       btnContainer.style.padding = '0 0.25rem 0.5rem 0.25rem';
     }
-    window.addEventListener('scroll', updateScrollTopButton, { passive: true });
+    const handleWindowScroll = () => {
+      markScrollTopButtonActive();
+      updateScrollTopButton();
+    };
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
     document.getElementById('load-older-btn')?.addEventListener('click', () => {
       if (state.currentGroup) {
         loadOlderChunk(state.currentGroup);
@@ -2595,6 +2610,7 @@ function bindUI() {
   const msgList = list;
   if (msgList) {
     msgList.addEventListener('scroll', () => {
+      markScrollTopButtonActive();
       updateScrollTopButton();
       const gid = state.currentGroup;
       if (!gid || state.loadingOlder[gid]) return;
