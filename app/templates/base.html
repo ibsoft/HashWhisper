@@ -15,6 +15,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=config.APP_VERSION) }}">
+  <style>
+    :root {
+      --ui-font-family: {{ config.FONT_FAMILY | safe }};
+      --ui-font-size: {{ config.FONT_SIZE }};
+    }
+  </style>
   {% set flash_messages = get_flashed_messages(with_categories=true) %}
   <script>
     window.APP_TITLE = "{{ config.APP_TITLE }}";
@@ -35,7 +41,7 @@
     <div class="d-flex align-items-center gap-3 flex-shrink-0">
       <a class="navbar-brand fw-bold d-flex align-items-center gap-1 flex-shrink-0" href="{{ url_for('chat.chat') }}">
         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" width="32" height="32" class="d-inline-block align-text-top nav-logo">
-        <span class="navbar-app-name d-none d-lg-inline ms-2">{{ config.APP_TITLE }}</span>
+        <span class="navbar-app-name ms-2">{{ config.APP_TITLE }}</span>
       </a>
     </div>
     <div class="nav-inline-scroll d-flex align-items-center gap-2 flex-nowrap ms-auto">
