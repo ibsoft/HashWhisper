@@ -42,6 +42,7 @@ let scrollActivityTimer = null;
 let audioCtx = null;
 let typingAudio = null;
 let typingIndicatorVisible = false;
+let typingAudioReady = false;
 
 const IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // aim to keep uploads around 2.5MB or less after compression
 const IMAGE_MAX_DIMENSION = 1920; // cap longest image edge for uploads
@@ -799,6 +800,7 @@ function ensureMobileNotificationPrompt() {
   const handler = () => {
     requestNotificationPermission();
     resumeAudio();
+    prepareTypingAudio();
   };
   const attach = () => {
     if (document.body) {
@@ -876,15 +878,38 @@ function playSound(kind) {
   osc.stop(ctx.currentTime + duration);
 }
 
+function ensureTypingAudio() {
+  if (!typingAudio) {
+    typingAudio = new Audio('/static/sounds/typing.wav');
+    typingAudio.preload = 'auto';
+    typingAudio.loop = true;
+  }
+  return typingAudio;
+}
+
+function prepareTypingAudio() {
+  if (!isMobileDevice() || typingAudioReady) return;
+  const audio = ensureTypingAudio();
+  audio.muted = true;
+  audio.currentTime = 0;
+  audio.play().then(() => {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
+    typingAudioReady = true;
+  }).catch(() => {
+    audio.muted = false;
+  });
+}
+
 function startTypingSound() {
   try {
-    if (!typingAudio) {
-      typingAudio = new Audio('/static/sounds/typing.wav');
-      typingAudio.preload = 'auto';
-      typingAudio.loop = true;
+    const audio = ensureTypingAudio();
+    if (isMobileDevice() && !typingAudioReady) {
+      prepareTypingAudio();
     }
-    typingAudio.currentTime = 0;
-    typingAudio.play().catch(() => {});
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
   } catch (err) {
     // ignore
   }
