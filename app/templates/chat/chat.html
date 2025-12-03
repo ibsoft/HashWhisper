@@ -422,7 +422,7 @@
               <input type="text" class="form-control" id="vault-share-url" readonly>
               <button class="btn btn-outline-light" type="button" id="vault-copy-url"><i class="fa-solid fa-copy"></i></button>
             </div>
-            <button class="btn btn-outline-light w-100 btn-sm mt-2 d-none" type="button" id="vault-share-android">{{ _('Share link') }}</button>
+            <button class="btn btn-outline-light w-100 btn-sm mt-2" type="button" id="vault-share-android" hidden>{{ _('Share link') }}</button>
           </div>
             <div>
               <label class="form-label small mb-1">{{ _('Secret fragment (keep the part after the # private)') }}</label>
@@ -517,6 +517,7 @@
       attachmentLabel: {{ _('File attached:') | tojson }},
       shareTitle: {{ _('HashWhisper secret link') | tojson }},
       shareText: {{ _('Share this secure link.') | tojson }},
+      shareUnavailable: {{ _('Link copied to clipboard.') | tojson }},
     };
   </script>
 

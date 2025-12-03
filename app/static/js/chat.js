@@ -3936,8 +3936,16 @@ function bindUI() {
       copyShareableLink(link).catch(() => {});
       if (vaultShareAndroid) {
         const canShare = typeof navigator.share === 'function';
-        vaultShareAndroid.classList.toggle('d-none', !canShare);
-        vaultShareAndroid.onclick = () => shareVaultLink(link);
+        vaultShareAndroid.removeAttribute('hidden');
+        vaultShareAndroid.disabled = !canShare;
+        vaultShareAndroid.onclick = () => {
+          if (canShare) {
+            shareVaultLink(link);
+          } else {
+            copyTextToClipboard(link);
+            showVaultError(getVaultMessage('shareUnavailable', 'Link copied to clipboard.'));
+          }
+        };
       }
     };
 
