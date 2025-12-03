@@ -1,52 +1,247 @@
 {% extends 'base.html' %}
 {% block title %}Secure Vault{% endblock %}
 
+{% block extra_css %}
+<style>
+.vault-landing {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    padding: 2rem 0;
+}
+
+.vault-card {
+    max-width: 1000px;
+    width: 100%;
+    margin: 0 auto;
+    border: none;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 768px) {
+    .vault-landing {
+        padding: 1rem 0;
+        min-height: calc(100vh - 80px);
+    }
+    
+    .vault-card {
+        border-radius: 12px;
+        margin: 0 0.5rem;
+    }
+    
+    .vault-card .card-body {
+        padding: 1.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .vault-landing {
+        padding: 0.5rem 0;
+    }
+    
+    .input-group {
+        flex-wrap: wrap;
+    }
+    
+    .input-group .form-control {
+        border-radius: 8px 8px 0 0 !important;
+        width: 100%;
+    }
+    
+    .input-group .btn {
+        border-radius: 0 0 8px 8px !important;
+        width: 100%;
+        margin-top: -1px;
+    }
+    
+    .d-flex.flex-column.flex-md-row {
+        gap: 1rem !important;
+    }
+    
+    .badge {
+        align-self: flex-start;
+    }
+}
+
+/* Ensure content doesn't overflow */
+.vault-output pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 100%;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.04);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.vault-file {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.vault-file .d-flex {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* Better spacing for mobile */
+@media (max-width: 768px) {
+    .vault-file .d-flex {
+        flex-direction: column;
+    }
+    
+    .vault-file .btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .vault-key-section .form-label {
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Touch-friendly buttons on mobile */
+@media (max-width: 768px) {
+    .btn {
+        padding: 0.75rem 1rem;
+        min-height: 48px;
+    }
+    
+    .d-grid.gap-2 {
+        gap: 0.75rem !important;
+    }
+}
+
+/* Improve badge responsiveness */
+#vault-status-badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    #vault-status-badge {
+        align-self: flex-start;
+        margin-top: 0.5rem;
+    }
+}
+
+/* Alert improvements */
+#vault-alert .alert {
+    border-radius: 8px;
+    margin-bottom: 0;
+}
+
+/* Metadata styling */
+#vault-metadata {
+    font-size: 0.9rem;
+    color: #6c757d;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    border-left: 4px solid #0d6efd;
+}
+
+/* File icon and info */
+#vault-file-type-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    text-align: center;
+}
+
+@media (max-width: 576px) {
+    #vault-file-type-icon {
+        font-size: 1.25rem;
+        width: 32px;
+    }
+}
+
+/* Prevent horizontal scrolling */
+.container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    overflow-x: hidden;
+}
+
+/* Card body improvements */
+.card-body {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+/* Input group responsiveness */
+.input-group {
+    min-width: 0; /* Prevents overflow */
+}
+
+.form-control {
+    min-width: 0; /* Allows shrinking */
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="vault-landing" aria-labelledby="vault-landing-title">
   <div class="container">
     <div class="vault-card card card-glass shadow-lg mx-auto">
-      <div class="card-body">
-        <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
-          <div class="d-flex align-items-center gap-3">
-            <i class="fa-solid fa-shield-halved fa-2x text-primary" aria-hidden="true"></i>
-            <div>
-              <h3 id="vault-landing-title" class="mb-1">{{ _('Secure vault') }}</h3>
+      <div class="card-body p-4 p-md-5">
+        <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3 mb-4">
+          <div class="d-flex align-items-start gap-3 flex-grow-1">
+            <i class="fa-solid fa-shield-halved fa-2x text-primary mt-1" aria-hidden="true"></i>
+            <div class="flex-grow-1">
+              <h3 id="vault-landing-title" class="mb-2">{{ _('Secure vault') }}</h3>
               <p class="text-muted mb-0">
                 {{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}
               </p>
             </div>
           </div>
-          <span class="badge bg-primary px-3 py-2 fs-6" id="vault-status-badge">{{ _('Untouched') }}</span>
+          <div class="d-flex flex-column align-items-start align-items-md-end mt-2 mt-md-0">
+            <span class="badge bg-primary px-3 py-2 fs-6 mb-2" id="vault-status-badge">{{ _('Untouched') }}</span>
+          </div>
         </div>
-        <div class="mt-3" id="vault-alert" role="status" aria-live="polite"></div>
-        <div class="mt-4 vault-key-section">
-          <label class="form-label" for="vault-key">{{ _('Secret key (the part after the # in the link)') }}</label>
+        
+        <div class="mb-4" id="vault-alert" role="status" aria-live="polite"></div>
+        
+        <div class="mb-4 vault-key-section">
+          <label class="form-label fw-semibold" for="vault-key">{{ _('Secret key (the part after the # in the link)') }}</label>
           <div class="input-group">
-            <input type="text" class="form-control" id="vault-key" placeholder="{{ _('Paste or scan the link and include the secret') }}">
-            <button class="btn btn-soft" type="button" id="vault-auto-key">{{ _('Auto-fill from URL') }}</button>
+            <input type="text" class="form-control form-control-lg" id="vault-key" placeholder="{{ _('Paste or scan the link and include the secret') }}">
+            <button class="btn btn-outline-primary" type="button" id="vault-auto-key">{{ _('Auto-fill from URL') }}</button>
           </div>
           <p class="text-muted small mt-2 mb-0">
             {{ _('Only the bearer of this secret key can decrypt the message. The server never stores it.') }}
           </p>
         </div>
-        <div class="mt-3 d-grid gap-2">
-          <button class="btn btn-primary" type="button" id="vault-decrypt-btn">{{ _('Decrypt secret') }}</button>
+        
+        <div class="d-grid gap-3 mb-4">
+          <button class="btn btn-primary btn-lg" type="button" id="vault-decrypt-btn">{{ _('Decrypt secret') }}</button>
           <button class="btn btn-outline-secondary" type="button" id="vault-clear-btn">{{ _('Clear key and message') }}</button>
         </div>
-        <div class="mt-4" id="vault-metadata" tabindex="-1" aria-live="polite"></div>
-        <div class="vault-output mt-3">
-          <h5 class="mb-2" id="vault-title-placeholder"></h5>
-          <pre id="vault-content"></pre>
+        
+        <div class="mb-4" id="vault-metadata" tabindex="-1" aria-live="polite"></div>
+        
+        <div class="vault-output">
+          <h5 class="mb-3" id="vault-title-placeholder"></h5>
+          <pre id="vault-content" class="mb-0"></pre>
           <div class="vault-file mt-3 d-none" id="vault-file-view">
-            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-              <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+              <div class="d-flex align-items-center gap-3 flex-grow-1">
                 <i id="vault-file-type-icon" class="fa-solid fa-file fa-lg text-muted"></i>
-                <div>
+                <div class="flex-grow-1">
                   <h6 class="mb-1" id="vault-file-name"></h6>
                   <p class="text-muted small mb-0" id="vault-file-meta"></p>
                 </div>
               </div>
-              <a class="btn btn-sm btn-outline-light flex-shrink-0" id="vault-file-download" target="_blank" rel="noopener">{{ _('Download file') }}</a>
+              <a class="btn btn-primary mt-2 mt-md-0 flex-shrink-0" id="vault-file-download" target="_blank" rel="noopener">{{ _('Download file') }}</a>
             </div>
           </div>
         </div>
@@ -54,7 +249,6 @@
     </div>
   </div>
 </section>
-
 {% endblock %}
 
 {% block scripts %}
@@ -84,7 +278,10 @@
   let currentFileUrl = null;
 
   function showAlert(message, variant = 'info') {
-    alertEl.innerHTML = `<div class="alert alert-${variant} mb-0">${message}</div>`;
+    alertEl.innerHTML = `<div class="alert alert-${variant} alert-dismissible fade show mb-0" role="alert">
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>`;
   }
 
   function hexToBytes(value) {
@@ -132,11 +329,17 @@
     const expires = data.expires_at ? new Date(data.expires_at).toLocaleString() : '{{ _("Never") }}';
     const views = data.views_remaining;
     const typeLabel = data.payload_type === 'file' ? '{{ _("File secret") }}' : '{{ _("Text secret") }}';
-    metadataEl.textContent = `{{ _("Expires") }}: ${expires} · {{ _("Views left") }}: ${views} · ${typeLabel}`;
+    metadataEl.innerHTML = `<div class="d-flex flex-wrap gap-3">
+      <span><i class="fa-regular fa-clock me-1"></i> {{ _("Expires") }}: ${expires}</span>
+      <span><i class="fa-regular fa-eye me-1"></i> {{ _("Views left") }}: ${views}</span>
+      <span><i class="fa-regular fa-file me-1"></i> ${typeLabel}</span>
+    </div>`;
+    
     if (data.title) {
       titleEl.textContent = data.title;
+      titleEl.classList.remove('d-none');
     } else {
-      titleEl.textContent = '{{ _("Untitled secret") }}';
+      titleEl.classList.add('d-none');
     }
   }
 
@@ -226,6 +429,12 @@
       renderMetadata(entry);
       updateStatus('{{ _("Ready to decrypt") }}', 'success');
       showAlert('{{ _("Secret ready. Paste the key and press decrypt.") }}', 'info');
+      
+      // Auto-fill key from URL hash if present
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        keyInput.value = decodeURIComponent(hash);
+      }
     } catch (err) {
       console.error(err);
       showAlert('{{ _("Unable to load this secret. It may have burned.") }}', 'danger');
@@ -238,8 +447,13 @@
     const key = (keyInput.value || '').trim();
     if (!key) {
       showAlert('{{ _("Add the secret key first.") }}', 'warning');
+      keyInput.focus();
       return;
     }
+    
+    decryptBtn.disabled = true;
+    decryptBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>{{ _("Decrypting...") }}';
+    
     try {
       const text = await decryptPayload(decodeURIComponent(key));
       if ((entry.payload_type || 'text') === 'file') {
@@ -254,6 +468,9 @@
     } catch (err) {
       console.error(err);
       showAlert('{{ _("Unable to decrypt. Check the secret key and try again.") }}', 'danger');
+    } finally {
+      decryptBtn.disabled = false;
+      decryptBtn.textContent = '{{ _("Decrypt secret") }}';
     }
   }
 
@@ -268,16 +485,38 @@
   });
 
   decryptBtn.addEventListener('click', handleDecrypt);
+  
   clearBtn.addEventListener('click', () => {
     keyInput.value = '';
     contentEl.textContent = '';
     clearFilePreview();
     showAlert('{{ _("Key and decrypted message cleared.") }}', 'info');
     updateStatus('{{ _("Ready to decrypt") }}', 'success');
+    keyInput.focus();
+  });
+
+  // Handle Enter key in input
+  keyInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      handleDecrypt();
+    }
   });
 
   fetchVault();
   window.addEventListener('beforeunload', () => clearFilePreview());
+  
+  // Handle responsive adjustments
+  function handleResize() {
+    // Adjust padding on mobile
+    if (window.innerWidth < 768) {
+      document.querySelector('.vault-card .card-body').classList.add('px-3');
+    } else {
+      document.querySelector('.vault-card .card-body').classList.remove('px-3');
+    }
+  }
+  
+  window.addEventListener('resize', handleResize);
+  handleResize(); // Initial call
 })();
 </script>
 {% endblock %}
