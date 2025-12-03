@@ -270,6 +270,15 @@ msgstr "Προσθέστε κάποιο κείμενο ή επισυνάψτε �
 msgid "File attached:"
 msgstr "Επισυναπτόμενο αρχείο:"
 
+msgid "Share link"
+msgstr "Κοινή χρήση συνδέσμου"
+
+msgid "HashWhisper secret link"
+msgstr "Ασφαλής σύνδεσμος HashWhisper"
+
+msgid "Share this secure link."
+msgstr "Κοινόχρηστος ασφαλής σύνδεσμος."
+
 msgid "Payload missing."
 msgstr "Λείπει το περιεχόμενο."
 

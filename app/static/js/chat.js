@@ -3713,6 +3713,7 @@ function bindUI() {
     const vaultResultMeta = document.getElementById('vault-result-meta');
     const vaultShareUrl = document.getElementById('vault-share-url');
     const vaultShareSecret = document.getElementById('vault-share-secret');
+    const vaultShareAndroid = document.getElementById('vault-share-android');
     const vaultCopyUrl = document.getElementById('vault-copy-url');
     const vaultCopySecret = document.getElementById('vault-copy-secret');
     const vaultFileInput = document.getElementById('vault-file');
@@ -3729,6 +3730,8 @@ function bindUI() {
     const vaultDefaultFileMessage = vaultFileFeedback?.dataset?.defaultMessage || vaultFileFeedback?.textContent || '';
     const vaultMessages = window.HW_VAULT_MESSAGES || {};
     const getVaultMessage = (key, fallback) => vaultMessages[key] || fallback;
+    const shareTitle = getVaultMessage('shareTitle', 'HashWhisper secret link');
+    const shareText = getVaultMessage('shareText', 'Share this secure link.');
     const vaultAttachmentLabel = getVaultMessage('attachmentLabel', 'File attached:');
     const vaultFileSelectedEl = document.getElementById('vault-file-selected');
     const vaultFileSelectedDefault = vaultFileSelectedEl?.textContent || '';
@@ -3898,6 +3901,18 @@ function bindUI() {
         return false;
       }
     };
+    const shareVaultLink = async (value) => {
+      if (!value || typeof navigator.share !== 'function') return;
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: `${shareText} ${value}`,
+          url: value,
+        });
+      } catch (err) {
+        if (CLIPBOARD_DEBUG) console.warn('[vault-share] failed', err);
+      }
+    };
 
     const showVaultResult = (link, secret, expires, views) => {
       if (!vaultResultEl) return;
@@ -3919,6 +3934,11 @@ function bindUI() {
       setTimeout(() => vaultResultEl.classList.remove('vault-result-highlight'), 1500);
       focusShareInputs();
       copyShareableLink(link).catch(() => {});
+      if (vaultShareAndroid) {
+        const canShare = typeof navigator.share === 'function';
+        vaultShareAndroid.classList.toggle('d-none', !canShare);
+        vaultShareAndroid.onclick = () => shareVaultLink(link);
+      }
     };
 
     vaultCopyUrl?.addEventListener('click', () => copyTextToClipboard(vaultShareUrl.value));
