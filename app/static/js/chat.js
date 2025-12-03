@@ -475,6 +475,12 @@ function parseChatCommand(text) {
     if (sub === 'search') {
       return { action: 'ai_search', icon: '🧭', text: remainder };
     }
+    if (sub === 'searx') {
+      return { action: 'ai_searx', icon: '🔎', text: remainder };
+    }
+    if (sub === 'search') {
+      return { action: 'ai_search', icon: '🧭', text: remainder };
+    }
     return { action: 'ai', icon: '🤖', text: target };
   }
   if (cmdLower === '/slap' || cmdLower === '/slaps') {
@@ -1795,6 +1801,11 @@ async function sendMessage() {
     await handleAiSearch(command.text || '');
     return;
   }
+  if (command?.action === 'ai_searx') {
+    input.value = '';
+    await handleAiSearxSearch(command.text || '');
+    return;
+  }
   if (command?.action === 'ai') {
     input.value = '';
     await handleAiQuestion(command.text);
@@ -2366,6 +2377,81 @@ async function handleAiSearch(payload = '') {
   const finalText = `AI search (${timestamp}): ${detailText}`;
   await sendEncryptedMessage(finalText, { action: 'ai', icon: '🧭', act_text: finalText });
   await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
+}
+
+async function handleAiSearxSearch(query = '') {
+  if (!aiActionsEnabled()) {
+    showInfoModal('AI disabled', 'AI actions are turned off.');
+    return;
+  }
+  const trimmed = (query || '').trim();
+  if (!trimmed) {
+    showInfoModal('Need a query', 'Type `/ai searx <terms>` to search the web.');
+    return;
+  }
+  const thinkingBubble = appendLocalBubble('Consulting the web...', { ai: true, spinner: true, small: true });
+  let appendedAnswer = false;
+  try {
+    const resp = await fetch(`/api/search/searx?q=${encodeURIComponent(trimmed)}`, {
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+      },
+    });
+    if (!resp.ok) {
+      let msg = 'Web search failed';
+      try {
+        const errJson = await resp.json();
+        msg = errJson.detail || errJson.error || msg;
+      } catch (e) {
+        const text = await resp.text();
+        msg = text || msg;
+      }
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const hits = Array.isArray(data.results) ? data.results.slice(0, 4) : [];
+    let content = '';
+    if (!hits.length) {
+      content = `No results found for "${trimmed}".`;
+    } else {
+      content = hits
+        .map((hit, idx) => {
+          const title = hit.title || hit.url || trimmed;
+          const excerpt = hit.excerpt ? ` – ${hit.excerpt}` : '';
+          return `${idx + 1}. ${title}${excerpt}\n${hit.url || ''}`;
+        })
+        .join('\n');
+    }
+    const timestamp = new Date().toISOString();
+    const answerText = `AI search (${timestamp}): ${content}`;
+    await sendEncryptedMessage(answerText, { action: 'ai', icon: '🔎', act_text: answerText });
+    appendedAnswer = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
+  } catch (err) {
+    if (window.showToast) {
+      window.showToast('error', 'Web search', err?.message || 'Unable to reach the search service.');
+    }
+    if (thinkingBubble) {
+      thinkingBubble.innerHTML = '';
+      const body = document.createElement('div');
+      body.textContent = err?.message || 'Web search unavailable right now.';
+      thinkingBubble.appendChild(body);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = 'AI assistant';
+      thinkingBubble.appendChild(meta);
+    }
+  } finally {
+    if (thinkingBubble) {
+      const spinnerEl = thinkingBubble.querySelector('.spinner-border');
+      if (spinnerEl) spinnerEl.remove();
+      if (appendedAnswer) {
+        thinkingBubble.remove();
+      }
+    }
+    if (!appendedAnswer) {
+      await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
+    }
+  }
 }
 
 async function toggleRecording() {
