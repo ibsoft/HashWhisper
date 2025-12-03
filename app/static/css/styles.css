@@ -105,6 +105,9 @@ main > .container-fluid {
   .navbar-app-name {
     display: none;
   }
+  body.auth-page .navbar-app-name {
+    display: inline;
+  }
 }
 
 .quick-actions-grid {
@@ -299,28 +302,6 @@ main > .container-fluid {
 .auth-hero .col-lg-7 {
   width: 100%;
   max-width: 720px;
-}
-
-#typing-toast-container {
-  position: fixed;
-  bottom: 1rem;
-  right: 1rem;
-  padding: 0.75rem 1rem;
-  background: rgba(4, 9, 18, 0.85);
-  color: #e5ecf3;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.45);
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-  z-index: 1050;
-  pointer-events: none;
-  font-size: 0.95rem;
-}
-#typing-toast-container.visible {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 @media (max-width: 768px) {
@@ -1276,6 +1257,22 @@ main > .container-fluid {
 }
 
 .bg-gradient { min-height: 100vh; }
+
+body.auth-page {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+body.auth-page main {
+  height: auto;
+  min-height: calc(100vh - var(--nav-height) - var(--footer-height));
+  overflow: auto;
+}
+
+body.auth-page .container-fluid {
+  flex: 1;
+}
 
 @media (min-height: 720px) {
 .qr-page {

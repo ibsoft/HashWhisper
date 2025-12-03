@@ -1011,6 +1011,9 @@ def ask_ai():
     question = (data.get("question") or "").strip()
     if not question:
         return jsonify({"error": "missing_question"}), 400
+    current_datetime = data.get("current_datetime")
+    if current_datetime:
+        question = f"Current datetime (UTC): {current_datetime}\n{question}"
 
     try:
         payload = json.dumps(
@@ -1085,8 +1088,11 @@ def summarize_ai():
     max_context_chars = 16000
     if len(context) > max_context_chars:
         context = context[-max_context_chars:]
+    current_datetime = data.get("current_datetime")
+    datetime_section = f"Current datetime (UTC): {current_datetime}\n" if current_datetime else ""
     note_section = f"Additional focus: {note}\n\n" if note else ""
     user_content = (
+        f"{datetime_section}"
         f"{note_section}"
         "Summarize the following meeting messages for the participants. "
         "Highlight key updates, decisions, action items, and next steps. "
