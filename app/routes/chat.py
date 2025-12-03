@@ -6,6 +6,7 @@ import os
 import secrets
 import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from hashlib import md5
@@ -1146,6 +1147,66 @@ def summarize_ai():
         return jsonify({"error": "timeout", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 504
     except Exception as err:
         return jsonify({"error": "unknown", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 500
+
+
+@chat_bp.route("/api/search/searx")
+@login_required
+@limiter.limit(lambda: current_app.config.get("AI_RATELIMIT", "5 per minute"))
+def searx_search():
+    search_url = current_app.config.get("SEARCH_ENGINE_URL")
+    if not search_url:
+        return jsonify({"error": "disabled"}), 404
+    query = (request.args.get("q") or "").strip()
+    if not query:
+        return jsonify({"error": "missing_query"}), 400
+    language = request.args.get("language") or "en-US"
+    params = urllib.parse.urlencode(
+        {"q": query, "format": "json", "language": language, "pageno": 1, "useragent": "HashWhisper/1.0"}
+    )
+    base = search_url.rstrip("/") + "/"
+    target = urllib.parse.urljoin(base, "search")
+    try:
+        req = urllib.request.Request(target + "?" + params, headers={"Accept": "application/json", "User-Agent": "HashWhisper/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            body = resp.read()
+            data = json.loads(body or b"{}")
+    except urllib.error.HTTPError as err:
+        status = getattr(err, "code", 502) or 502
+        try:
+            detail = err.read().decode()
+        except Exception:
+            detail = str(err)
+        return jsonify({"error": "upstream_error", "detail": detail}), status
+    except (urllib.error.URLError, socket.timeout) as err:
+        return jsonify({"error": "timeout", "detail": str(err)}), 504
+    except Exception as err:
+        return jsonify({"error": "unknown", "detail": str(err)}), 500
+    hits = []
+    for result in data.get("results") or []:
+        hits.append(
+            {
+                "title": result.get("title") or "",
+                "url": result.get("url") or "",
+                "excerpt": (result.get("content") or result.get("excerpt") or "").strip(),
+            }
+        )
+    def take_list(key, limit=None):
+        items = data.get(key) or []
+        if limit is not None:
+            return items[:limit]
+        return items
+
+    return jsonify(
+        {
+            "query": query,
+            "results": hits[:6],
+            "infoboxes": take_list("infoboxes", 2),
+            "answers": take_list("answers", 3),
+            "corrections": take_list("corrections", 3),
+            "suggestions": take_list("suggestions", 2),
+            "unresponsive_engines": take_list("unresponsive_engines", 5),
+        }
+    )
 
 
 @chat_bp.route("/api/ai/status", methods=["GET"])
