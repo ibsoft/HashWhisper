@@ -3730,6 +3730,8 @@ function bindUI() {
     const vaultMessages = window.HW_VAULT_MESSAGES || {};
     const getVaultMessage = (key, fallback) => vaultMessages[key] || fallback;
     const vaultAttachmentLabel = getVaultMessage('attachmentLabel', 'File attached:');
+    const vaultFileSelectedEl = document.getElementById('vault-file-selected');
+    const vaultFileSelectedDefault = vaultFileSelectedEl?.textContent || '';
     const resetFileInfoDisplay = () => {
       if (vaultFileInfo) {
         vaultFileInfo.textContent = '';
@@ -3763,9 +3765,8 @@ function bindUI() {
       } else if (vaultFileInfo) {
         vaultFileInfo.classList.add('d-none');
       }
-      if (vaultMessageEl && vaultMessageEl.readOnly) {
-        vaultMessageEl.readOnly = false;
-        vaultMessageEl.value = '';
+      if (vaultFileSelectedEl) {
+        vaultFileSelectedEl.textContent = vaultFileSelectedDefault;
       }
     };
     const readFileAsBase64 = (file) =>
@@ -3835,9 +3836,8 @@ function bindUI() {
         vaultFileInfo.textContent = `${file.name} • ${formatReadableSize(file.size)}`;
         vaultFileInfo.classList.remove('d-none');
       }
-      if (vaultMessageEl) {
-        vaultMessageEl.value = `${vaultAttachmentLabel} ${file.name}`;
-        vaultMessageEl.readOnly = true;
+      if (vaultFileSelectedEl) {
+        vaultFileSelectedEl.textContent = `${vaultAttachmentLabel} ${file.name}`;
       }
       vaultAttachmentPending = true;
       setFileSpinnerVisibility(true);

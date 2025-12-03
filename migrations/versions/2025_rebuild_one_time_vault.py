@@ -1,21 +1,22 @@
-"""Create one-time vault secrets table.
+"""Rebuild one-time vault secrets table.
 
-Revision ID: vault_one_time
-Revises: f3b2a6c9d4e2
-Create Date: 2025-12-03 18:00:00
+Revision ID: vault_one_time_rebuild
+Revises: vault_payload_type
+Create Date: 2025-12-04 18:00:00
 """
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "vault_one_time"
-down_revision = "fix_sched_share_token"
+revision = "vault_one_time_rebuild"
+down_revision = "vault_payload_type"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
+    op.execute("DROP TABLE IF EXISTS one_time_secrets CASCADE;")
     op.create_table(
         "one_time_secrets",
         sa.Column("id", sa.Integer, primary_key=True),
@@ -36,9 +37,22 @@ def upgrade():
         sa.Column("created_by", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
     )
-    op.create_index(op.f("ix_one_time_secrets_slug"), "one_time_secrets", ["slug"], unique=True)
-    op.create_index(op.f("ix_one_time_secrets_expires_at"), "one_time_secrets", ["expires_at"])
-    op.create_index(op.f("ix_one_time_secrets_burned"), "one_time_secrets", ["burned"])
+    op.create_index(
+        op.f("ix_one_time_secrets_slug"),
+        "one_time_secrets",
+        ["slug"],
+        unique=True,
+    )
+    op.create_index(
+        op.f("ix_one_time_secrets_expires_at"),
+        "one_time_secrets",
+        ["expires_at"],
+    )
+    op.create_index(
+        op.f("ix_one_time_secrets_burned"),
+        "one_time_secrets",
+        ["burned"],
+    )
 
 
 def downgrade():

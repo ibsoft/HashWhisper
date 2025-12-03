@@ -95,7 +95,25 @@ class Config:
         "application/vnd.oasis.opendocument.spreadsheet",
         "application/vnd.oasis.opendocument.presentation",
     }
-    
+    VAULT_FILE_MIMETYPES = [
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "text/plain",
+        "application/json",
+        "audio/mpeg",
+        "audio/webm",
+        "audio/wav",
+        "application/octet-stream",
+    ]
+    VAULT_FILE_ACCEPT = ".doc,.docx,.xls,.xlsx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.log,.json,.mp3,.wav,.webm"
+    VAULT_MAX_FILE_SIZE = int(os.environ.get("HASHWHISPER_VAULT_MAX_FILE_SIZE", MAX_CONTENT_LENGTH))
+
     SECURITY_CSP = {
         "default-src": ["'self'"],
         "img-src": ["'self'", "data:", "blob:"],
@@ -163,6 +181,9 @@ class Config:
     ALLOW_USER_REGISTRATIONS = os.environ.get("HASHWHISPER_ALLOW_USER_REGISTRATIONS", "true").lower() == "true"
     _registration_network_env = os.environ.get("HASHWHISPER_REGISTRATION_NETWORKS")
     REGISTRATION_ALLOWED_NETWORKS = tuple(_parse_networks(_registration_network_env))
+
+    SHOW_VAULT_QUICK_ACTION = os.environ.get("HASHWHISPER_SHOW_VAULT_QUICK_ACTION", "true").lower() == "true"
+    SHOW_PASSWORD_GENERATOR_QUICK_ACTION = os.environ.get("HASHWHISPER_SHOW_PASSWORD_GENERATOR_QUICK_ACTION", "true").lower() == "true"
 
     FONT_FAMILY = os.environ.get(
         "HASHWHISPER_FONT_FAMILY",
