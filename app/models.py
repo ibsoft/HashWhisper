@@ -212,3 +212,22 @@ class ScheduledChat(db.Model):
         if self.never_expires:
             return False
         return datetime.utcnow() > self.end_at
+
+
+class OneTimeSecret(db.Model):
+    __tablename__ = "one_time_secrets"
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(32), nullable=False, unique=True, index=True)
+    title = db.Column(db.String(128))
+    ciphertext = db.Column(db.Text, nullable=False)
+    nonce = db.Column(db.String(32), nullable=False)
+    auth_tag = db.Column(db.String(32), nullable=False)
+    burn_after_read = db.Column(db.Boolean, default=True)
+    max_views = db.Column(db.Integer, default=1)
+    view_count = db.Column(db.Integer, default=0)
+    expires_at = db.Column(db.DateTime, index=True)
+    burned = db.Column(db.Boolean, default=False, index=True)
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    creator = db.relationship("User", foreign_keys=[created_by], backref=db.backref("vault_entries", lazy="dynamic"))

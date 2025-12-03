@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% block title %}Secure Vault{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="card card-glass shadow-lg mx-auto" style="max-width: 720px;">
+    <div class="card-body">
+      <div class="d-flex align-items-start justify-content-between flex-column flex-md-row gap-3">
+        <div>
+          <h3 class="mb-1">{{ _('Secure vault') }}</h3>
+          <p class="text-muted mb-0">{{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}</p>
+        </div>
+        <span class="badge bg-primary px-3 py-2 fs-6" id="vault-status-badge">{{ _('Untouched') }}</span>
+      </div>
+      <div class="mt-4" id="vault-alert"></div>
+      <div class="mt-3">
+        <label class="form-label">{{ _('Secret key (the part after the # in the link)') }}</label>
+        <div class="input-group">
+          <input type="text" class="form-control" id="vault-key" placeholder="{{ _('Paste or scan the link and include the secret') }}">
+          <button class="btn btn-soft" type="button" id="vault-auto-key">{{ _('Auto-fill from URL') }}</button>
+        </div>
+        <div class="text-muted small mt-2">{{ _('Only the bearer of this secret key can decrypt the message. The server never stores it.') }}</div>
+      </div>
+      <div class="mt-3 d-grid gap-2">
+        <button class="btn btn-primary" type="button" id="vault-decrypt-btn">{{ _('Decrypt secret') }}</button>
+        <button class="btn btn-outline-secondary" type="button" id="vault-clear-btn">{{ _('Clear key and message') }}</button>
+      </div>
+      <div class="mt-4 px-3 py-2 border border-dashed bg-dark text-light rounded-3" id="vault-metadata" style="font-size:0.9rem;"></div>
+      <div class="mt-3">
+        <h5 class="mb-2" id="vault-title-placeholder"></h5>
+        <pre id="vault-content" class="bg-black bg-opacity-30 border border-light border-opacity-25 rounded-3 p-3" style="min-height: 180px; white-space: pre-wrap;"></pre>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(() => {
+  const slug = "{{ slug }}";
+  const statusBadge = document.getElementById('vault-status-badge');
+  const alertEl = document.getElementById('vault-alert');
+  const metadataEl = document.getElementById('vault-metadata');
+  const titleEl = document.getElementById('vault-title-placeholder');
+  const contentEl = document.getElementById('vault-content');
+  const keyInput = document.getElementById('vault-key');
+  const decryptBtn = document.getElementById('vault-decrypt-btn');
+  const clearBtn = document.getElementById('vault-clear-btn');
+  const autoKeyBtn = document.getElementById('vault-auto-key');
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  let entry = null;
+
+  function showAlert(message, variant = 'info') {
+    alertEl.innerHTML = `<div class="alert alert-${variant} mb-0">${message}</div>`;
+  }
+
+  function hexToBytes(value) {
+    if (!value) return new Uint8Array();
+    const matches = value.match(/.{1,2}/g) || [];
+    return new Uint8Array(matches.map((chunk) => parseInt(chunk, 16)));
+  }
+
+  async function deriveVaultKey(secret) {
+    const material = await window.crypto.subtle.importKey('raw', encoder.encode(secret), 'PBKDF2', false, ['deriveKey']);
+    return window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: encoder.encode('hashwhisper-vault'),
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      material,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  async function decryptPayload(secret) {
+    if (!entry || !secret) {
+      throw new Error('{{ _("Provide the secret key to decrypt the payload.") }}');
+    }
+    const key = await deriveVaultKey(secret);
+    const iv = hexToBytes(entry.nonce);
+    const tag = hexToBytes(entry.auth_tag);
+    const cipher = hexToBytes(entry.ciphertext);
+    const combined = new Uint8Array(cipher.length + tag.length);
+    combined.set(cipher);
+    combined.set(tag, cipher.length);
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv, additionalData: encoder.encode('HashWhisper:v1') },
+      key,
+      combined
+    );
+    return decoder.decode(decrypted);
+  }
+
+  function renderMetadata(data) {
+    const expires = data.expires_at ? new Date(data.expires_at).toLocaleString() : '{{ _("Never") }}';
+    const views = data.views_remaining;
+    metadataEl.textContent = `{{ _("Expires") }}: ${expires} · {{ _("Views left") }}: ${views}`;
+    if (data.title) {
+      titleEl.textContent = data.title;
+    } else {
+      titleEl.textContent = '{{ _("Untitled secret") }}';
+    }
+  }
+
+  function updateStatus(text, variant = 'primary') {
+    statusBadge.textContent = text;
+    statusBadge.className = `badge bg-${variant} px-3 py-2 fs-6`;
+  }
+
+  async function fetchVault() {
+    try {
+      const resp = await fetch(`/api/vault/${slug}`, { cache: 'no-store' });
+      if (!resp.ok) {
+        const payload = await resp.json().catch(() => ({}));
+        const code = resp.status === 410 ? '{{ _("This secret has burned.") }}' : '{{ _("Secret not found.") }}';
+        showAlert(payload.error || code, resp.status === 410 ? 'warning' : 'danger');
+        updateStatus('{{ _("Unavailable") }}', 'secondary');
+        decryptBtn.disabled = true;
+        return;
+      }
+      entry = await resp.json();
+      renderMetadata(entry);
+      updateStatus('{{ _("Ready to decrypt") }}', 'success');
+      showAlert('{{ _("Secret ready. Paste the key and press decrypt.") }}', 'info');
+    } catch (err) {
+      console.error(err);
+      showAlert('{{ _("Unable to load this secret. It may have burned.") }}', 'danger');
+      updateStatus('{{ _("Offline") }}', 'secondary');
+      decryptBtn.disabled = true;
+    }
+  }
+
+  async function handleDecrypt() {
+    const key = (keyInput.value || '').trim();
+    if (!key) {
+      showAlert('{{ _("Add the secret key first.") }}', 'warning');
+      return;
+    }
+    try {
+      const text = await decryptPayload(decodeURIComponent(key));
+      contentEl.textContent = text;
+      updateStatus('{{ _("Unlocked") }}', 'success');
+      showAlert('{{ _("Keep this window open only as long as you need.") }}', 'info');
+    } catch (err) {
+      console.error(err);
+      showAlert('{{ _("Unable to decrypt. Check the secret key and try again.") }}', 'danger');
+    }
+  }
+
+  autoKeyBtn.addEventListener('click', () => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      keyInput.value = decodeURIComponent(hash);
+      showAlert('{{ _("Secret key auto-filled from the link.") }}', 'success');
+    } else {
+      showAlert('{{ _("This link does not include the secret key fragment.") }}', 'warning');
+    }
+  });
+
+  decryptBtn.addEventListener('click', handleDecrypt);
+  clearBtn.addEventListener('click', () => {
+    keyInput.value = '';
+    contentEl.textContent = '';
+    showAlert('{{ _("Key and decrypted message cleared.") }}', 'info');
+    updateStatus('{{ _("Ready to decrypt") }}', 'success');
+  });
+
+  fetchVault();
+})();
+</script>
+{% endblock %}

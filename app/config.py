@@ -119,6 +119,7 @@ class Config:
     RATELIMIT_STRATEGY = "fixed-window"
     RATELIMIT_LOGIN = "30 per minute"
     RATELIMIT_REGISTER = "10 per minute"
+    VAULT_RATELIMIT = os.environ.get("HASHWHISPER_VAULT_RATELIMIT", "15 per hour")
 
     # AES-GCM client side requirements
     CLIENT_AAD = "HashWhisper:v1"
@@ -135,7 +136,7 @@ class Config:
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
     MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "9.0.4")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "9.0.6")
     MAINTENANCE_MESSAGE = os.environ.get(
         "HASHWHISPER_MAINTENANCE_MESSAGE",
         "We are updating HashWhisper. Please check back in a few minutes.",

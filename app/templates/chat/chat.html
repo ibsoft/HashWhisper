@@ -92,22 +92,28 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0"><i class="fa-solid fa-sliders me-2"></i>{{ _('Quick Actions') }}</h6>
       </div>
-      <div class="quick-actions-grid">
-        <button class="btn btn-sm btn-outline-light quick-action-btn position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
-          <i class="fa-solid fa-circle-info"></i>
-          <span class="notification-dot d-none" id="info-dot"></span>
-          <span class="notification-count d-none" id="info-count"></span>
+        <div class="quick-actions-grid">
+          <button class="btn btn-sm btn-outline-light quick-action-btn position-relative top-menu-btn" id="info-indicator" title="{{ _('No new notifications') }}">
+            <i class="fa-solid fa-circle-info"></i>
+            <span class="notification-dot d-none" id="info-dot"></span>
+            <span class="notification-count d-none" id="info-count"></span>
+          </button>
+          <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" href="{{ url_for('settings.settings') }}" title="{{ _('Settings') }}">
+            <i class="fa-solid fa-gear"></i>
+          </a>
+          <button class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" id="theme-toggle" data-theme-toggle>
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+        <button class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" id="vault-quick-action" type="button" title="{{ _('Share a one-time secret') }}">
+          <i class="fa-solid fa-shield-halved"></i>
         </button>
-        <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" href="{{ url_for('settings.settings') }}" title="{{ _('Settings') }}">
-          <i class="fa-solid fa-gear"></i>
-        </a>
-        <button class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" id="theme-toggle" data-theme-toggle>
-          <i class="fa-solid fa-circle-half-stroke"></i>
+        <button class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn" id="password-generator-action" type="button" title="{{ _('Generate a strong password') }}">
+          <i class="fa-solid fa-key"></i>
         </button>
-        <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn logout-btn" href="{{ url_for('auth.logout') }}" data-logout title="{{ _('Logout') }}">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </a>
-      </div>
+          <a class="btn btn-sm btn-outline-light quick-action-btn top-menu-btn logout-btn" href="{{ url_for('auth.logout') }}" data-logout title="{{ _('Logout') }}">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </a>
+        </div>
     </div>
 
     <div class="card card-glass p-3 sidebar-card">
@@ -328,9 +334,140 @@
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
         <button type="button" class="btn btn-soft" id="secret-save">{{ _('Save secret') }}</button>
+  </div>
+</div>
+</div>
+
+<!-- One-time vault modal -->
+<div class="modal fade" id="vaultModal" tabindex="-1" aria-labelledby="vaultModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="vaultModalLabel">{{ _('Share a one-time secret') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">{{ _('Write a secure note, password, or link. The browser encrypts it while the server only stores ciphertext.') }}</p>
+        <form id="vault-form">
+          <div class="mb-3">
+            <label class="form-label">{{ _('Title (optional)') }}</label>
+            <input type="text" class="form-control" id="vault-title" placeholder="{{ _('e.g. Wi-Fi credentials') }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ _('Secret note') }}</label>
+            <textarea class="form-control" id="vault-message" rows="4" placeholder="{{ _('Type or paste the content you want to share securely...') }}"></textarea>
+          </div>
+          <div class="row gx-2">
+            <div class="col-sm-6 mb-3">
+              <label class="form-label">{{ _('Lifetime') }}</label>
+              <select class="form-select" id="vault-lifetime">
+                <option value="1">{{ _('1 hour') }}</option>
+                <option value="3">{{ _('3 hours') }}</option>
+                <option value="24" selected>{{ _('24 hours') }}</option>
+                <option value="72">{{ _('72 hours') }}</option>
+                <option value="0">{{ _('Never (not recommended)') }}</option>
+              </select>
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="form-label">{{ _('Views allowed') }}</label>
+              <select class="form-select" id="vault-views">
+                <option value="1">{{ _('Burn after 1 view') }}</option>
+                <option value="2">{{ _('Up to 2 views') }}</option>
+                <option value="5">{{ _('Up to 5 views') }}</option>
+                <option value="10">{{ _('Up to 10 views') }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="vault-burn-switch" checked>
+            <label class="form-check-label" for="vault-burn-switch">{{ _('Burn immediately after the first view (uncheck to allow the number of views above)') }}</label>
+          </div>
+          <div class="alert alert-danger d-none" id="vault-error" role="alert"></div>
+          <div class="alert alert-success d-none" id="vault-result" role="status">
+            <div class="small text-success mb-2" id="vault-result-meta"></div>
+            <div class="text-success small mt-1 d-none" id="vault-copy-status">{{ _('Link copied to clipboard.') }}</div>
+            <div class="mb-2">
+              <label class="form-label small mb-1">{{ _('Shareable link (copy the full URL)') }}</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control" id="vault-share-url" readonly>
+                <button class="btn btn-outline-light" type="button" id="vault-copy-url"><i class="fa-solid fa-copy"></i></button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label small mb-1">{{ _('Secret fragment (keep the part after the # private)') }}</label>
+              <div class="input-group input-group-sm">
+                <input type="text" class="form-control" id="vault-share-secret" readonly>
+                <button class="btn btn-outline-light" type="button" id="vault-copy-secret"><i class="fa-solid fa-copy"></i></button>
+              </div>
+            </div>
+            <p class="text-muted small mt-2 mb-0">{{ _('Provide the secret fragment to the recipient separately; the server never stores it.') }}</p>
+          </div>
+          <small class="text-muted d-block mt-2">{{ _('Created links expire automatically after their lifetime or the allowed views are consumed.') }}</small>
+        </form>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-soft" id="vault-create">{{ _('Create secret link') }}</button>
       </div>
     </div>
   </div>
+</div>
+
+<!-- Password generator modal -->
+<div class="modal fade" id="passwordGeneratorModal" tabindex="-1" aria-labelledby="passwordGeneratorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="passwordGeneratorModalLabel">{{ _('Password generator') }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ _('Close') }}"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">{{ _('Create a strong password and copy it instantly. Adjust length and character sets as needed.') }}</p>
+        <div class="mb-3">
+          <label class="form-label d-flex justify-content-between">
+            <span>{{ _('Length') }}</span>
+            <span id="password-length-value" class="text-muted">16</span>
+          </label>
+          <input type="range" class="form-range" min="8" max="64" value="16" id="password-length">
+        </div>
+        <div class="row gx-2 mb-3">
+          <div class="col-6">
+            <label class="form-label">{{ _('Character sets') }}</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="password-upper" checked>
+              <label class="form-check-label" for="password-upper">{{ _('Uppercase') }}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="password-lower" checked>
+              <label class="form-check-label" for="password-lower">{{ _('Lowercase') }}</label>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label">{{ _('Digits & symbols') }}</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="password-numeric" checked>
+              <label class="form-check-label" for="password-numeric">{{ _('Digits') }}</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="password-symbols" checked>
+              <label class="form-check-label" for="password-symbols">{{ _('Symbols') }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="generated-password" readonly>
+          <button class="btn btn-outline-light" type="button" id="copy-password"><i class="fa-solid fa-copy"></i></button>
+        </div>
+        <div class="d-grid gap-2">
+          <button class="btn btn-soft" type="button" id="generate-password">{{ _('Generate password') }}</button>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">{{ _('Close') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- Delete group modal -->

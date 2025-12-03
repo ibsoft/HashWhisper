@@ -639,6 +639,15 @@ main > .container-fluid {
 [data-bs-theme="light"] .modal-schedule .modal-title { color: #0b1a2d; }
 [data-bs-theme="light"] .modal-schedule .btn-close { filter: invert(0); }
 
+#vault-result {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.vault-result-highlight {
+  box-shadow: 0 0 0 3px rgba(142, 242, 195, 0.8);
+  transform: translateY(-4px);
+}
+
 .card-glass {
   background: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.08);

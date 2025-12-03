@@ -44,6 +44,15 @@
 - Keep the shared secret private. Losing it means messages cannot be decrypted.
 - If you lose the shared secret, past chats are unrecoverable and lost to oblivion.
 
+## One-time vault links
+- The shield icon in Quick Actions opens the vault modal. Compose your note, pick a lifetime and how many views to allow, and click **Create secret link**.
+- The modal shows a shareable URL and a separate secret fragment (the part after `#`). Copy both and deliver the fragment out-of-band; the server never stores the fragment.
+- Recipients open the link, paste the fragment into the prompt, and decrypt the message. The link automatically burns once the allowed views are consumed or the lifetime expires.
+
+## Password generator
+- Tap the key icon in Quick Actions to open the password generator. Adjust the length slider (8–64) and toggle character sets.
+- Hit **Generate password** to fill the readonly field and tap the copy button to stash it to your clipboard instantly.
+
 ## Troubleshooting
 - **Unable to decrypt media:** Wait for the spinner; if it fails, click again to retry. Check your network or re-enter the secret.
 - **Messages not loading:** Click the refresh arrow; if still failing, reselect the group and confirm the secret.
@@ -116,6 +125,15 @@ We built HashWhisper because we believe privacy is a right, not a feature. Your 
 - Όλη η κρυπτογράφηση/αποκρυπτογράφηση γίνεται στον browser· τα μυστικά δεν φεύγουν από τη συσκευή.
 - Κρατήστε το κοινό μυστικό ιδιωτικό. Αν χαθεί, τα μηνύματα δεν αποκρυπτογραφούνται.
 - Αν χάσεις το κοινό μυστικό, οι συνομιλίες είναι μη ανακτήσιμες και χάνονται οριστικά.
+
+## Θησαυροφυλάκιο μιας χρήσης
+- Το εικονίδιο με την ασπίδα στο Quick Actions ανοίγει τη φόρμα της θυρίδας. Γράψτε την σημείωση, επιλέξτε διάρκεια και πόσες αναγνώσεις επιτρέπονται, και πατήστε **Create secret link**.
+- Η φόρμα εμφανίζει έναν σύνδεσμο και ένα ξεχωριστό τμήμα μυστικού (το κομμάτι μετά το `#`). Αντιγράψτε και τους δύο, αλλά δώστε το μυστικό με ξεχωριστό κανάλι· ο server δεν το καταγράφει.
+- Ο παραλήπτης ανοίγει τον σύνδεσμο, επικολλά το μυστικό και αποκρυπτογραφεί. Ο σύνδεσμος διαγράφεται μόλις εξαντληθούν οι επιτρεπόμενες αναγνώσεις ή περάσει ο χρόνος.
+
+## Δημιουργός κωδικών
+- Το εικονίδιο με το κλειδί ανοίγει τον γεννήτρια κωδικών. Ρυθμίστε το μήκος (8–64) και επιλέξτε σύνολα χαρακτήρων.
+- Πατήστε **Generate password** για να δημιουργηθεί ο κωδικός και μετά το κουμπί αντιγραφής για να τον αποθηκεύσετε στον πίνακα (clipboard).
 
 ## Αντιμετώπιση Προβλημάτων
 - **Αδυναμία αποκρυπτογράφησης πολυμέσων:** Περιμένετε τον δείκτη· αν αποτύχει, πατήστε ξανά για retry. Ελέγξτε σύνδεση ή επανεισάγετε το μυστικό.

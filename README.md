@@ -11,6 +11,7 @@ HashWhisper is a Flask-based, end-to-end encrypted group chat that treats the se
 - AI assistant: `/ai <prompt>` chats with the AI while `/ai summarize` reads the loaded meeting history and posts a concise recap for everyone to copy.
 - Internet search: if you configure a SearxNG endpoint (`HASHWHISPER_SEARCH_URL`), `/ai searx <terms>` returns curated snippets from that instance directly into the chat.
 - Search card: filter decrypted messages and attached file names inside the current room with inline results while typing keywords.
+- Secure vault & helpers: quick-action buttons let you encrypt one-time notes, passwords, or links in the browser before storing ciphertext; share a self-destructing link and separate secret fragment, or generate strong passwords with the built-in tool.
 - Data minimization: messages expire after 7 days; `flask purge-expired` CLI shreds expired ciphertext and blobs. Minimal metadata logged (no content).
 
 ## Running locally
@@ -40,6 +41,7 @@ flask --app wsgi run --debug
 - `HASHWHISPER_ALLOW_USER_REGISTRATIONS` (default `true`): toggle whether the app accepts new sign-ups; set to `false` to keep existing accounts without exposing registration.
 - `HASHWHISPER_REGISTRATION_NETWORKS`: optional comma-separated CIDR list (e.g., `10.0.0.0/8,192.168.1.0/24`); when provided, new registrations must originate from one of those networks.
 - `HASHWHISPER_SEARCH_URL`: optional base URL for a SearxNG instance (e.g., `https://search.example.com`); enabling it allows `/ai searx <terms>` to surface live web results securely.
+- `HASHWHISPER_VAULT_RATELIMIT`: optional rate-limit string for the secure vault API (default `15 per hour`); controls how often `/vault/create` can be called.
 - `HASHWHISPER_APP_TITLE`: navbar title text.
 - `HASHWHISPER_MAX_UPLOAD`: max encrypted upload size in bytes (default 10 MiB).
 - `HASHWHISPER_RETENTION_DAYS`: days before ciphertext/blob purge (default 7).

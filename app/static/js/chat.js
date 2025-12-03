@@ -568,6 +568,64 @@ async function encryptText(message, secret, groupId) {
   return { ciphertext: toHex(ciphertext), nonce: toHex(iv), tag: toHex(tag) };
 }
 
+async function deriveVaultKey(secret) {
+  const material = await crypto.subtle.importKey('raw', encoder.encode(secret), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode('hashwhisper-vault'),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptVaultPayload(message, secret) {
+  const key = await deriveVaultKey(secret);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv, additionalData: encoder.encode('HashWhisper:v1') },
+    key,
+    encoder.encode(message)
+  );
+  const bytes = new Uint8Array(encrypted);
+  const tag = bytes.slice(-16);
+  const ciphertext = bytes.slice(0, bytes.length - 16);
+  return { ciphertext: toHex(ciphertext), nonce: toHex(iv), auth_tag: toHex(tag) };
+}
+
+function safeRandomValues(arr) {
+  const cryptoApi = window.crypto || window.msCrypto;
+  if (cryptoApi?.getRandomValues) {
+    try {
+      return cryptoApi.getRandomValues(arr);
+    } catch (err) {
+      console.warn('crypto.getRandomValues failed', err);
+    }
+  }
+  for (let i = 0; i < arr.length; i += 1) {
+    arr[i] = Math.floor(Math.random() * 0xffffffff);
+  }
+  return arr;
+}
+
+function generateVaultSecret() {
+  if (window.crypto?.randomUUID) {
+    try {
+      return window.crypto.randomUUID();
+    } catch (err) {
+      console.warn('crypto.randomUUID failed', err);
+    }
+  }
+  const bytes = new Uint8Array(16);
+  safeRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function decryptText(payload, secret, groupId) {
   if (!payload?.ciphertext || !payload?.nonce || !payload?.auth_tag) {
     console.warn('Decrypt failed, payload missing encryption fields', { payload, groupId });
@@ -3172,6 +3230,13 @@ function bindUI() {
   const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
   const sidebarEl = document.getElementById('groupSidebar');
   const chatShell = document.querySelector('.chat-shell');
+  const ensureModalInBody = (modalId) => {
+    const modal = document.getElementById(modalId);
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+  };
+  ['vaultModal', 'passwordGeneratorModal'].forEach(ensureModalInBody);
   ensureMobileNotificationPrompt();
   shareSecretButton = document.getElementById('share-secret-btn');
   shareSecretButton?.addEventListener('click', shareCurrentSecret);
@@ -3622,6 +3687,246 @@ function bindUI() {
       }
       const remember = document.getElementById('remember-secret');
       if (remember) remember.checked = false;
+    });
+  }
+
+  const vaultModalEl = document.getElementById('vaultModal');
+  if (vaultModalEl && typeof bootstrap !== 'undefined') {
+    const vaultModalInstance = bootstrap.Modal.getOrCreateInstance(vaultModalEl);
+    const vaultActionBtn = document.getElementById('vault-quick-action');
+    vaultActionBtn?.addEventListener('click', () => vaultModalInstance.show());
+    const vaultTitleEl = document.getElementById('vault-title');
+    const vaultMessageEl = document.getElementById('vault-message');
+    const vaultLifetimeEl = document.getElementById('vault-lifetime');
+    const vaultViewsEl = document.getElementById('vault-views');
+    const vaultBurnSwitchEl = document.getElementById('vault-burn-switch');
+    const vaultCreateBtn = document.getElementById('vault-create');
+    const vaultErrorEl = document.getElementById('vault-error');
+    const vaultResultEl = document.getElementById('vault-result');
+    const vaultResultMeta = document.getElementById('vault-result-meta');
+    const vaultShareUrl = document.getElementById('vault-share-url');
+    const vaultShareSecret = document.getElementById('vault-share-secret');
+    const vaultCopyUrl = document.getElementById('vault-copy-url');
+    const vaultCopySecret = document.getElementById('vault-copy-secret');
+    const vaultCopyStatus = document.getElementById('vault-copy-status');
+    const defaultBtnText = vaultCreateBtn?.textContent || '';
+
+    const toggleViewsDisabled = () => {
+      const burn = vaultBurnSwitchEl?.checked;
+      if (vaultViewsEl) {
+        vaultViewsEl.disabled = Boolean(burn);
+        if (burn) vaultViewsEl.value = '1';
+      }
+    };
+
+    const resetVaultModal = () => {
+      vaultTitleEl.value = '';
+      vaultMessageEl.value = '';
+      vaultLifetimeEl.value = '24';
+      if (vaultViewsEl) vaultViewsEl.value = '1';
+      if (vaultBurnSwitchEl) vaultBurnSwitchEl.checked = true;
+      vaultResultEl?.classList.add('d-none');
+      vaultErrorEl?.classList.add('d-none');
+      vaultShareUrl.value = '';
+      vaultShareSecret.value = '';
+      vaultResultMeta.textContent = '';
+      vaultCopyStatus?.classList.add('d-none');
+      toggleViewsDisabled();
+      if (vaultCreateBtn) {
+        vaultCreateBtn.disabled = false;
+        vaultCreateBtn.textContent = defaultBtnText;
+      }
+    };
+
+    vaultModalEl.addEventListener('hidden.bs.modal', resetVaultModal);
+    vaultBurnSwitchEl?.addEventListener('change', toggleViewsDisabled);
+    toggleViewsDisabled();
+
+    const showVaultError = (message) => {
+      if (vaultErrorEl) {
+        vaultErrorEl.textContent = message;
+        vaultErrorEl.classList.remove('d-none');
+      }
+      if (vaultResultEl) {
+        vaultResultEl.classList.add('d-none');
+      }
+    };
+
+    const safeFocus = (el) => {
+      if (!el) return;
+      try {
+        el.focus({ preventScroll: true });
+      } catch (_) {
+        el.focus();
+      }
+    };
+
+    const focusShareInputs = () => {
+      if (vaultShareUrl) {
+        safeFocus(vaultShareUrl);
+        vaultShareUrl.select();
+      }
+      if (vaultShareSecret) {
+        safeFocus(vaultShareSecret);
+      }
+    };
+
+    const copyShareableLink = async (value) => {
+      if (!value) return false;
+      try {
+        const copied = await writeClipboardText(value);
+        if (vaultCopyStatus) {
+          vaultCopyStatus.classList.toggle('d-none', !copied);
+        }
+        return copied;
+      } catch (err) {
+        if (CLIPBOARD_DEBUG) console.warn('[vault-copy] failed', err);
+        if (vaultCopyStatus) vaultCopyStatus.classList.add('d-none');
+        return false;
+      }
+    };
+
+    const showVaultResult = (link, secret, expires, views) => {
+      if (!vaultResultEl) return;
+      vaultResultEl.classList.remove('d-none');
+      vaultResultMeta.textContent = `Expires ${expires || 'Never'} · ${views} view${views === 1 ? '' : 's'} allowed`;
+      if (vaultShareUrl) {
+        vaultShareUrl.value = link;
+      }
+      if (vaultShareSecret) {
+        vaultShareSecret.value = secret;
+      }
+      vaultCopyStatus?.classList.add('d-none');
+      const scrollParent = vaultResultEl.closest('.modal-body');
+      if (scrollParent) {
+        scrollParent.scrollTop = scrollParent.scrollHeight;
+      }
+      vaultResultEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      vaultResultEl.classList.add('vault-result-highlight');
+      setTimeout(() => vaultResultEl.classList.remove('vault-result-highlight'), 1500);
+      focusShareInputs();
+      copyShareableLink(link).catch(() => {});
+    };
+
+    vaultCopyUrl?.addEventListener('click', () => copyTextToClipboard(vaultShareUrl.value));
+    vaultCopySecret?.addEventListener('click', () => copyTextToClipboard(vaultShareSecret.value));
+
+    vaultCreateBtn?.addEventListener('click', async () => {
+      if (!vaultMessageEl) return;
+      const message = vaultMessageEl.value.trim();
+      if (!message) {
+        return showVaultError('Provide some text to encrypt.');
+      }
+      const secret = generateVaultSecret();
+      const payload = await encryptVaultPayload(message, secret);
+      const lifetime = Number(vaultLifetimeEl?.value) || 24;
+      const burnAfterRead = Boolean(vaultBurnSwitchEl?.checked);
+      const maxViews = burnAfterRead ? 1 : Math.max(1, Math.min(Number(vaultViewsEl?.value) || 1, 10));
+      vaultCreateBtn.disabled = true;
+      vaultCreateBtn.textContent = 'Creating…';
+      try {
+        const resp = await fetch('/vault/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: JSON.stringify({
+            ciphertext: payload.ciphertext,
+            nonce: payload.nonce,
+            auth_tag: payload.auth_tag,
+            title: (vaultTitleEl?.value || '').trim(),
+            burn_after_read: burnAfterRead,
+            max_views: maxViews,
+            expires_hours: lifetime,
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          showVaultError(data.error || 'Unable to create secret link.');
+          return;
+        }
+        const link = `${window.location.origin}/vault/${data.slug}`;
+        const shareable = `${link}#${encodeURIComponent(secret)}`;
+        const expiresText = data.expires_at ? new Date(data.expires_at).toLocaleString() : 'Never';
+        showVaultResult(shareable, secret, expiresText, data.max_views || maxViews);
+        vaultErrorEl?.classList.add('d-none');
+        showInfoModal('Secret link created', 'Copy the link and the secret fragment separately.');
+      } catch (err) {
+        console.error(err);
+        showVaultError('Unable to reach the vault service right now.');
+      } finally {
+        if (vaultCreateBtn) {
+          vaultCreateBtn.disabled = false;
+          vaultCreateBtn.textContent = defaultBtnText;
+        }
+      }
+    });
+  }
+
+  const passwordModalEl = document.getElementById('passwordGeneratorModal');
+  if (passwordModalEl && typeof bootstrap !== 'undefined') {
+    const passwordModalInstance = bootstrap.Modal.getOrCreateInstance(passwordModalEl);
+    const passwordModalBtn = document.getElementById('password-generator-action');
+    passwordModalBtn?.addEventListener('click', () => passwordModalInstance.show());
+    const lengthEl = document.getElementById('password-length');
+    const lengthLabel = document.getElementById('password-length-value');
+    const upperEl = document.getElementById('password-upper');
+    const lowerEl = document.getElementById('password-lower');
+    const digitsEl = document.getElementById('password-numeric');
+    const symbolsEl = document.getElementById('password-symbols');
+    const generateBtn = document.getElementById('generate-password');
+    const outputEl = document.getElementById('generated-password');
+    const copyBtn = document.getElementById('copy-password');
+
+    const updateLengthLabel = () => {
+      if (lengthLabel && lengthEl) lengthLabel.textContent = lengthEl.value;
+    };
+
+    const buildCharacterPool = () => {
+      let pool = '';
+      if (upperEl?.checked) pool += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      if (lowerEl?.checked) pool += 'abcdefghijklmnopqrstuvwxyz';
+      if (digitsEl?.checked) pool += '0123456789';
+      if (symbolsEl?.checked) pool += '!@#$%^&*()-_=+[]{};:,.<>?';
+      return pool;
+    };
+
+    const createPassword = () => {
+      const pool = buildCharacterPool();
+      const length = Math.min(64, Math.max(8, Number(lengthEl?.value) || 16));
+      if (!pool) {
+        showInfoModal('Password generator', 'Select at least one character set.');
+        return '';
+      }
+      let password = '';
+      const values = new Uint32Array(length);
+      safeRandomValues(values);
+      for (let i = 0; i < length; i += 1) {
+        const idx = values[i] % pool.length;
+        password += pool.charAt(idx);
+      }
+      return password;
+    };
+
+    const handleGeneratePassword = () => {
+      const pwd = createPassword();
+      if (outputEl) outputEl.value = pwd;
+    };
+
+    copyBtn?.addEventListener('click', () => {
+      if (outputEl?.value) {
+        copyTextToClipboard(outputEl.value);
+        showInfoModal('Password generator', 'Password copied to clipboard.');
+      }
+    });
+
+    generateBtn?.addEventListener('click', handleGeneratePassword);
+    lengthEl?.addEventListener('input', updateLengthLabel);
+
+    passwordModalEl.addEventListener('shown.bs.modal', () => {
+      updateLengthLabel();
+      handleGeneratePassword();
     });
   }
 

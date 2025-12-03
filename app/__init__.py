@@ -15,6 +15,7 @@ from .presence import create_presence_bus
 from .routes.auth import auth_bp
 from .routes.chat import chat_bp
 from .routes.settings import settings_bp
+from .routes.vault import vault_bp
 
 
 def create_app(config_class: type[Config] = Config) -> Flask:
@@ -107,6 +108,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(vault_bp)
 
     with app.app_context():
         db.create_all()
