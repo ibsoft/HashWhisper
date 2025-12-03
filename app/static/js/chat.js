@@ -2689,14 +2689,25 @@ async function toggleRecording() {
   }
 }
 
-async function copyTextToClipboard(text) {
+async function copyTextToClipboard(
+  text,
+  {
+    successTitle = 'Copied',
+    successMessage = 'Content copied to clipboard.',
+    errorTitle = 'Copy failed',
+    errorMessage = 'Could not copy to clipboard in this browser.',
+    suppressSuccessToast = false,
+  } = {}
+) {
   if (!text) return false;
   const success = await writeClipboardText(text);
   if (success) {
-    showInfoModal('Copied', 'Content copied to clipboard.');
+    if (!suppressSuccessToast) {
+      showInfoModal(successTitle, successMessage);
+    }
   } else {
     if (CLIPBOARD_DEBUG) console.warn('[copy-text] failed');
-    showInfoModal('Copy failed', 'Could not copy to clipboard in this browser.');
+    showInfoModal(errorTitle, errorMessage);
   }
   if (CLIPBOARD_DEBUG) console.debug('[copy-text]', { text, success });
   return success;
@@ -4074,8 +4085,10 @@ function bindUI() {
 
     copyBtn?.addEventListener('click', () => {
       if (outputEl?.value) {
-        copyTextToClipboard(outputEl.value);
-        showInfoModal('Password generator', 'Password copied to clipboard.');
+        copyTextToClipboard(outputEl.value, {
+          successTitle: 'Password generator',
+          successMessage: 'Password copied to clipboard.',
+        });
       }
     });
 

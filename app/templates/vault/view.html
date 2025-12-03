@@ -2,38 +2,43 @@
 {% block title %}Secure Vault{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-  <div class="card card-glass shadow-lg mx-auto" style="max-width: 720px;">
-    <div class="card-body">
-      <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
-        <div class="d-flex align-items-center gap-3">
-          <i class="fa-solid fa-shield-halved fa-2x text-primary"></i>
-          <div>
-            <h3 class="mb-1">{{ _('Secure vault') }}</h3>
-            <p class="text-muted mb-0">{{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}</p>
+<section class="vault-landing" aria-labelledby="vault-landing-title">
+  <div class="container">
+    <div class="vault-card card card-glass shadow-lg mx-auto">
+      <div class="card-body">
+        <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <i class="fa-solid fa-shield-halved fa-2x text-primary" aria-hidden="true"></i>
+            <div>
+              <h3 id="vault-landing-title" class="mb-1">{{ _('Secure vault') }}</h3>
+              <p class="text-muted mb-0">
+                {{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}
+              </p>
+            </div>
           </div>
+          <span class="badge bg-primary px-3 py-2 fs-6" id="vault-status-badge">{{ _('Untouched') }}</span>
         </div>
-        <span class="badge bg-primary px-3 py-2 fs-6" id="vault-status-badge">{{ _('Untouched') }}</span>
-      </div>
-      <div class="mt-4" id="vault-alert"></div>
-      <div class="mt-3">
-        <label class="form-label">{{ _('Secret key (the part after the # in the link)') }}</label>
-        <div class="input-group">
-          <input type="text" class="form-control" id="vault-key" placeholder="{{ _('Paste or scan the link and include the secret') }}">
-          <button class="btn btn-soft" type="button" id="vault-auto-key">{{ _('Auto-fill from URL') }}</button>
+        <div class="mt-3" id="vault-alert" role="status" aria-live="polite"></div>
+        <div class="mt-4 vault-key-section">
+          <label class="form-label" for="vault-key">{{ _('Secret key (the part after the # in the link)') }}</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="vault-key" placeholder="{{ _('Paste or scan the link and include the secret') }}">
+            <button class="btn btn-soft" type="button" id="vault-auto-key">{{ _('Auto-fill from URL') }}</button>
+          </div>
+          <p class="text-muted small mt-2 mb-0">
+            {{ _('Only the bearer of this secret key can decrypt the message. The server never stores it.') }}
+          </p>
         </div>
-        <div class="text-muted small mt-2">{{ _('Only the bearer of this secret key can decrypt the message. The server never stores it.') }}</div>
-      </div>
-      <div class="mt-3 d-grid gap-2">
-        <button class="btn btn-primary" type="button" id="vault-decrypt-btn">{{ _('Decrypt secret') }}</button>
-        <button class="btn btn-outline-secondary" type="button" id="vault-clear-btn">{{ _('Clear key and message') }}</button>
-      </div>
-      <div class="mt-4 px-3 py-2 border border-dashed bg-dark text-light rounded-3" id="vault-metadata" style="font-size:0.9rem;"></div>
-      <div class="mt-3">
-        <h5 class="mb-2" id="vault-title-placeholder"></h5>
-        <pre id="vault-content" class="bg-black bg-opacity-30 border border-light border-opacity-25 rounded-3 p-3" style="min-height: 180px; white-space: pre-wrap;"></pre>
-          <div class="mt-3 d-none" id="vault-file-view">
-            <div class="d-flex justify-content-between align-items-start gap-3">
+        <div class="mt-3 d-grid gap-2">
+          <button class="btn btn-primary" type="button" id="vault-decrypt-btn">{{ _('Decrypt secret') }}</button>
+          <button class="btn btn-outline-secondary" type="button" id="vault-clear-btn">{{ _('Clear key and message') }}</button>
+        </div>
+        <div class="mt-4" id="vault-metadata" tabindex="-1" aria-live="polite"></div>
+        <div class="vault-output mt-3">
+          <h5 class="mb-2" id="vault-title-placeholder"></h5>
+          <pre id="vault-content"></pre>
+          <div class="vault-file mt-3 d-none" id="vault-file-view">
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
               <div class="d-flex align-items-center gap-2">
                 <i id="vault-file-type-icon" class="fa-solid fa-file fa-lg text-muted"></i>
                 <div>
@@ -41,14 +46,14 @@
                   <p class="text-muted small mb-0" id="vault-file-meta"></p>
                 </div>
               </div>
-              <a class="btn btn-sm btn-outline-light" id="vault-file-download" target="_blank" rel="noopener">{{ _('Download file') }}</a>
+              <a class="btn btn-sm btn-outline-light flex-shrink-0" id="vault-file-download" target="_blank" rel="noopener">{{ _('Download file') }}</a>
             </div>
           </div>
+        </div>
       </div>
     </div>
   </div>
-  </div>
-</div>
+</section>
 
 {% endblock %}
 
