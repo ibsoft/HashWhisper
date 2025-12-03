@@ -279,6 +279,9 @@ msgstr "Ασφαλής σύνδεσμος HashWhisper"
 msgid "Share this secure link."
 msgstr "Κοινόχρηστος ασφαλής σύνδεσμος."
 
+msgid "Link copied to clipboard."
+msgstr "Ο σύνδεσμος αντιγράφηκε στο πρόχειρο."
+
 msgid "Payload missing."
 msgstr "Λείπει το περιεχόμενο."
 
