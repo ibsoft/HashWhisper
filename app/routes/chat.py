@@ -1160,7 +1160,9 @@ def searx_search():
     if not query:
         return jsonify({"error": "missing_query"}), 400
     language = request.args.get("language") or "en-US"
-    params = urllib.parse.urlencode({"q": query, "format": "json", "language": language, "pageno": 1})
+    params = urllib.parse.urlencode(
+        {"q": query, "format": "json", "language": language, "pageno": 1, "useragent": "HashWhisper/1.0"}
+    )
     base = search_url.rstrip("/") + "/"
     target = urllib.parse.urljoin(base, "search")
     try:
@@ -1188,7 +1190,23 @@ def searx_search():
                 "excerpt": (result.get("content") or result.get("excerpt") or "").strip(),
             }
         )
-    return jsonify({"query": query, "results": hits[:6]})
+    def take_list(key, limit=None):
+        items = data.get(key) or []
+        if limit is not None:
+            return items[:limit]
+        return items
+
+    return jsonify(
+        {
+            "query": query,
+            "results": hits[:6],
+            "infoboxes": take_list("infoboxes", 2),
+            "answers": take_list("answers", 3),
+            "corrections": take_list("corrections", 3),
+            "suggestions": take_list("suggestions", 2),
+            "unresponsive_engines": take_list("unresponsive_engines", 5),
+        }
+    )
 
 
 @chat_bp.route("/api/ai/status", methods=["GET"])

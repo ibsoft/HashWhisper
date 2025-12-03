@@ -152,6 +152,7 @@ class Config:
         "When asked to summarize a meeting or chat history, rely strictly on the supplied messages, focus on decisions, action items, and next steps, and reply with a concise, copy-friendly summary."
     )
     AI_RATELIMIT = os.environ.get("HASHWHISPER_AI_RATELIMIT", "5 per minute")
+    SEARCH_ENGINE_URL = os.environ.get("HASHWHISPER_SEARCH_URL")
 
     # User controls
     ALLOW_MESSAGE_DELETE = os.environ.get("HASHWHISPER_ALLOW_MESSAGE_DELETE", "true").lower() == "true"

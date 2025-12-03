@@ -52,6 +52,7 @@
 ## Commands
 - `/ai <prompt>` — Send a prompt to the AI assistant (renders with 🤖).
 - `/ai summarize` — Ask the AI to read the currently loaded chat history and post a concise meeting recap you can copy.
+- `/ai searx <terms>` — If a SearxNG search URL is set, grab the top live web snippets for those terms and post them as an AI message.
 - `/slap <name>` — Fun action: “<you> slaps <name> with a wet trout” (🤚🐟 + GIF).
 - `/wave` — Wave action with 👋 and GIF.
 - `/shrug` — Shrug action with 🤷 and GIF.

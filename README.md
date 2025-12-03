@@ -9,6 +9,7 @@ HashWhisper is a Flask-based, end-to-end encrypted group chat that treats the se
 - Media safety: client encrypts images/videos/voice before upload; server stores random-named ciphertext blobs only. Authenticated download endpoints, no plaintext at rest. Browser caches encrypted blobs and reuses decrypted media in-memory for faster loads.
 - Presence & UX: SSE-powered presence/typing indicators (Redis-backed fanout when configured), modern mobile-first UI with Bootstrap + Font Awesome, dark/light toggle, emoji-friendly chat bubbles, inline likes/dislikes, inline media preview/playback, PWA install prompt, optional sounds.
 - AI assistant: `/ai <prompt>` chats with the AI while `/ai summarize` reads the loaded meeting history and posts a concise recap for everyone to copy.
+- Internet search: if you configure a SearxNG endpoint (`HASHWHISPER_SEARCH_URL`), `/ai searx <terms>` returns curated snippets from that instance directly into the chat.
 - Search card: filter decrypted messages and attached file names inside the current room with inline results while typing keywords.
 - Data minimization: messages expire after 7 days; `flask purge-expired` CLI shreds expired ciphertext and blobs. Minimal metadata logged (no content).
 
@@ -38,6 +39,7 @@ flask --app wsgi run --debug
 - `HASHWHISPER_REQUIRE_TOTP` (default `true`): force TOTP for all logins; if `false`, users can toggle/setup TOTP from Settings (QR modal).
 - `HASHWHISPER_ALLOW_USER_REGISTRATIONS` (default `true`): toggle whether the app accepts new sign-ups; set to `false` to keep existing accounts without exposing registration.
 - `HASHWHISPER_REGISTRATION_NETWORKS`: optional comma-separated CIDR list (e.g., `10.0.0.0/8,192.168.1.0/24`); when provided, new registrations must originate from one of those networks.
+- `HASHWHISPER_SEARCH_URL`: optional base URL for a SearxNG instance (e.g., `https://search.example.com`); enabling it allows `/ai searx <terms>` to surface live web results securely.
 - `HASHWHISPER_APP_TITLE`: navbar title text.
 - `HASHWHISPER_MAX_UPLOAD`: max encrypted upload size in bytes (default 10 MiB).
 - `HASHWHISPER_RETENTION_DAYS`: days before ciphertext/blob purge (default 7).

@@ -2379,6 +2379,112 @@ async function handleAiSearch(payload = '') {
   await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
 }
 
+function asPlainText(value) {
+  if (value === undefined || value === null) return '';
+  const text = typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '';
+  return text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function pickBestPropertyText(item, keys = []) {
+  if (!item) return '';
+  if (typeof item === 'string') return item.trim();
+  if (typeof item !== 'object') return '';
+  for (const key of keys) {
+    const candidate = asPlainText(item[key]);
+    if (candidate) return candidate;
+  }
+  return '';
+}
+
+function formatInfoboxSection(infoboxes = []) {
+  if (!Array.isArray(infoboxes) || !infoboxes.length) return '';
+  const lines = infoboxes
+    .map((infobox, idx) => {
+      const title = pickBestPropertyText(infobox, ['infobox', 'title', 'id']) || `Info ${idx + 1}`;
+      const content = pickBestPropertyText(infobox, ['content', 'text', 'description']);
+      const attributes = (infobox.attributes || [])
+        .map((attr) => {
+          const label = pickBestPropertyText(attr, ['label']);
+          const value = pickBestPropertyText(attr, ['value']);
+          if (!label && !value) return '';
+          return [label, value].filter(Boolean).join(': ');
+        })
+        .filter(Boolean);
+      const attrText = attributes.length ? ` (${attributes.join('; ')})` : '';
+      const source = pickBestPropertyText(infobox, ['id', 'url']) || (infobox.urls || [])[0]?.url || '';
+      const prefix = `${title}${attrText}`;
+      const body = [prefix, content].filter(Boolean).join(': ');
+      return `${idx + 1}. ${[body, source].filter(Boolean).join(' – ')}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return `Infoboxes:\n${lines.join('\n')}`;
+}
+
+function formatAnswerSection(answers = []) {
+  if (!Array.isArray(answers) || !answers.length) return '';
+  const lines = answers
+    .map((answer, idx) => {
+      const content = pickBestPropertyText(answer, ['answer', 'content', 'text', 'value', 'title']);
+      if (!content) return '';
+      const source = pickBestPropertyText(answer, ['url', 'link', 'id']) || '';
+      return `${idx + 1}. ${content}${source ? ` – ${source}` : ''}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return `Answers:\n${lines.join('\n')}`;
+}
+
+function formatCorrectionSection(corrections = []) {
+  if (!Array.isArray(corrections) || !corrections.length) return '';
+  const lines = corrections
+    .map((correction) => {
+      const text = pickBestPropertyText(correction, ['correction', 'text', 'query', 'value']);
+      if (!text) return '';
+      return `- ${text}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return `Corrections:\n${lines.join('\n')}`;
+}
+
+function formatSuggestionSection(suggestions = []) {
+  if (!Array.isArray(suggestions) || !suggestions.length) return '';
+  const lines = suggestions
+    .map((suggestion) => {
+      if (typeof suggestion === 'string') {
+        return `- ${suggestion.trim()}`;
+      }
+      const text = pickBestPropertyText(suggestion, ['suggestion', 'text', 'query']);
+      if (!text) return '';
+      return `- ${text}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return `Suggestions:\n${lines.join('\n')}`;
+}
+
+function formatUnresponsiveSection(engines = []) {
+  if (!Array.isArray(engines) || !engines.length) return '';
+  const entries = engines
+    .map((entry) => {
+      if (Array.isArray(entry)) {
+        const name = entry[0] || 'engine';
+        const reason = entry[1] || 'blocked';
+        return `${name} (${reason})`;
+      }
+      if (typeof entry === 'object') {
+        const name = entry.engine || entry.name || entry.id || 'engine';
+        const reason = pickBestPropertyText(entry, ['reason', 'status', 'detail']);
+        return reason ? `${name} (${reason})` : name;
+      }
+      return String(entry || '').trim();
+    })
+    .filter(Boolean);
+  if (!entries.length) return '';
+  return `Blocked engines: ${entries.join(', ')}`;
+}
+
 async function handleAiSearxSearch(query = '') {
   if (!aiActionsEnabled()) {
     showInfoModal('AI disabled', 'AI actions are turned off.');
@@ -2402,6 +2508,13 @@ async function handleAiSearxSearch(query = '') {
       try {
         const errJson = await resp.json();
         msg = errJson.detail || errJson.error || msg;
+        const blockedList = formatUnresponsiveSection(errJson.unresponsive_engines);
+        if (blockedList) {
+          const blockedDetails = blockedList.replace(/^Blocked engines:\s*/, '').trim();
+          if (blockedDetails && !msg.includes(blockedDetails)) {
+            msg = `${msg} (${blockedDetails})`;
+          }
+        }
       } catch (e) {
         const text = await resp.text();
         msg = text || msg;
@@ -2410,20 +2523,36 @@ async function handleAiSearxSearch(query = '') {
     }
     const data = await resp.json();
     const hits = Array.isArray(data.results) ? data.results.slice(0, 4) : [];
-    let content = '';
-    if (!hits.length) {
-      content = `No results found for "${trimmed}".`;
-    } else {
-      content = hits
+    const sections = [];
+    if (hits.length) {
+      const lines = hits
         .map((hit, idx) => {
-          const title = hit.title || hit.url || trimmed;
-          const excerpt = hit.excerpt ? ` – ${hit.excerpt}` : '';
-          return `${idx + 1}. ${title}${excerpt}\n${hit.url || ''}`;
+          const title = asPlainText(hit.title) || hit.url || trimmed;
+          const excerpt = hit.excerpt ? ` – ${asPlainText(hit.excerpt)}` : '';
+          const urlLine = hit.url ? `\n${hit.url}` : '';
+          return `${idx + 1}. ${title}${excerpt}${urlLine}`;
         })
-        .join('\n');
+        .filter(Boolean);
+      if (lines.length) {
+        sections.push(`Search results:\n${lines.join('\n\n')}`);
+      }
     }
+    const infoboxSection = formatInfoboxSection(data.infoboxes);
+    if (infoboxSection) sections.push(infoboxSection);
+    const answerSection = formatAnswerSection(data.answers);
+    if (answerSection) sections.push(answerSection);
+    const correctionSection = formatCorrectionSection(data.corrections);
+    if (correctionSection) sections.push(correctionSection);
+    const suggestionSection = formatSuggestionSection(data.suggestions);
+    if (suggestionSection) sections.push(suggestionSection);
+    const blockedSection = formatUnresponsiveSection(data.unresponsive_engines);
+    if (blockedSection) sections.push(blockedSection);
+    if (!sections.length) {
+      sections.push(`No results found for "${trimmed}".`);
+    }
+    const detailText = sections.join('\n\n');
     const timestamp = new Date().toISOString();
-    const answerText = `AI search (${timestamp}): ${content}`;
+    const answerText = `AI search (${timestamp}): ${detailText}`;
     await sendEncryptedMessage(answerText, { action: 'ai', icon: '🔎', act_text: answerText });
     appendedAnswer = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
   } catch (err) {
