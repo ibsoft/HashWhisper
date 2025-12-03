@@ -27,7 +27,7 @@
     window.FLASH_MESSAGES = {{ flash_messages|tojson|safe }};
   </script>
 </head>
-<body class="bg-gradient">
+<body class="bg-gradient {% block body_class %}{% endblock %}">
 <div class="flash-fallback" data-flash-fallback>
   {% for category, msg in flash_messages %}
     <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show m-3 shadow-sm" role="alert">

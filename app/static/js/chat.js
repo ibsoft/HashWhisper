@@ -472,6 +472,9 @@ function parseChatCommand(text) {
     if (sub === 'summarize') {
       return { action: 'ai_summarize', icon: '📝', text: remainder };
     }
+    if (sub === 'search') {
+      return { action: 'ai_search', icon: '🧭', text: remainder };
+    }
     return { action: 'ai', icon: '🤖', text: target };
   }
   if (cmdLower === '/slap' || cmdLower === '/slaps') {
@@ -758,7 +761,9 @@ function buildSummaryContext(groupId, { maxEntries = 120, maxChars = 12000 } = {
     const ts = entry.created_at ? new Date(entry.created_at).toLocaleTimeString() : '';
     const prefix = ts ? `[${ts}] ` : '';
     const sender = entry.sender || 'Someone';
-    const line = `${prefix}${sender}: ${entry.text}`;
+    const text = entry.displayText || entry.searchText || '';
+    if (!text) continue;
+    const line = `${prefix}${sender}: ${text}`;
     if (lines.length && charCount + line.length > maxChars) {
       break;
     }
@@ -1785,6 +1790,11 @@ async function sendMessage() {
     await handleAiSummarize(command.text || '');
     return;
   }
+  if (command?.action === 'ai_search') {
+    input.value = '';
+    await handleAiSearch(command.text || '');
+    return;
+  }
   if (command?.action === 'ai') {
     input.value = '';
     await handleAiQuestion(command.text);
@@ -2159,7 +2169,7 @@ async function handleAiQuestion(question) {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCsrfToken(),
       },
-      body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, current_datetime: new Date().toISOString() }),
     });
     if (!resp.ok) {
       let msg = 'AI request failed';
@@ -2236,6 +2246,7 @@ async function handleAiSummarize(note = '') {
         group_id: state.currentGroup,
         context,
         note: trimmedNote,
+        current_datetime: new Date().toISOString(),
       }),
     });
     if (!resp.ok) {
@@ -2251,7 +2262,8 @@ async function handleAiSummarize(note = '') {
     }
     const data = await resp.json();
     const summary = data.summary || 'The AI could not summarize the meeting right now.';
-    const answerText = `AI summary: ${summary}`;
+    const timestamp = new Date().toISOString();
+    const answerText = `AI summary (${timestamp}): ${summary}`;
     await sendEncryptedMessage(answerText, { action: 'ai', icon: '📝', act_text: answerText });
     appendedAnswer = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
   } catch (err) {
@@ -2280,6 +2292,80 @@ async function handleAiSummarize(note = '') {
       await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
     }
   }
+}
+
+async function handleAiSearch(payload = '') {
+  if (!aiActionsEnabled()) {
+    showInfoModal('AI disabled', 'AI actions are turned off.');
+    return;
+  }
+  if (!state.currentGroup) {
+    showInfoModal('Select a group', 'Choose a chat before asking for an AI search.');
+    return;
+  }
+  const trimmed = (payload || '').trim();
+  if (!trimmed) {
+    showInfoModal('Need a target', 'Specify the username or use "questions" after /ai search.');
+    return;
+  }
+  const tokens = trimmed.split(/\s+/);
+  const firstToken = tokens[0];
+  const remainder = tokens.slice(1).join(' ').trim();
+  const questionMode = ['question', 'questions'].includes(firstToken?.toLowerCase());
+  let usernameFilter = '';
+  let keyword = questionMode ? remainder : trimmed;
+  if (!questionMode) {
+    const lowerFirst = firstToken.toLowerCase();
+    if (lowerFirst.startsWith('user:') || lowerFirst.startsWith('from:')) {
+      usernameFilter = firstToken.split(':')[1] || '';
+      keyword = remainder;
+    }
+  }
+  const bucket = state.recentMessages[state.currentGroup] || [];
+  const matches = bucket.filter((entry) => {
+    const available = (entry.searchText || '').toLowerCase();
+    const text = (entry.displayText || entry.searchText || '').toLowerCase();
+    if (questionMode) {
+      if (!text.includes('?')) return false;
+      if (!keyword) return true;
+      return available.includes(keyword.toLowerCase());
+    }
+    if (!questionMode) {
+      const sender = (entry.sender || '').toLowerCase();
+      const target = (usernameFilter || '').toLowerCase();
+      if (target && !sender.includes(target)) return false;
+      if (!keyword) return true;
+      return available.includes(keyword.toLowerCase());
+    }
+    return true;
+  });
+  const messageLines = [];
+  const previewCount = Math.min(matches.length, 5);
+  for (let i = 0; i < previewCount; i += 1) {
+    const entry = matches[i];
+    const ts = entry.created_at ? new Date(entry.created_at).toLocaleTimeString() : '';
+    const snippet = entry.displayText || entry.searchText || '';
+    messageLines.push(`${ts ? `[${ts}] ` : ''}${snippet}`);
+  }
+  const promptSummary =
+    questionMode && keyword
+      ? `questions containing "${keyword}"`
+      : questionMode
+        ? 'questions'
+        : usernameFilter
+          ? `messages from ${usernameFilter}${keyword ? ` matching "${keyword}"` : ''}`
+          : `messages containing "${keyword}"`;
+  const summaryText =
+    matches.length === 0
+      ? `AI search: no recent ${promptSummary || 'messages'} found.`
+      : `AI search: ${matches.length} match(es) for ${promptSummary}. ${previewCount ? `Showing top ${previewCount} entries.` : ''}`;
+  const detailText = messageLines.length
+    ? `${summaryText}\n${messageLines.map((line, idx) => `${idx + 1}. ${line}`).join('\n')}`
+    : summaryText;
+  const timestamp = new Date().toISOString();
+  const finalText = `AI search (${timestamp}): ${detailText}`;
+  await sendEncryptedMessage(finalText, { action: 'ai', icon: '🧭', act_text: finalText });
+  await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
 }
 
 async function toggleRecording() {
@@ -3593,26 +3679,9 @@ function maybeShowTypingToast(payload) {
     if (window.showToast) {
       window.showToast('info', 'Typing', `${name} is typing in ${groupLabel}`);
     }
-    displayTypingToast(`${name} is typing in ${groupLabel}`);
   } catch (err) {
     // ignore
   }
-}
-
-let typingToastTimeout = null;
-function displayTypingToast(message) {
-  let container = document.getElementById('typing-toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'typing-toast-container';
-    document.body.appendChild(container);
-  }
-  container.textContent = message;
-  container.classList.add('visible');
-  if (typingToastTimeout) clearTimeout(typingToastTimeout);
-  typingToastTimeout = setTimeout(() => {
-    container.classList.remove('visible');
-  }, 4000);
 }
 
 function openDmModal(userId) {
