@@ -1,4 +1,5 @@
 import io
+import ipaddress
 from datetime import datetime
 
 import pyotp
@@ -15,11 +16,32 @@ from ..security import regenerate_session
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
+def _remote_allowed(remote_addr: str | None, networks: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]) -> bool:
+    if not remote_addr:
+        return False
+    try:
+        client_ip = ipaddress.ip_address(remote_addr)
+    except ValueError:
+        return False
+    return any(client_ip in network for network in networks)
+
+
 @auth_bp.route("/register", methods=["GET", "POST"])
 @limiter.limit(lambda: current_app.config["RATELIMIT_REGISTER"])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for("chat.chat"))
+    if not current_app.config.get("ALLOW_USER_REGISTRATIONS", True):
+        flash("User registrations are disabled.", "warning")
+        return redirect(url_for("auth.login"))
+    allowed_networks = current_app.config.get("REGISTRATION_ALLOWED_NETWORKS", ())
+    if allowed_networks and not _remote_allowed(request.remote_addr, allowed_networks):
+        current_app.logger.warning(
+            "Registration attempt blocked outside allowed networks",
+            extra={"ip": request.remote_addr},
+        )
+        flash("Registrations are limited to the configured network.", "warning")
+        return redirect(url_for("auth.login"))
     totp_disabled = current_app.config.get("DISABLE_TOTP", False)
     require_totp = (not totp_disabled) and current_app.config.get("REQUIRE_TOTP", True)
     form = RegistrationForm()
