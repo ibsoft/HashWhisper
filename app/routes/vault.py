@@ -19,6 +19,11 @@ def _generate_slug() -> str:
     return secrets.token_urlsafe(8)
 
 
+def _allowed_vault_mime(mimetype: str) -> bool:
+    allowed = current_app.config.get("VAULT_FILE_MIMETYPES") or []
+    return mimetype in allowed
+
+
 @vault_bp.route("/vault/create", methods=["POST"])
 @login_required
 @limiter.limit(lambda: current_app.config.get("VAULT_RATELIMIT", "15 per hour"))
@@ -28,9 +33,12 @@ def create_vault_entry():
     nonce = (payload.get("nonce") or "").strip()
     auth_tag = (payload.get("auth_tag") or "").strip()
     title = (payload.get("title") or "").strip()
+    payload_type = (payload.get("payload_type") or "text").lower()
+    payload_type = "file" if payload_type == "file" else "text"
     burn_after_read = bool(payload.get("burn_after_read", True))
     max_views = int(payload.get("max_views") or 1)
     expires_hours = payload.get("expires_hours")
+    plaintext = (payload.get("payload") or "").strip()
 
     errors = []
     if not ciphertext:
@@ -39,6 +47,8 @@ def create_vault_entry():
         errors.append("nonce")
     if not auth_tag:
         errors.append("auth_tag")
+    if not plaintext:
+        errors.append("payload")
     if errors:
         return jsonify({"error": "missing_fields", "fields": errors}), 400
 
@@ -63,6 +73,32 @@ def create_vault_entry():
         expires_at = datetime.utcnow() + timedelta(hours=24)
 
     slug = _generate_slug()
+    payload_name = None
+    payload_mime = None
+    payload_size = None
+    if payload_type == "file":
+        file_name = (payload.get("file_name") or "").strip()
+        file_mime = (payload.get("file_mime") or "").strip()
+        file_size_raw = payload.get("file_size")
+        try:
+            file_size = int(file_size_raw)
+        except (TypeError, ValueError):
+            file_size = None
+        max_file_size = current_app.config.get(
+            "VAULT_MAX_FILE_SIZE", current_app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)
+        )
+        if not file_name or not file_mime or not file_size:
+            return jsonify({"error": "invalid_file", "message": "File metadata missing."}), 400
+        if not _allowed_vault_mime(file_mime):
+            return jsonify({"error": "invalid_file", "message": "File type not allowed."}), 400
+        if file_size > max_file_size:
+            return jsonify({"error": "invalid_file", "message": "File exceeds maximum allowed size."}), 400
+        payload_name = file_name
+        payload_mime = file_mime
+        payload_size = file_size
+    else:
+        payload_type = "text"
+
     entry = OneTimeSecret(
         slug=slug,
         title=title or None,
@@ -73,6 +109,10 @@ def create_vault_entry():
         max_views=max_views,
         expires_at=expires_at,
         created_by=current_user.id,
+        payload_type=payload_type,
+        payload_name=payload_name,
+        payload_mime=payload_mime,
+        payload_size=payload_size,
     )
     db.session.add(entry)
     db.session.commit()
@@ -82,6 +122,7 @@ def create_vault_entry():
             "expires_at": entry.expires_at.isoformat() if entry.expires_at else None,
             "max_views": max_views,
             "burn_after_read": burn_after_read,
+            "payload_type": payload_type,
         }
     )
 
@@ -118,6 +159,10 @@ def fetch_vault_entry(slug):
             "views_remaining": remaining,
             "max_views": entry.max_views,
             "burn_after_read": entry.burn_after_read,
+            "payload_type": entry.payload_type or "text",
+            "payload_name": entry.payload_name,
+            "payload_mime": entry.payload_mime,
+            "payload_size": entry.payload_size,
         }
     )
 

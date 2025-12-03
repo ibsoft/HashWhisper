@@ -5,10 +5,13 @@
 <div class="container py-5">
   <div class="card card-glass shadow-lg mx-auto" style="max-width: 720px;">
     <div class="card-body">
-      <div class="d-flex align-items-start justify-content-between flex-column flex-md-row gap-3">
-        <div>
-          <h3 class="mb-1">{{ _('Secure vault') }}</h3>
-          <p class="text-muted mb-0">{{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}</p>
+      <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <i class="fa-solid fa-shield-halved fa-2x text-primary"></i>
+          <div>
+            <h3 class="mb-1">{{ _('Secure vault') }}</h3>
+            <p class="text-muted mb-0">{{ _('This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires.') }}</p>
+          </div>
         </div>
         <span class="badge bg-primary px-3 py-2 fs-6" id="vault-status-badge">{{ _('Untouched') }}</span>
       </div>
@@ -29,6 +32,18 @@
       <div class="mt-3">
         <h5 class="mb-2" id="vault-title-placeholder"></h5>
         <pre id="vault-content" class="bg-black bg-opacity-30 border border-light border-opacity-25 rounded-3 p-3" style="min-height: 180px; white-space: pre-wrap;"></pre>
+          <div class="mt-3 d-none" id="vault-file-view">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <div class="d-flex align-items-center gap-2">
+                <i id="vault-file-type-icon" class="fa-solid fa-file fa-lg text-muted"></i>
+                <div>
+                  <h6 class="mb-1" id="vault-file-name"></h6>
+                  <p class="text-muted small mb-0" id="vault-file-meta"></p>
+                </div>
+              </div>
+              <a class="btn btn-sm btn-outline-light" id="vault-file-download" target="_blank" rel="noopener">{{ _('Download file') }}</a>
+            </div>
+          </div>
       </div>
     </div>
   </div>
@@ -47,6 +62,12 @@
   const metadataEl = document.getElementById('vault-metadata');
   const titleEl = document.getElementById('vault-title-placeholder');
   const contentEl = document.getElementById('vault-content');
+  const fileView = document.getElementById('vault-file-view');
+  const fileIconEl = document.getElementById('vault-file-type-icon');
+  const fileNameEl = document.getElementById('vault-file-name');
+  const fileMetaEl = document.getElementById('vault-file-meta');
+  const fileDownloadEl = document.getElementById('vault-file-download');
+  const DEFAULT_FILE_LABEL = '{{ _("Secret file") }}';
   const keyInput = document.getElementById('vault-key');
   const decryptBtn = document.getElementById('vault-decrypt-btn');
   const clearBtn = document.getElementById('vault-clear-btn');
@@ -55,6 +76,7 @@
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let entry = null;
+  let currentFileUrl = null;
 
   function showAlert(message, variant = 'info') {
     alertEl.innerHTML = `<div class="alert alert-${variant} mb-0">${message}</div>`;
@@ -104,12 +126,79 @@
   function renderMetadata(data) {
     const expires = data.expires_at ? new Date(data.expires_at).toLocaleString() : '{{ _("Never") }}';
     const views = data.views_remaining;
-    metadataEl.textContent = `{{ _("Expires") }}: ${expires} · {{ _("Views left") }}: ${views}`;
+    const typeLabel = data.payload_type === 'file' ? '{{ _("File secret") }}' : '{{ _("Text secret") }}';
+    metadataEl.textContent = `{{ _("Expires") }}: ${expires} · {{ _("Views left") }}: ${views} · ${typeLabel}`;
     if (data.title) {
       titleEl.textContent = data.title;
     } else {
       titleEl.textContent = '{{ _("Untitled secret") }}';
     }
+  }
+
+  function formatReadableSize(bytes) {
+    if (!Number.isFinite(bytes)) return '';
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  }
+
+  function getFileIconClass(mime) {
+    if (!mime) return 'fa-file';
+    if (mime.startsWith('image/')) return 'fa-file-image';
+    if (mime.startsWith('audio/')) return 'fa-file-audio';
+    if (mime.startsWith('video/')) return 'fa-file-video';
+    if (mime === 'application/pdf') return 'fa-file-pdf';
+    if (mime.includes('zip') || mime.includes('compressed')) return 'fa-file-zipper';
+    if (mime.includes('wordprocessingml') || mime.includes('msword')) return 'fa-file-word';
+    if (mime.includes('excel') || mime.includes('spreadsheetml')) return 'fa-file-excel';
+    if (mime.includes('presentationml') || mime.includes('powerpoint')) return 'fa-file-powerpoint';
+    if (mime.includes('json') || mime.includes('xml')) return 'fa-file-code';
+    if (mime.startsWith('text/')) return 'fa-file-lines';
+    return 'fa-file';
+  }
+
+  function clearFilePreview() {
+    if (fileView) fileView.classList.add('d-none');
+    if (currentFileUrl) {
+      URL.revokeObjectURL(currentFileUrl);
+      currentFileUrl = null;
+    }
+  }
+
+  function base64ToBytes(value) {
+    if (!value) return new Uint8Array();
+    const raw = window.atob(value);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) {
+      bytes[i] = raw.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function prepareFileDownload(base64) {
+    if (!entry || !fileView) return;
+    const bytes = base64ToBytes(base64);
+    const mime = entry.payload_mime || 'application/octet-stream';
+    const blob = new Blob([bytes], { type: mime });
+    if (currentFileUrl) {
+      URL.revokeObjectURL(currentFileUrl);
+    }
+    currentFileUrl = URL.createObjectURL(blob);
+    if (fileNameEl) {
+      fileNameEl.textContent = entry.payload_name || DEFAULT_FILE_LABEL;
+    }
+    if (fileMetaEl) {
+      fileMetaEl.textContent = `${mime} · ${formatReadableSize(entry.payload_size || bytes.length)}`;
+    }
+    if (fileDownloadEl) {
+      fileDownloadEl.href = currentFileUrl;
+      fileDownloadEl.download = entry.payload_name || 'secret-file';
+    }
+    if (fileIconEl) {
+      const iconClass = getFileIconClass(mime);
+      fileIconEl.className = `fa-solid ${iconClass} fa-lg text-muted`;
+    }
+    fileView.classList.remove('d-none');
   }
 
   function updateStatus(text, variant = 'primary') {
@@ -148,7 +237,13 @@
     }
     try {
       const text = await decryptPayload(decodeURIComponent(key));
-      contentEl.textContent = text;
+      if ((entry.payload_type || 'text') === 'file') {
+        contentEl.textContent = '{{ _("Binary file ready to download below.") }}';
+        prepareFileDownload(text);
+      } else {
+        clearFilePreview();
+        contentEl.textContent = text;
+      }
       updateStatus('{{ _("Unlocked") }}', 'success');
       showAlert('{{ _("Keep this window open only as long as you need.") }}', 'info');
     } catch (err) {
@@ -171,11 +266,13 @@
   clearBtn.addEventListener('click', () => {
     keyInput.value = '';
     contentEl.textContent = '';
+    clearFilePreview();
     showAlert('{{ _("Key and decrypted message cleared.") }}', 'info');
     updateStatus('{{ _("Ready to decrypt") }}', 'success');
   });
 
   fetchVault();
+  window.addEventListener('beforeunload', () => clearFilePreview());
 })();
 </script>
 {% endblock %}

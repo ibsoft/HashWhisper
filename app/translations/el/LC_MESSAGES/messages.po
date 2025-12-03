@@ -198,6 +198,152 @@ msgstr "Εγχειρίδιο χρήστη"
 msgid "Scan QR code"
 msgstr "Σάρωση QR κώδικα"
 
+msgid "Secure vault"
+msgstr "Ασφαλές θησαυροφυλάκιο"
+
+msgid "This link delivers a one-time secret. Open it only from trusted devices; it burns after it is read or when it expires."
+msgstr "Αυτός ο σύνδεσμος παρέχει ένα μυστικό μίας χρήσης. Ανοίξτε τον μόνο από αξιόπιστες συσκευές· αυτοκαταστρέφεται αφότου διαβαστεί ή όταν λήξει."
+
+msgid "Untouched"
+msgstr "Αχρησιμοποίητο"
+
+msgid "Secret key (the part after the # in the link)"
+msgstr "Μυστικό κλειδί (το μέρος μετά το # στον σύνδεσμο)"
+
+msgid "Paste or scan the link and include the secret"
+msgstr "Επικολλήστε ή σαρώστε τον σύνδεσμο και συμπεριλάβετε το μυστικό"
+
+msgid "Auto-fill from URL"
+msgstr "Αυτόματη συμπλήρωση από το URL"
+
+msgid "Only the bearer of this secret key can decrypt the message. The server never stores it."
+msgstr "Μόνο ο κάτοχος αυτού του μυστικού κλειδιού μπορεί να αποκρυπτογραφήσει το μήνυμα. Ο διακομιστής δεν το αποθηκεύει ποτέ."
+
+msgid "Secret key auto-filled from the link."
+msgstr "Το μυστικό κλειδί συμπληρώθηκε αυτόματα από τον σύνδεσμο."
+
+msgid "This link does not include the secret key fragment."
+msgstr "Αυτός ο σύνδεσμος δεν περιλαμβάνει το τμήμα μυστικού κλειδιού."
+
+msgid "Decrypt secret"
+msgstr "Αποκρυπτογράφηση μυστικού"
+
+msgid "Clear key and message"
+msgstr "Καθαρισμός κλειδιού και μηνύματος"
+
+msgid "Download file"
+msgstr "Λήψη αρχείου"
+
+msgid "Binary file ready to download below."
+msgstr "Το δυαδικό αρχείο είναι έτοιμο για λήψη παρακάτω."
+
+msgid "File ready to download."
+msgstr "Το αρχείο είναι έτοιμο για λήψη."
+
+msgid "Secret file"
+msgstr "Μυστικό αρχείο"
+
+msgid "File secret"
+msgstr "Μυστικό αρχείου"
+
+msgid "Text secret"
+msgstr "Μυστικό κειμένου"
+
+msgid "Expires"
+msgstr "Λήγει"
+
+msgid "Views left"
+msgstr "Υπόλοιπες προβολές"
+
+msgid "Never"
+msgstr "Ποτέ"
+
+msgid "Untitled secret"
+msgstr "Μυστικό χωρίς τίτλο"
+
+msgid "Provide the secret key to decrypt the payload."
+msgstr "Δώστε το μυστικό κλειδί για να αποκρυπτογραφήσετε τα δεδομένα."
+
+msgid "Provide some text or attach a file."
+msgstr "Προσθέστε κάποιο κείμενο ή επισυνάψτε αρχείο."
+
+msgid "File attached:"
+msgstr "Επισυναπτόμενο αρχείο:"
+
+msgid "Payload missing."
+msgstr "Λείπει το περιεχόμενο."
+
+msgid "Secret ready. Paste the key and press decrypt."
+msgstr "Το μυστικό είναι έτοιμο. Επικολλήστε το κλειδί και πατήστε αποκρυπτογράφηση."
+
+msgid "Secret not found."
+msgstr "Το μυστικό δεν βρέθηκε."
+
+msgid "This secret has burned."
+msgstr "Αυτό το μυστικό έχει καταστραφεί."
+
+msgid "Unavailable"
+msgstr "Μη διαθέσιμο"
+
+msgid "Ready to decrypt"
+msgstr "Έτοιμο για αποκρυπτογράφηση"
+
+msgid "Unable to load this secret. It may have burned."
+msgstr "Δεν είναι δυνατή η φόρτωση αυτού του μυστικού. Ίσως έχει καταστραφεί."
+
+msgid "Offline"
+msgstr "Εκτός σύνδεσης"
+
+msgid "Add the secret key first."
+msgstr "Προσθέστε πρώτα το μυστικό κλειδί."
+
+msgid "Key and decrypted message cleared."
+msgstr "Το κλειδί και το αποκρυπτογραφημένο μήνυμα διαγράφηκαν."
+
+msgid "Unlocked"
+msgstr "Ξεκλείδωτο"
+
+msgid "Keep this window open only as long as you need."
+msgstr "Κρατήστε αυτό το παράθυρο ανοιχτό μόνο όσο χρειάζεται."
+
+msgid "Unable to decrypt. Check the secret key and try again."
+msgstr "Δεν είναι δυνατή η αποκρυπτογράφηση. Ελέγξτε το μυστικό κλειδί και δοκιμάστε ξανά."
+
+msgid "Secret link created"
+msgstr "Ο μυστικός σύνδεσμος δημιουργήθηκε"
+
+msgid "Copy the link and the secret fragment separately."
+msgstr "Αντιγράψτε ξεχωριστά τον σύνδεσμο και το μυστικό κλειδί."
+
+msgid "Unable to create secret link."
+msgstr "Δεν είναι δυνατή η δημιουργία του μυστικού συνδέσμου."
+
+msgid "Unable to reach the vault service right now."
+msgstr "Δεν είναι δυνατή η πρόσβαση στην υπηρεσία θησαυροφυλακίου αυτή τη στιγμή."
+
+msgid "Provide the secret fragment to the recipient separately; the server never stores it."
+msgstr "Δώστε το μυστικό κομμάτι ξεχωριστά στον παραλήπτη· ο διακομιστής δεν το αποθηκεύει ποτέ."
+
+msgid "Password generator"
+msgstr "Γεννήτρια κωδικών"
+
+msgid "Select at least one character set."
+msgstr "Επιλέξτε τουλάχιστον ένα σύνολο χαρακτήρων."
+
+msgid "Password copied to clipboard."
+msgstr "Ο κωδικός αντιγράφηκε στο πρόχειρο."
+
+msgid "File exceeds maximum allowed size."
+msgstr "Το αρχείο υπερβαίνει το μέγιστο επιτρεπόμενο μέγεθος."
+
+msgid "File type not allowed."
+msgstr "Ο τύπος αρχείου δεν επιτρέπεται."
+
+msgid "Unable to read this file."
+msgstr "Δεν είναι δυνατή η ανάγνωση αυτού του αρχείου."
+
+msgid "Please wait for the file to finish loading."
+msgstr "Περιμένετε να ολοκληρωθεί η φόρτωση του αρχείου."
 msgid "Search current chat"
 msgstr "Αναζήτηση τρέχουσας συνομιλίας"
 

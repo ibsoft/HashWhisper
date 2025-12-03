@@ -678,6 +678,13 @@ function formatSearchTimestamp(value) {
   }
 }
 
+function formatReadableSize(bytes) {
+  if (!Number.isFinite(bytes)) return '';
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
 function toSearchSnippet(text) {
   if (!text) return '';
   if (text.length <= MESSAGE_SEARCH_SNIPPET) return text;
@@ -3708,8 +3715,75 @@ function bindUI() {
     const vaultShareSecret = document.getElementById('vault-share-secret');
     const vaultCopyUrl = document.getElementById('vault-copy-url');
     const vaultCopySecret = document.getElementById('vault-copy-secret');
+    const vaultFileInput = document.getElementById('vault-file');
+    const vaultFileInfo = document.getElementById('vault-file-info');
+    const vaultFileFeedback = document.getElementById('vault-file-feedback');
+    const vaultFileSpinner = document.getElementById('vault-file-spinner');
+    const vaultFileSpinnerLabel = document.getElementById('vault-file-spinner-label');
     const vaultCopyStatus = document.getElementById('vault-copy-status');
+    const vaultAllowedMimes = (vaultFileInput?.dataset?.allowedMimes || '').split(',').filter(Boolean);
+    const vaultFileMaxSize = Number(vaultFileInput?.dataset?.maxSize) || 0;
     const defaultBtnText = vaultCreateBtn?.textContent || '';
+    let vaultAttachment = null;
+    let vaultAttachmentPending = false;
+    const vaultDefaultFileMessage = vaultFileFeedback?.dataset?.defaultMessage || vaultFileFeedback?.textContent || '';
+    const vaultMessages = window.HW_VAULT_MESSAGES || {};
+    const getVaultMessage = (key, fallback) => vaultMessages[key] || fallback;
+    const vaultAttachmentLabel = getVaultMessage('attachmentLabel', 'File attached:');
+    const vaultFileSelectedEl = document.getElementById('vault-file-selected');
+    const vaultFileSelectedDefault = vaultFileSelectedEl?.textContent || '';
+    const resetFileInfoDisplay = () => {
+      if (vaultFileInfo) {
+        vaultFileInfo.textContent = '';
+        vaultFileInfo.classList.add('d-none');
+      }
+      if (vaultFileFeedback) {
+        vaultFileFeedback.textContent = vaultDefaultFileMessage;
+        vaultFileFeedback.classList.remove('text-danger');
+        vaultFileFeedback.classList.add('text-muted');
+      }
+    };
+    const setFileFeedback = (message, isError = false) => {
+      if (!vaultFileFeedback) return;
+      vaultFileFeedback.textContent = message;
+      vaultFileFeedback.classList.toggle('text-danger', isError);
+      vaultFileFeedback.classList.toggle('text-muted', !isError);
+    };
+    const setFileSpinnerVisibility = (visible) => {
+      if (vaultFileSpinner) vaultFileSpinner.classList.toggle('d-none', !visible);
+      if (vaultFileSpinnerLabel) vaultFileSpinnerLabel.classList.toggle('d-none', !visible);
+    };
+    const clearAttachment = (keepFeedback = false) => {
+      vaultAttachment = null;
+      vaultAttachmentPending = false;
+      setFileSpinnerVisibility(false);
+      if (vaultFileInput) {
+        vaultFileInput.value = '';
+      }
+      if (!keepFeedback) {
+        resetFileInfoDisplay();
+      } else if (vaultFileInfo) {
+        vaultFileInfo.classList.add('d-none');
+      }
+      if (vaultFileSelectedEl) {
+        vaultFileSelectedEl.textContent = vaultFileSelectedDefault;
+      }
+    };
+    const readFileAsBase64 = (file) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result || '';
+          const separator = result.indexOf(',');
+          if (separator !== -1) {
+            resolve(result.slice(separator + 1));
+            return;
+          }
+          resolve(result);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
 
     const toggleViewsDisabled = () => {
       const burn = vaultBurnSwitchEl?.checked;
@@ -3731,6 +3805,7 @@ function bindUI() {
       vaultShareSecret.value = '';
       vaultResultMeta.textContent = '';
       vaultCopyStatus?.classList.add('d-none');
+      clearAttachment();
       toggleViewsDisabled();
       if (vaultCreateBtn) {
         vaultCreateBtn.disabled = false;
@@ -3741,6 +3816,44 @@ function bindUI() {
     vaultModalEl.addEventListener('hidden.bs.modal', resetVaultModal);
     vaultBurnSwitchEl?.addEventListener('change', toggleViewsDisabled);
     toggleViewsDisabled();
+    vaultFileInput?.addEventListener('change', async () => {
+      const file = vaultFileInput.files?.[0];
+      clearAttachment();
+      if (!file) return;
+      const normalizedMime = file.type || 'application/octet-stream';
+      if (vaultFileMaxSize && file.size > vaultFileMaxSize) {
+        setFileFeedback(getVaultMessage('fileTooLarge', 'File exceeds maximum allowed size.'), true);
+        clearAttachment(true);
+        return;
+      }
+      const allowed = vaultAllowedMimes.length ? vaultAllowedMimes : [];
+      if (allowed.length && !allowed.includes(normalizedMime)) {
+        setFileFeedback(getVaultMessage('fileTypeNotAllowed', 'File type not allowed.'), true);
+        clearAttachment(true);
+        return;
+      }
+      if (vaultFileInfo) {
+        vaultFileInfo.textContent = `${file.name} • ${formatReadableSize(file.size)}`;
+        vaultFileInfo.classList.remove('d-none');
+      }
+      if (vaultFileSelectedEl) {
+        vaultFileSelectedEl.textContent = `${vaultAttachmentLabel} ${file.name}`;
+      }
+      vaultAttachmentPending = true;
+      setFileSpinnerVisibility(true);
+      setFileFeedback(vaultDefaultFileMessage, false);
+      try {
+        const base64 = await readFileAsBase64(file);
+        vaultAttachment = { file, base64, mime: normalizedMime };
+      } catch (err) {
+        if (CLIPBOARD_DEBUG) console.warn('[vault-file] read failed', err);
+        setFileFeedback(getVaultMessage('fileReadError', 'Unable to read this file.'), true);
+        clearAttachment(true);
+      } finally {
+        vaultAttachmentPending = false;
+        setFileSpinnerVisibility(false);
+      }
+    });
 
     const showVaultError = (message) => {
       if (vaultErrorEl) {
@@ -3813,48 +3926,65 @@ function bindUI() {
 
     vaultCreateBtn?.addEventListener('click', async () => {
       if (!vaultMessageEl) return;
+      if (vaultAttachmentPending) {
+        return showVaultError(getVaultMessage('waitForAttachment', 'Please wait for the file to finish loading.'));
+      }
       const message = vaultMessageEl.value.trim();
-      if (!message) {
-        return showVaultError('Provide some text to encrypt.');
+      const hasAttachment = Boolean(vaultAttachment?.base64 && vaultAttachment.file);
+      if (!message && !hasAttachment) {
+        return showVaultError(getVaultMessage('provideTextOrFile', 'Provide some text or attach a file.'));
+      }
+      const payloadValue = hasAttachment ? vaultAttachment.base64 : message;
+      const payloadType = hasAttachment ? 'file' : 'text';
+      if (!payloadValue) {
+        return showVaultError(getVaultMessage('payloadMissing', 'Payload missing.'));
       }
       const secret = generateVaultSecret();
-      const payload = await encryptVaultPayload(message, secret);
+      const payload = await encryptVaultPayload(payloadValue, secret);
       const lifetime = Number(vaultLifetimeEl?.value) || 24;
       const burnAfterRead = Boolean(vaultBurnSwitchEl?.checked);
       const maxViews = burnAfterRead ? 1 : Math.max(1, Math.min(Number(vaultViewsEl?.value) || 1, 10));
       vaultCreateBtn.disabled = true;
       vaultCreateBtn.textContent = 'Creating…';
       try {
+        const body = {
+          ciphertext: payload.ciphertext,
+          nonce: payload.nonce,
+          auth_tag: payload.auth_tag,
+          title: (vaultTitleEl?.value || '').trim(),
+          burn_after_read: burnAfterRead,
+          max_views: maxViews,
+          expires_hours: lifetime,
+          payload: payloadValue,
+          payload_type: payloadType,
+        };
+        if (hasAttachment && vaultAttachment.file) {
+          body.file_name = vaultAttachment.file.name;
+          body.file_mime = vaultAttachment.mime || vaultAttachment.file.type || 'application/octet-stream';
+          body.file_size = vaultAttachment.file.size;
+        }
         const resp = await fetch('/vault/create', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken(),
           },
-          body: JSON.stringify({
-            ciphertext: payload.ciphertext,
-            nonce: payload.nonce,
-            auth_tag: payload.auth_tag,
-            title: (vaultTitleEl?.value || '').trim(),
-            burn_after_read: burnAfterRead,
-            max_views: maxViews,
-            expires_hours: lifetime,
-          }),
+          body: JSON.stringify(body),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          showVaultError(data.error || 'Unable to create secret link.');
+          showVaultError(data.message || data.error || getVaultMessage('unableCreateSecret', 'Unable to create secret link.'));
           return;
         }
         const link = `${window.location.origin}/vault/${data.slug}`;
         const shareable = `${link}#${encodeURIComponent(secret)}`;
-        const expiresText = data.expires_at ? new Date(data.expires_at).toLocaleString() : 'Never';
+        const expiresText = data.expires_at ? new Date(data.expires_at).toLocaleString() : getVaultMessage('neverLabel', 'Never');
         showVaultResult(shareable, secret, expiresText, data.max_views || maxViews);
         vaultErrorEl?.classList.add('d-none');
-        showInfoModal('Secret link created', 'Copy the link and the secret fragment separately.');
+        showInfoModal(getVaultMessage('secretLinkCreated', 'Secret link created'), getVaultMessage('secretLinkCopy', 'Copy the link and the secret fragment separately.'));
       } catch (err) {
         console.error(err);
-        showVaultError('Unable to reach the vault service right now.');
+        showVaultError(getVaultMessage('unableReachVault', 'Unable to reach the vault service right now.'));
       } finally {
         if (vaultCreateBtn) {
           vaultCreateBtn.disabled = false;

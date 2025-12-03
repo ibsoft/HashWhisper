@@ -72,6 +72,26 @@ main > .container-fluid {
   min-height: 0;
 }
 
+body.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body.auth-page main {
+  flex: 1;
+}
+
+body.auth-page main > .container-fluid {
+  min-height: calc(100vh - var(--nav-height, 64px) - var(--footer-height, 56px));
+}
+
+.landing-hero.auth-hero {
+  min-height: calc(100vh - var(--nav-height, 64px) - var(--footer-height, 56px));
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
 
 .navbar-glass {
   background: linear-gradient(90deg, rgba(158, 242, 176, 0.08), rgba(111, 211, 255, 0.08)) rgba(10, 15, 25, 0.92);
@@ -141,11 +161,11 @@ main > .container-fluid {
 
 .landing-hero {
   position: relative;
-  min-height: calc(100vh - var(--nav-height, 64px));
+  min-height: calc(100vh - var(--nav-height, 64px) - var(--footer-height, 56px));
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 2.5rem 1rem 3rem;
   overflow: hidden;
   background: radial-gradient(circle at 20% 20%, rgba(158, 242, 176, 0.12), transparent 45%),
               radial-gradient(circle at 80% 0%, rgba(111, 211, 255, 0.15), transparent 40%),
@@ -207,6 +227,8 @@ main > .container-fluid {
   animation: slideIn 0.8s ease;
   width: min(720px, 90vw);
   max-width: 720px;
+  max-height: calc(100vh - var(--nav-height, 64px) - var(--footer-height, 56px) - 4rem);
+  overflow-y: auto;
 }
 .landing-logo {
   width: clamp(120px, 25vw, 180px);
@@ -1633,5 +1655,31 @@ main .container-fluid {
   }
   100% {
     box-shadow: 0 0 0 0 rgba(255, 205, 0, 0);
+  }
+}
+#vault-file-view {
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+#vaultModal .modal-dialog {
+  max-width: 760px;
+  margin: 0 auto;
+  min-height: calc(100vh - var(--nav-height, 64px));
+  display: flex;
+  align-items: center;
+}
+
+#vaultModal .modal-body {
+  max-height: calc(100vh - var(--nav-height, 64px) - var(--footer-height, 56px) - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 768px) {
+  #vault-file-view {
+    max-height: 45vh;
   }
 }

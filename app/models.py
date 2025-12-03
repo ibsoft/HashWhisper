@@ -227,6 +227,10 @@ class OneTimeSecret(db.Model):
     view_count = db.Column(db.Integer, default=0)
     expires_at = db.Column(db.DateTime, index=True)
     burned = db.Column(db.Boolean, default=False, index=True)
+    payload_type = db.Column(db.String(32), default="text")
+    payload_name = db.Column(db.String(255))
+    payload_mime = db.Column(db.String(64))
+    payload_size = db.Column(db.Integer)
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
