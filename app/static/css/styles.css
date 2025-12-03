@@ -1605,3 +1605,25 @@ main .container-fluid {
   background-color: rgba(12, 15, 22, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
+
+.search-result-actionable {
+  cursor: pointer;
+}
+.search-result-actionable:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+.search-target {
+  animation: search-highlight 1.4s ease;
+}
+@keyframes search-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 205, 0, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 205, 0, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 205, 0, 0);
+  }
+}

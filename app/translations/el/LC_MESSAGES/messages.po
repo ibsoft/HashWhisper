@@ -198,6 +198,15 @@ msgstr "Εγχειρίδιο χρήστη"
 msgid "Scan QR code"
 msgstr "Σάρωση QR κώδικα"
 
+msgid "Search current chat"
+msgstr "Αναζήτηση τρέχουσας συνομιλίας"
+
+msgid "Search decrypted messages in this room"
+msgstr "Αναζήτηση αποκρυπτογραφημένων μηνυμάτων σε αυτόν τον χώρο"
+
+msgid "Type to filter the currently loaded chat history."
+msgstr "Πληκτρολογήστε για να φιλτράρετε το φορτωμένο ιστορικό συνομιλίας."
+
 msgid "Point your camera at the QR to join instantly."
 msgstr "Κατευθύνετε την κάμερά σας στο QR για να μπείτε αμέσως."
 

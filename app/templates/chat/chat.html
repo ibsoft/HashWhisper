@@ -72,6 +72,22 @@
       </div>
     </div>
 
+    <div class="card card-glass p-3 sidebar-card mb-3 search-card" id="message-search-card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="fa-solid fa-magnifying-glass me-2"></i>{{ _('Search current chat') }}</h6>
+      </div>
+      <input
+        type="search"
+        class="form-control"
+        id="message-search-input"
+        placeholder="{{ _('Search decrypted messages in this room') }}"
+        autocomplete="off"
+      >
+      <div class="search-results mt-2 text-muted small" id="search-results">
+        {{ _('Type to filter the currently loaded chat history.') }}
+      </div>
+    </div>
+
     <div class="card card-glass p-3 sidebar-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0"><i class="fa-solid fa-sliders me-2"></i>{{ _('Quick Actions') }}</h6>
@@ -135,8 +151,8 @@
             <div class="spinner-border text-accent" role="status" aria-label="{{ _('Loading messages') }}"></div>
           </div>
         </div>
-      </div>
     </div>
+  </div>
 
     <div class="scroll-control-wrapper d-flex justify-content-end mt-2 px-2">
       <button type="button" class="scroll-top-btn" id="scroll-top-btn" aria-label="{{ _('Scroll to top') }}" aria-hidden="true">

@@ -23,6 +23,7 @@ const state = {
   copyCounts: {},
   mediaCache: new Map(),
   messages: {},
+  recentMessages: {},
   hasMoreOlder: {},
   messageCount: {},
   notifications: { count: 0, mention: false },
@@ -38,6 +39,9 @@ const state = {
   typingNotifications: new Map(),
 };
 
+const MESSAGE_SEARCH_LIMIT = 30;
+const MESSAGE_SEARCH_SNIPPET = 180;
+let messageSearchQuery = '';
 let refreshTimer = null;
 let scrollActivityTimer = null;
 let audioCtx = null;
@@ -462,6 +466,12 @@ function parseChatCommand(text) {
   const cmdLower = cmd.toLowerCase();
   if (cmdLower === '/ai') {
     if (!target) return null;
+    const tokens = target.split(/\s+/);
+    const sub = tokens[0]?.toLowerCase();
+    const remainder = target.slice(tokens[0]?.length || 0).trim();
+    if (sub === 'summarize') {
+      return { action: 'ai_summarize', icon: '📝', text: remainder };
+    }
     return { action: 'ai', icon: '🤖', text: target };
   }
   if (cmdLower === '/slap' || cmdLower === '/slaps') {
@@ -588,6 +598,175 @@ function messageMentionsUser(text) {
   const escaped = escapeRegex(username);
   const regex = new RegExp(`@${escaped}(?![\\w@])`, 'i');
   return regex.test(text || '');
+}
+
+function formatSearchTimestamp(value) {
+  if (!value) return '';
+  try {
+    const userTz = getUserTimezone();
+    const dt = new Date(value);
+    return dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: userTz });
+  } catch (err) {
+    return '';
+  }
+}
+
+function toSearchSnippet(text) {
+  if (!text) return '';
+  if (text.length <= MESSAGE_SEARCH_SNIPPET) return text;
+  return `${text.slice(0, MESSAGE_SEARCH_SNIPPET).trim()}…`;
+}
+
+function highlightSearchText(text, query) {
+  if (!text) return '';
+  const safe = escapeHtml(text);
+  if (!query) return safe;
+  try {
+    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+    return safe.replace(regex, '<mark>$1</mark>');
+  } catch (err) {
+    return safe;
+  }
+}
+
+function scrollToMessageBubble(messageId) {
+  if (!messageId) return;
+  const bubble = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (bubble) {
+    bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    bubble.classList.add('search-target');
+    setTimeout(() => bubble.classList.remove('search-target'), 1600);
+    return;
+  }
+  const list = document.getElementById('message-list');
+  if (list) {
+    list.scrollTop = list.scrollHeight;
+  }
+}
+
+function updateMessageSearchResults(query) {
+  messageSearchQuery = (query || '').trim();
+  const container = document.getElementById('search-results');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!state.currentGroup) {
+    container.innerHTML = '<div class="text-muted small">Select a group to search its history.</div>';
+    return;
+  }
+  if (!messageSearchQuery) {
+    container.innerHTML = '<div class="text-muted small">Enter keywords to filter the currently loaded messages.</div>';
+    return;
+  }
+  const lowerQuery = messageSearchQuery.toLowerCase();
+  const bucket = state.recentMessages[state.currentGroup] || [];
+  const matches = [];
+  for (let i = bucket.length - 1; i >= 0 && matches.length < MESSAGE_SEARCH_LIMIT; i -= 1) {
+    const entry = bucket[i];
+    const text = (entry.searchText || '').toLowerCase();
+    if (text.includes(lowerQuery)) {
+      matches.push(entry);
+    }
+  }
+  if (!matches.length) {
+    container.innerHTML = '<div class="text-muted small">No matches found.</div>';
+    return;
+  }
+  matches.forEach((entry) => {
+    const line = document.createElement('div');
+    line.className = 'search-result border-bottom border-secondary-subtle py-2';
+    line.classList.add('search-result-actionable');
+    line.setAttribute('role', 'button');
+    line.tabIndex = 0;
+    line.dataset.targetMessageId = entry.id;
+    const timestampLabel = formatSearchTimestamp(entry.created_at);
+    const senderLabel = escapeHtml(entry.sender || 'Someone');
+    line.innerHTML = `<div class="fw-semibold small text-white">${timestampLabel ? `${timestampLabel} • ` : ''}${senderLabel}</div>
+      <div class="small text-muted mb-0">${highlightSearchText(toSearchSnippet(entry.displayText), messageSearchQuery)}</div>`;
+    line.addEventListener('click', () => scrollToMessageBubble(entry.id));
+    line.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        scrollToMessageBubble(entry.id);
+      }
+    });
+    container.appendChild(line);
+  });
+}
+
+function formatMetaLabel(meta) {
+  if (!meta) return '';
+  const parts = [];
+  if (meta.name) parts.push(meta.name);
+  if (meta.orig_name) parts.push(meta.orig_name);
+  if (meta.original_name) parts.push(meta.original_name);
+  if (meta.displayName) parts.push(meta.displayName);
+  if (meta.mime) parts.push(meta.mime);
+  return parts.filter(Boolean).join(' • ');
+}
+
+function rememberPlaintextMessage(groupId, msg, plaintext, meta = {}) {
+  if (!groupId) return;
+  const trimmed = (plaintext || '').trim();
+  const lowered = trimmed.toLowerCase();
+  const isPlaceholder =
+    !trimmed ||
+    lowered.startsWith('[encrypted]') ||
+    lowered.startsWith('[unable to decrypt') ||
+    lowered.startsWith('[cipher]');
+  const metaLabel = formatMetaLabel(meta);
+  const baseDisplay = !isPlaceholder ? trimmed : '';
+  const displayText = baseDisplay || metaLabel;
+  if (!displayText) return;
+  const searchParts = [];
+  if (baseDisplay) searchParts.push(baseDisplay);
+  if (metaLabel) searchParts.push(metaLabel);
+  const entry = {
+    id: msg.id,
+    sender: msg.sender_name || 'Someone',
+    displayText,
+    searchText: searchParts.join(' '),
+    created_at: msg.created_at,
+  };
+  const bucket = state.recentMessages[groupId] || [];
+  const existingIndex = bucket.findIndex((item) => item.id === entry.id);
+  if (existingIndex !== -1) {
+    bucket.splice(existingIndex, 1, entry);
+  } else {
+    bucket.push(entry);
+  }
+  bucket.sort((a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    return ta - tb;
+  });
+  const MAX_HISTORY = 200;
+  if (bucket.length > MAX_HISTORY) {
+    bucket.splice(0, bucket.length - MAX_HISTORY);
+  }
+  state.recentMessages[groupId] = bucket;
+  if (messageSearchQuery) {
+    updateMessageSearchResults(messageSearchQuery);
+  }
+}
+
+function buildSummaryContext(groupId, { maxEntries = 120, maxChars = 12000 } = {}) {
+  const bucket = (state.recentMessages[groupId] || []).slice(-maxEntries);
+  if (!bucket.length) return null;
+  const lines = [];
+  let charCount = 0;
+  for (const entry of bucket) {
+    const ts = entry.created_at ? new Date(entry.created_at).toLocaleTimeString() : '';
+    const prefix = ts ? `[${ts}] ` : '';
+    const sender = entry.sender || 'Someone';
+    const line = `${prefix}${sender}: ${entry.text}`;
+    if (lines.length && charCount + line.length > maxChars) {
+      break;
+    }
+    lines.push(line);
+    charCount += line.length;
+  }
+  if (!lines.length) return null;
+  return lines.join('\n');
 }
 
 function escapeHtml(str) {
@@ -987,9 +1166,9 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
     if (avatarImg.src !== fallback) avatarImg.src = fallback;
   });
   avatarWrap.appendChild(avatarImg);
-  let meta = {};
-  try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
-  const body = document.createElement('div');
+    let meta = {};
+    try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
+    const body = document.createElement('div');
   const metaLine = document.createElement('div');
   metaLine.className = 'meta';
   const uploadedBy = msg.sender_name ? ` • by ${msg.sender_name}` : '';
@@ -1507,6 +1686,9 @@ async function loadMessages(groupId, opts = {}) {
         plaintext = await decryptText(msg, secret, groupId);
       }
       msg.plaintext = plaintext;
+      let meta = {};
+      try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
+      rememberPlaintextMessage(groupId, msg, plaintext, meta);
       const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
       await renderMessage(list, msg, isSelf, groupId, { prepend, animate: !forceRefresh });
       if (!state.messages[groupId].includes(msg.id)) {
@@ -1598,6 +1780,11 @@ async function sendMessage() {
     return;
   }
   const command = parseChatCommand(text);
+  if (command?.action === 'ai_summarize') {
+    input.value = '';
+    await handleAiSummarize(command.text || '');
+    return;
+  }
   if (command?.action === 'ai') {
     input.value = '';
     await handleAiQuestion(command.text);
@@ -1894,6 +2081,9 @@ async function appendLatestMessage(groupId, opts = {}) {
     plaintext = await decryptText(msg, secret, groupId);
   }
   msg.plaintext = plaintext;
+  let meta = {};
+  try { meta = JSON.parse(msg.meta || '{}'); } catch (err) { meta = {}; }
+  rememberPlaintextMessage(groupId, msg, plaintext, meta);
   const isSelf = msg.sender_id === Number(document.querySelector('.chat-shell').dataset.userId);
   state.messages[groupId] = state.messages[groupId] || [];
   await renderMessage(list, msg, isSelf, groupId, { prepend: false });
@@ -2012,6 +2202,80 @@ async function handleAiQuestion(question) {
     }
     if (userBubble) userBubble.remove();
     if (thinkingBubble) thinkingBubble.remove();
+    if (!appendedAnswer) {
+      await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
+    }
+  }
+}
+
+async function handleAiSummarize(note = '') {
+  if (!aiActionsEnabled()) {
+    showInfoModal('AI disabled', 'AI actions are turned off.');
+    return;
+  }
+  if (!state.currentGroup) {
+    showInfoModal('Select a group', 'Choose a chat before asking for a summary.');
+    return;
+  }
+  const context = buildSummaryContext(state.currentGroup);
+  if (!context) {
+    showInfoModal('No messages to summarize', 'Load and decrypt some chat history first.');
+    return;
+  }
+  const trimmedNote = (note || '').trim();
+  const thinkingBubble = appendLocalBubble('Summarizing...', { ai: true, spinner: true, small: true });
+  let appendedAnswer = false;
+  try {
+    const resp = await fetch('/api/ai/summarize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify({
+        group_id: state.currentGroup,
+        context,
+        note: trimmedNote,
+      }),
+    });
+    if (!resp.ok) {
+      let msg = 'AI summary request failed';
+      try {
+        const errJson = await resp.json();
+        msg = errJson.detail || errJson.error || msg;
+      } catch (e) {
+        const text = await resp.text();
+        msg = text || msg;
+      }
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const summary = data.summary || 'The AI could not summarize the meeting right now.';
+    const answerText = `AI summary: ${summary}`;
+    await sendEncryptedMessage(answerText, { action: 'ai', icon: '📝', act_text: answerText });
+    appendedAnswer = await appendLatestMessage(state.currentGroup, { ignoreAfter: true });
+  } catch (err) {
+    if (window.showToast) {
+      window.showToast('error', 'AI summary error', err?.message || 'AI summary unavailable right now.');
+    }
+    if (thinkingBubble) {
+      thinkingBubble.innerHTML = '';
+      const body = document.createElement('div');
+      body.textContent = err?.message || 'AI summary unavailable right now.';
+      thinkingBubble.appendChild(body);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = 'AI assistant';
+      thinkingBubble.appendChild(meta);
+    }
+  } finally {
+    if (thinkingBubble) {
+      const spinnerEl = thinkingBubble.querySelector('.spinner-border');
+      if (spinnerEl) spinnerEl.remove();
+      if (appendedAnswer) {
+        thinkingBubble.remove();
+      }
+    }
     if (!appendedAnswer) {
       await loadMessages(state.currentGroup, { notify: false, forceRefresh: true, forceLatest: true, showSpinner: false });
     }
@@ -2624,6 +2888,12 @@ function bindUI() {
     }
     signalTyping();
   });
+
+  const searchInputEl = document.getElementById('message-search-input');
+  if (searchInputEl) {
+    searchInputEl.addEventListener('input', () => updateMessageSearchResults(searchInputEl.value));
+    updateMessageSearchResults('');
+  }
 
   document.getElementById('attach-btn')?.addEventListener('click', () => {
     resumeAudio();
@@ -3629,6 +3899,10 @@ function scheduleLatestMessageAppend(groupId, { notify = true } = {}) {
 async function setCurrentGroup(groupId, groupName, { forceLatest = true } = {}) {
   if (GROUP_DEBUG) console.debug('[group] setCurrentGroup start', { groupId, groupName, forceLatest });
   state.currentGroup = Number(groupId);
+  const searchInput = document.getElementById('message-search-input');
+  if (searchInput) searchInput.value = '';
+  updateMessageSearchResults('');
+  state.recentMessages[state.currentGroup] = [];
   document.getElementById('chat-title').textContent = groupName || 'Chat';
   state.expiryMonitor = { lastMinute: null, handledExpire: false, lastWarnTs: 0, modalShown: false, lastSystemMinute: null, modalInstance: state.expiryMonitor.modalInstance };
   state.messages[state.currentGroup] = [];

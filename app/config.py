@@ -1,3 +1,4 @@
+import ipaddress
 import os
 import re
 from datetime import timedelta
@@ -15,6 +16,21 @@ def _resolve_storage_path(env_var: str, default: Path) -> str:
     else:
         candidate = default
     return str(candidate.resolve())
+
+
+def _parse_networks(raw_value: str | None) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    if not raw_value:
+        return []
+    networks = []
+    for part in raw_value.split(","):
+        candidate = part.strip()
+        if not candidate:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(candidate, strict=False))
+        except ValueError:
+            continue
+    return networks
 
 
 def _normalize_font_size(raw: str | None, default: str) -> str:
@@ -119,7 +135,7 @@ class Config:
     # Flask-Babel resolves this relative to app.root_path; keep it to the translations folder at repo root.
     BABEL_TRANSLATION_DIRECTORIES = "translations"
     MAINTENANCE_MODE = os.environ.get("HASHWHISPER_MAINTENANCE", "false").lower() == "true"
-    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "9.0.1")
+    APP_VERSION = os.environ.get("HASHWHISPER_APP_VERSION", "9.0.3")
     MAINTENANCE_MESSAGE = os.environ.get(
         "HASHWHISPER_MAINTENANCE_MESSAGE",
         "We are updating HashWhisper. Please check back in a few minutes.",
@@ -133,7 +149,7 @@ class Config:
     AI_SYSTEM_PROMPT = (
         "You are Leonard (Λεονάρδος in Greek) a concise, friendly assistant helping inside an end-to-end encrypted chat app. "
         "Decline and warn if a request is malicious, dangerous, ofensive or violates safety. "
-        "Otherwise provide clear, actionable answers."
+        "When asked to summarize a meeting or chat history, rely strictly on the supplied messages, focus on decisions, action items, and next steps, and reply with a concise, copy-friendly summary."
     )
     AI_RATELIMIT = os.environ.get("HASHWHISPER_AI_RATELIMIT", "5 per minute")
 
@@ -142,6 +158,9 @@ class Config:
     _avatar_default = _upload_default / "avatars"
     AVATAR_UPLOAD_FOLDER = _resolve_storage_path("HASHWHISPER_AVATAR_UPLOAD_FOLDER", _avatar_default)
     MAX_AVATAR_SIZE = int(os.environ.get("HASHWHISPER_MAX_AVATAR_SIZE", 2 * 1024 * 1024))  # 2MB default
+    ALLOW_USER_REGISTRATIONS = os.environ.get("HASHWHISPER_ALLOW_USER_REGISTRATIONS", "true").lower() == "true"
+    _registration_network_env = os.environ.get("HASHWHISPER_REGISTRATION_NETWORKS")
+    REGISTRATION_ALLOWED_NETWORKS = tuple(_parse_networks(_registration_network_env))
 
     FONT_FAMILY = os.environ.get(
         "HASHWHISPER_FONT_FAMILY",

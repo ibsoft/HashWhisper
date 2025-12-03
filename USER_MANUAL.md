@@ -12,6 +12,7 @@
 
 ## Messaging
 - **Text:** Type and send with Enter or the paper-plane. Encryption is client-side (AES-GCM).
+- **Search:** Use the “Search current chat” card below the messages to filter the decrypted history and attached file names in the selected room as you type.
 - **Emojis:** Open the panel, click multiple emojis; it stays open until you close it.
 - **Mentions & reactions:** Heart/Thumbs-down under each bubble; counts update live. Mentions trigger notification dots.
 - **Delete (if allowed):** Your own messages can be removed with the trash icon.
@@ -50,6 +51,7 @@
 
 ## Commands
 - `/ai <prompt>` — Send a prompt to the AI assistant (renders with 🤖).
+- `/ai summarize` — Ask the AI to read the currently loaded chat history and post a concise meeting recap you can copy.
 - `/slap <name>` — Fun action: “<you> slaps <name> with a wet trout” (🤚🐟 + GIF).
 - `/wave` — Wave action with 👋 and GIF.
 - `/shrug` — Shrug action with 🤷 and GIF.
@@ -74,6 +76,7 @@ We built HashWhisper because we believe privacy is a right, not a feature. Your 
 
 ## Μηνύματα
 - **Κείμενο:** Πληκτρολογήστε και στείλτε με Enter ή το χαρταετό. Η κρυπτογράφηση γίνεται τοπικά (AES-GCM).
+- **Αναζήτηση:** Χρησιμοποιήστε την κάρτα "Αναζήτηση τρέχουσας συνομιλίας" κάτω από τα μηνύματα για να φιλτράρετε την αποκρυπτογραφημένη ιστορία και τα ονόματα συνημμένων αρχείων εντός της επιλεγμένης ομάδας ενώ πληκτρολογείτε.
 - **Emojis:** Ανοίξτε το πάνελ, κάντε κλικ σε πολλά emojis· μένει ανοιχτό μέχρι να το κλείσετε.
 - **Αναφορές & αντιδράσεις:** Καρδιά/Thumbs-down κάτω από κάθε φούσκα· οι μετρητές ενημερώνονται. Αναφορές ενεργοποιούν κουκκίδες ειδοποιήσεων.
 - **Διαγραφή (αν επιτρέπεται):** Τα δικά σας μηνύματα μπορούν να διαγραφούν με τον κάδο.
@@ -102,6 +105,7 @@ We built HashWhisper because we believe privacy is a right, not a feature. Your 
 
 ## Εντολές
 - `/ai <prompt>` — Στέλνει προτροπή στον AI βοηθό (εμφανίζεται με 🤖).
+- `/ai summarize` — Ζήτα από τον AI να διαβάσει την τρέχουσα ιστορία συνομιλίας και να δημοσιεύσει σύντομο συμπέρασμα που μπορείς να αντιγράψεις.
 - `/slap <όνομα>` — Δράση “<εσύ> χτυπάς το <όνομα> με μια βρεγμένη πέστροφα” (🤚🐟 + GIF).
 - `/wave` — Κούνημα χεριού με 👋 και GIF.
 - `/shrug` — Ύφος απορίας με 🤷 και GIF.

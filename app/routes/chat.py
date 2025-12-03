@@ -1056,6 +1056,92 @@ def ask_ai():
         return jsonify({"error": "unknown", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 500
 
 
+@chat_bp.route("/api/ai/summarize", methods=["POST"])
+@login_required
+@limiter.limit(lambda: current_app.config.get("AI_RATELIMIT", "5 per minute"))
+def summarize_ai():
+    cfg = current_app.config
+    if not cfg.get("AI_ENABLED"):
+        return jsonify({"error": "disabled", "meta": {"enabled": False}}), 403
+    api_key = cfg.get("AI_API_KEY")
+    model = cfg.get("AI_MODEL", "gpt-4o-mini")
+    system_prompt = cfg.get("AI_SYSTEM_PROMPT", "")
+    timeout = int(cfg.get("AI_TIMEOUT", 20))
+    if not api_key:
+        return jsonify({"error": "missing_key", "meta": {"enabled": True, "has_key": False}}), 503
+    data = request.get_json(silent=True) or {}
+    group_id = data.get("group_id")
+    if not group_id:
+        return jsonify({"error": "missing_group"}), 400
+    if not ensure_not_expired(group_id):
+        return jsonify({"error": "expired"}), 410
+    membership = GroupMembership.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not membership:
+        return jsonify({"error": "forbidden"}), 403
+    context = (data.get("context") or data.get("content") or "").strip()
+    if not context:
+        return jsonify({"error": "missing_context"}), 400
+    note = (data.get("note") or "").strip()
+    max_context_chars = 16000
+    if len(context) > max_context_chars:
+        context = context[-max_context_chars:]
+    note_section = f"Additional focus: {note}\n\n" if note else ""
+    user_content = (
+        f"{note_section}"
+        "Summarize the following meeting messages for the participants. "
+        "Highlight key updates, decisions, action items, and next steps. "
+        "Use concise, copy-ready bullet points and avoid speculation.\n\n"
+        f"{context}"
+    )
+
+    try:
+        payload = json.dumps(
+            {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                "temperature": 0.4,
+            }
+        ).encode()
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            parsed = json.loads(raw)
+            answer = (
+                parsed.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+                .strip()
+            )
+            return jsonify(
+                {
+                    "summary": answer or "I could not summarize the meeting right now.",
+                }
+            )
+    except urllib.error.HTTPError as err:
+        status = getattr(err, "code", 502) or 502
+        try:
+            body = err.read().decode()
+        except Exception:
+            body = ""
+        detail = body or str(err)
+        return jsonify({"error": "upstream_error", "detail": detail, "meta": {"enabled": True, "has_key": True}}), status
+    except (urllib.error.URLError, socket.timeout) as err:
+        return jsonify({"error": "timeout", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 504
+    except Exception as err:
+        return jsonify({"error": "unknown", "detail": str(err), "meta": {"enabled": True, "has_key": True}}), 500
+
+
 @chat_bp.route("/api/ai/status", methods=["GET"])
 @login_required
 def ai_status():

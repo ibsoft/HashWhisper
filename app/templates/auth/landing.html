@@ -17,9 +17,14 @@
           <h1 class="mb-3">{{ config.APP_TITLE }}</h1>
           <p class="text-muted mb-4">{{ _('End-to-end encrypted group chat. Only those who share the hash can hear the whisper.') }}</p>
           <div class="d-grid gap-3">
+            {% if config.ALLOW_USER_REGISTRATIONS %}
             <a class="btn btn-soft btn-lg" href="{{ url_for('auth.register') }}">{{ _('Create secure account') }}</a>
+            {% endif %}
             <a class="btn btn-outline-light" href="{{ url_for('auth.login') }}">{{ _('Sign in to %(app)s', app=config.APP_TITLE) }}</a>
           </div>
+          {% if not config.ALLOW_USER_REGISTRATIONS %}
+          <p class="text-warning small mt-2 mb-0">{{ _('Registrations are disabled by configuration.') }}</p>
+          {% endif %}
           <p class="text-muted small mt-3 mb-0">
             {{ _('Disclaimer: Keep your shared secrets offline and private. If you lose them, we cannot recover your messages. Use %(app)s responsibly—do not use it for illegal activities. The author disclaims any liability for misuse or damages.', app=config.APP_TITLE) }}
           </p>
