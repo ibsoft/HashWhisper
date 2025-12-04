@@ -3,41 +3,50 @@
 
 {% block extra_css %}
 <style>
+html, body {
+    min-height: 100%;
+    height: auto;
+    overflow-y: auto !important;
+}
+
+/* Κύρια διάταξη */
 .vault-landing {
-    min-height: calc(100vh - 120px);
-    display: flex;
-    align-items: center;
-    padding: 2rem 0;
+    display: block;
+    padding: 2rem 0 7rem; /* extra χώρος κάτω */
 }
 
 .vault-card {
     max-width: 1000px;
     width: 100%;
-    margin: 0 auto;
+    margin: 0 auto 3rem;  /* κενό πριν τον footer */
     border: none;
     backdrop-filter: blur(10px);
     background: rgba(255, 255, 255, 0.95);
 }
 
+/* αρκετό padding μέσα στην κάρτα, ώστε το τελευταίο κείμενο να μένει πάνω από τον footer */
+.vault-card .card-body {
+    padding: 2rem 2.5rem 6rem;
+}
+
 @media (max-width: 768px) {
     .vault-landing {
-        padding: 1rem 0;
-        min-height: calc(100vh - 80px);
+        padding: 1rem 0 5.5rem;
     }
     
     .vault-card {
         border-radius: 12px;
-        margin: 0 0.5rem;
+        margin: 0 0.5rem 2.5rem;
     }
     
     .vault-card .card-body {
-        padding: 1.25rem;
+        padding: 1.25rem 1.25rem 5rem;
     }
 }
 
 @media (max-width: 576px) {
     .vault-landing {
-        padding: 0.5rem 0;
+        padding: 0.5rem 0 5rem;
     }
     
     .input-group {
@@ -64,18 +73,24 @@
     }
 }
 
-/* Ensure content doesn't overflow */
-.vault-output pre {
-    white-space: pre-wrap;
+/* Secret / output styling */
+.vault-output {
+    margin-bottom: 3rem; /* buffer στο κάτω μέρος της κάρτας */
+}
+
+.vault-secret-value {
+    white-space: pre-wrap;      /* κρατάει line breaks */
     word-wrap: break-word;
     max-width: 100%;
-    overflow-x: auto;
-    background: rgba(0, 0, 0, 0.04);
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    font-size: 0.95rem;
+    overflow-x: visible;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    font-size: 1rem;
     line-height: 1.5;
+    font-family: inherit;       /* ίδιο font με το υπόλοιπο */
+    display: inline;            /* ίδια γραμμή με το label */
 }
 
 .vault-file {
@@ -91,7 +106,7 @@
     gap: 0.75rem;
 }
 
-/* Better spacing for mobile */
+/* mobile βελτιώσεις */
 @media (max-width: 768px) {
     .vault-file .d-flex {
         flex-direction: column;
@@ -108,7 +123,6 @@
     }
 }
 
-/* Touch-friendly buttons on mobile */
 @media (max-width: 768px) {
     .btn {
         padding: 0.75rem 1rem;
@@ -120,7 +134,7 @@
     }
 }
 
-/* Improve badge responsiveness */
+/* Badge */
 #vault-status-badge {
     font-size: 0.875rem;
     padding: 0.5rem 1rem;
@@ -134,13 +148,13 @@
     }
 }
 
-/* Alert improvements */
+/* Alert */
 #vault-alert .alert {
     border-radius: 8px;
     margin-bottom: 0;
 }
 
-/* Metadata styling */
+/* Metadata */
 #vault-metadata {
     font-size: 0.9rem;
     color: #6c757d;
@@ -150,7 +164,7 @@
     border-left: 4px solid #0d6efd;
 }
 
-/* File icon and info */
+/* File icon */
 #vault-file-type-icon {
     font-size: 1.5rem;
     width: 40px;
@@ -164,7 +178,7 @@
     }
 }
 
-/* Prevent horizontal scrolling */
+/* container */
 .container {
     max-width: 100%;
     padding-left: 1rem;
@@ -172,19 +186,19 @@
     overflow-x: hidden;
 }
 
-/* Card body improvements */
+/* card body text wrapping */
 .card-body {
     overflow-wrap: break-word;
     word-wrap: break-word;
 }
 
-/* Input group responsiveness */
+/* input group */
 .input-group {
-    min-width: 0; /* Prevents overflow */
+    min-width: 0;
 }
 
 .form-control {
-    min-width: 0; /* Allows shrinking */
+    min-width: 0;
 }
 </style>
 {% endblock %}
@@ -193,7 +207,7 @@
 <section class="vault-landing" aria-labelledby="vault-landing-title">
   <div class="container">
     <div class="vault-card card card-glass shadow-lg mx-auto">
-      <div class="card-body p-4 p-md-5">
+      <div class="card-body">
         <div class="d-flex flex-column flex-md-row align-items-start justify-content-between gap-3 mb-4">
           <div class="d-flex align-items-start gap-3 flex-grow-1">
             <i class="fa-solid fa-shield-halved fa-2x text-primary mt-1" aria-hidden="true"></i>
@@ -230,8 +244,14 @@
         <div class="mb-4" id="vault-metadata" tabindex="-1" aria-live="polite"></div>
         
         <div class="vault-output">
-          <h5 class="mb-3" id="vault-title-placeholder"></h5>
-          <pre id="vault-content" class="mb-0"></pre>
+          <div class="mb-3">
+            <span class="fw-semibold me-1">{{ _('Title') }}:</span>
+            <span id="vault-title-placeholder" class="text-break"></span>
+          </div>
+          <div class="mb-2 d-none d-flex align-items-baseline flex-wrap" id="vault-secret-row">
+            <span class="fw-semibold me-1">{{ _('Secret') }}:</span>
+            <span id="vault-content" class="vault-secret-value"></span>
+          </div>
           <div class="vault-file mt-3 d-none" id="vault-file-view">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
               <div class="d-flex align-items-center gap-3 flex-grow-1">
@@ -260,6 +280,7 @@
   const alertEl = document.getElementById('vault-alert');
   const metadataEl = document.getElementById('vault-metadata');
   const titleEl = document.getElementById('vault-title-placeholder');
+  const secretRow = document.getElementById('vault-secret-row');
   const contentEl = document.getElementById('vault-content');
   const fileView = document.getElementById('vault-file-view');
   const fileIconEl = document.getElementById('vault-file-type-icon');
@@ -337,9 +358,8 @@
     
     if (data.title) {
       titleEl.textContent = data.title;
-      titleEl.classList.remove('d-none');
     } else {
-      titleEl.classList.add('d-none');
+      titleEl.textContent = '';
     }
   }
 
@@ -430,7 +450,6 @@
       updateStatus('{{ _("Ready to decrypt") }}', 'success');
       showAlert('{{ _("Secret ready. Paste the key and press decrypt.") }}', 'info');
       
-      // Auto-fill key from URL hash if present
       const hash = window.location.hash.replace('#', '');
       if (hash) {
         keyInput.value = decodeURIComponent(hash);
@@ -456,13 +475,22 @@
     
     try {
       const text = await decryptPayload(decodeURIComponent(key));
-      if ((entry.payload_type || 'text') === 'file') {
-        contentEl.textContent = '{{ _("Binary file ready to download below.") }}';
+      const type = (entry.payload_type || 'text');
+
+      if (type === 'file') {
+        if (secretRow) {
+          secretRow.classList.add('d-none');
+          contentEl.textContent = '';
+        }
         prepareFileDownload(text);
       } else {
         clearFilePreview();
         contentEl.textContent = text;
+        if (secretRow) {
+          secretRow.classList.remove('d-none');
+        }
       }
+
       updateStatus('{{ _("Unlocked") }}', 'success');
       showAlert('{{ _("Keep this window open only as long as you need.") }}', 'info');
     } catch (err) {
@@ -489,13 +517,15 @@
   clearBtn.addEventListener('click', () => {
     keyInput.value = '';
     contentEl.textContent = '';
+    if (secretRow) {
+      secretRow.classList.add('d-none');
+    }
     clearFilePreview();
     showAlert('{{ _("Key and decrypted message cleared.") }}', 'info');
     updateStatus('{{ _("Ready to decrypt") }}', 'success');
     keyInput.focus();
   });
 
-  // Handle Enter key in input
   keyInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       handleDecrypt();
@@ -505,18 +535,18 @@
   fetchVault();
   window.addEventListener('beforeunload', () => clearFilePreview());
   
-  // Handle responsive adjustments
   function handleResize() {
-    // Adjust padding on mobile
+    const body = document.querySelector('.vault-card .card-body');
+    if (!body) return;
     if (window.innerWidth < 768) {
-      document.querySelector('.vault-card .card-body').classList.add('px-3');
+      body.classList.add('px-3');
     } else {
-      document.querySelector('.vault-card .card-body').classList.remove('px-3');
+      body.classList.remove('px-3');
     }
   }
   
   window.addEventListener('resize', handleResize);
-  handleResize(); // Initial call
+  handleResize();
 })();
 </script>
 {% endblock %}
