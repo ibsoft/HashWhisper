@@ -72,6 +72,8 @@ let mediaFullscreenBtn = null;
 let mediaFullscreenActive = false;
 let mediaFullscreenSupported = false;
 let mediaFullscreenListenersAttached = false;
+let mediaModalHeartElement = null;
+let mediaModalImageClickHandlerAttached = false;
 let shareSecretButton = null;
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
@@ -1311,7 +1313,7 @@ async function renderMessage(container, msg, self, groupId, opts = {}) {
           if (!meta.renderedUrl) {
             await decryptMedia(msg, meta, { inline: false, groupId, spinner: previewSpinner });
           }
-          openMediaModal(meta);
+          openMediaModal(meta, msg.id);
         });
       } else {
         const docWrap = document.createElement('div');
@@ -3261,6 +3263,7 @@ function bindUI() {
   ['vaultModal', 'passwordGeneratorModal'].forEach(ensureModalInBody);
   ensureMobileNotificationPrompt();
   setupMediaFullscreenControl();
+  setupMediaModalImageLikeHandler();
   shareSecretButton = document.getElementById('share-secret-btn');
   shareSecretButton?.addEventListener('click', shareCurrentSecret);
   updateShareSecretButton();
@@ -4467,7 +4470,7 @@ async function checkGroupNotifications() {
   }
 }
 
-function openMediaModal(meta) {
+function openMediaModal(meta, messageId) {
   const modalBody = document.getElementById('mediaModalBody');
   if (!modalBody || !meta || !meta.renderedUrl) return;
   modalBody.innerHTML = '';
@@ -4485,8 +4488,67 @@ function openMediaModal(meta) {
     video.className = 'w-100 rounded';
     modalBody.appendChild(video);
   }
+  ensureMediaModalHeart();
   const modalEl = document.getElementById('mediaModal');
-  if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  if (modalEl) {
+    if (messageId) {
+      modalEl.dataset.messageId = messageId;
+    } else {
+      delete modalEl.dataset.messageId;
+    }
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+}
+
+function ensureMediaModalHeart() {
+  const modalBody = document.getElementById('mediaModalBody');
+  if (!modalBody) return null;
+  if (mediaModalHeartElement && modalBody.contains(mediaModalHeartElement)) {
+    return mediaModalHeartElement;
+  }
+  const existing = modalBody.querySelector('.media-modal-heart');
+  if (existing) {
+    mediaModalHeartElement = existing;
+    return existing;
+  }
+  mediaModalHeartElement = document.createElement('div');
+  mediaModalHeartElement.className = 'media-modal-heart';
+  mediaModalHeartElement.innerHTML = '<i class="fa-solid fa-heart"></i>';
+  modalBody.appendChild(mediaModalHeartElement);
+  return mediaModalHeartElement;
+}
+
+function showMediaModalHeart() {
+  const heart = ensureMediaModalHeart();
+  if (!heart) return;
+  heart.classList.remove('media-modal-heart-active');
+  // Force reflow so animation restarts.
+  void heart.offsetWidth;
+  heart.classList.add('media-modal-heart-active');
+}
+
+function handleMediaModalImageInteraction(event) {
+  const modalBody = document.getElementById('mediaModalBody');
+  if (!modalBody) return;
+  const image = modalBody.querySelector('img');
+  if (!image || !image.contains(event.target)) return;
+  const modalEl = document.getElementById('mediaModal');
+  const messageId = Number(modalEl?.dataset?.messageId || 0);
+  if (!messageId) return;
+  const bubble = document.querySelector(`[data-message-id="${messageId}"]`);
+  if (!bubble) return;
+  const likeBtn = bubble.querySelector('.reaction-like');
+  const dislikeBtn = bubble.querySelector('.reaction-dislike');
+  if (!likeBtn || !dislikeBtn) return;
+  showMediaModalHeart();
+  likeBtn.click();
+}
+
+function setupMediaModalImageLikeHandler() {
+  const modalBody = document.getElementById('mediaModalBody');
+  if (!modalBody || mediaModalImageClickHandlerAttached) return;
+  mediaModalImageClickHandlerAttached = true;
+  modalBody.addEventListener('click', handleMediaModalImageInteraction);
 }
 
 function supportsMediaFullscreenApi() {
@@ -4605,6 +4667,15 @@ function setupMediaFullscreenControl() {
   if (modalEl) {
     modalEl.addEventListener('hidden.bs.modal', () => {
       exitMediaFullscreen();
+      delete modalEl.dataset.messageId;
+      const modalBody = document.getElementById('mediaModalBody');
+      if (modalBody) {
+        const heart = modalBody.querySelector('.media-modal-heart');
+        if (heart) {
+          heart.classList.remove('media-modal-heart-active');
+        }
+      }
+      mediaModalHeartElement = null;
     });
   }
 }
