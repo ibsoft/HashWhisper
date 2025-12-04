@@ -68,6 +68,10 @@ let sseRetryDelay = 1000;
 let sseRefreshDebounce = null;
 let sseAppendDebounce = null;
 let messageSpinnerState = { visible: false, showTimer: null, hideTimer: null, start: 0 };
+let mediaFullscreenBtn = null;
+let mediaFullscreenActive = false;
+let mediaFullscreenSupported = false;
+let mediaFullscreenListenersAttached = false;
 let shareSecretButton = null;
 const CLIPBOARD_DEBUG = window.__HW_CLIPBOARD_DEBUG !== false; // set to false to silence copy logs
 const GROUP_DEBUG = window.__HW_GROUP_DEBUG !== false; // set to false to silence group select logs
@@ -3256,6 +3260,7 @@ function bindUI() {
   };
   ['vaultModal', 'passwordGeneratorModal'].forEach(ensureModalInBody);
   ensureMobileNotificationPrompt();
+  setupMediaFullscreenControl();
   shareSecretButton = document.getElementById('share-secret-btn');
   shareSecretButton?.addEventListener('click', shareCurrentSecret);
   updateShareSecretButton();
@@ -4277,7 +4282,7 @@ function connectPresence() {
         if (typingIndicator) {
           const isSelf = Number(document.querySelector('.chat-shell')?.dataset.userId || 0) === payload.user_id;
           const isTyping = Boolean(payload.typing && !isSelf);
-          typingIndicator.classList.toggle('d-none', !isTyping);
+          typingIndicator.classList.toggle('invisible', !isTyping);
           if (isTyping && !typingIndicatorVisible) {
             startTypingSound();
           } else if (!isTyping && typingIndicatorVisible) {
@@ -4482,6 +4487,126 @@ function openMediaModal(meta) {
   }
   const modalEl = document.getElementById('mediaModal');
   if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
+function supportsMediaFullscreenApi() {
+  if (typeof document === 'undefined') return false;
+  const docEl = document.documentElement;
+  return Boolean(
+    (docEl && (
+      docEl.requestFullscreen ||
+      docEl.webkitRequestFullscreen ||
+      docEl.mozRequestFullScreen ||
+      docEl.msRequestFullscreen
+    )) ||
+    document.fullscreenEnabled ||
+    document.webkitFullscreenEnabled ||
+    document.mozFullScreenEnabled ||
+    document.msFullscreenEnabled
+  );
+}
+
+function getCurrentFullscreenElement() {
+  if (typeof document === 'undefined') return null;
+  return document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement ||
+    null;
+}
+
+function isMediaModalFullscreenActive() {
+  const current = getCurrentFullscreenElement();
+  const modalEl = document.getElementById('mediaModal');
+  return Boolean(current && modalEl && modalEl.contains(current));
+}
+
+function getMediaFullscreenTarget() {
+  const modalBody = document.getElementById('mediaModalBody');
+  if (!modalBody) return null;
+  return modalBody.querySelector('img, video') || modalBody;
+}
+
+function updateMediaFullscreenButtonState() {
+  if (!mediaFullscreenBtn) return;
+  const icon = mediaFullscreenBtn.querySelector('i');
+  if (icon) {
+    icon.className = mediaFullscreenActive ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+  }
+  const fullscreenLabel = mediaFullscreenBtn.dataset.fullscreenLabel || 'Full screen';
+  const exitLabel = mediaFullscreenBtn.dataset.exitFullscreenLabel || 'Exit full screen';
+  const label = mediaFullscreenActive ? exitLabel : fullscreenLabel;
+  mediaFullscreenBtn.setAttribute('aria-label', label);
+  mediaFullscreenBtn.title = label;
+  mediaFullscreenBtn.setAttribute('aria-pressed', mediaFullscreenActive ? 'true' : 'false');
+  mediaFullscreenBtn.classList.toggle('disabled', !mediaFullscreenSupported);
+}
+
+function handleMediaFullscreenChange() {
+  mediaFullscreenActive = isMediaModalFullscreenActive();
+  updateMediaFullscreenButtonState();
+}
+
+function attachMediaFullscreenListeners() {
+  if (mediaFullscreenListenersAttached || typeof document === 'undefined') return;
+  mediaFullscreenListenersAttached = true;
+  ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach((event) => {
+    document.addEventListener(event, handleMediaFullscreenChange);
+  });
+}
+
+async function exitMediaFullscreen() {
+  if (typeof document === 'undefined' || !mediaFullscreenActive) return;
+  const exitFn = document.exitFullscreen ||
+    document.webkitExitFullscreen ||
+    document.mozCancelFullScreen ||
+    document.msExitFullscreen;
+  if (!exitFn) return;
+  try {
+    await exitFn.call(document);
+  } catch (err) {
+    console.error('exit fullscreen failed', err);
+  }
+}
+
+async function toggleMediaFullscreen() {
+  if (!mediaFullscreenSupported) return;
+  if (mediaFullscreenActive) {
+    await exitMediaFullscreen();
+    return;
+  }
+  const target = getMediaFullscreenTarget();
+  if (!target) return;
+  const requestFn = target.requestFullscreen ||
+    target.webkitRequestFullscreen ||
+    target.mozRequestFullScreen ||
+    target.msRequestFullscreen;
+  if (!requestFn) return;
+  try {
+    await requestFn.call(target);
+  } catch (err) {
+    console.error('request fullscreen failed', err);
+  }
+}
+
+function setupMediaFullscreenControl() {
+  if (typeof document === 'undefined') return;
+  mediaFullscreenBtn = document.getElementById('mediaModalFullscreenBtn');
+  if (!mediaFullscreenBtn) return;
+  mediaFullscreenSupported = supportsMediaFullscreenApi();
+  mediaFullscreenBtn.disabled = !mediaFullscreenSupported;
+  mediaFullscreenBtn.setAttribute('aria-disabled', (!mediaFullscreenSupported).toString());
+  updateMediaFullscreenButtonState();
+  if (!mediaFullscreenSupported) return;
+  mediaFullscreenBtn.addEventListener('click', toggleMediaFullscreen);
+  attachMediaFullscreenListeners();
+  handleMediaFullscreenChange();
+  const modalEl = document.getElementById('mediaModal');
+  if (modalEl) {
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      exitMediaFullscreen();
+    });
+  }
 }
 
 function showInfoModal(title, message, type = 'info') {

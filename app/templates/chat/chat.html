@@ -192,7 +192,7 @@
           data-plural="{{ _('whispers') }}">0 {{ _('whispers') }}</span>
       </div>
       <div class="text-center text-info small mt-1">
-        <span id="typing-indicator" class="d-none"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
+        <span id="typing-indicator" class="invisible" aria-live="polite"><i class="fa-solid fa-pen"></i> {{ _('typing...') }}</span>
       </div>
     </div>
   </div>
@@ -594,8 +594,22 @@
 <div class="modal fade" id="mediaModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content bg-dark text-light position-relative">
-      <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title">Media preview</h5>
+      <div class="modal-header border-0 pb-0 d-flex align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <h5 class="modal-title mb-0">Media preview</h5>
+          <button
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            id="mediaModalFullscreenBtn"
+            aria-pressed="false"
+            aria-label="{{ _('Toggle full screen') }}"
+            title="{{ _('Toggle full screen') }}"
+            data-fullscreen-label="{{ _('Full screen') }}"
+            data-exit-fullscreen-label="{{ _('Exit full screen') }}"
+          >
+            <i class="fa-solid fa-expand"></i>
+          </button>
+        </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body text-center" id="mediaModalBody"></div>
