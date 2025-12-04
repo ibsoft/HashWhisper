@@ -1363,6 +1363,43 @@ body.auth-page main > .container-fluid {
   background: rgba(255,255,255,0.85);
   box-shadow: 0 8px 20px rgba(0,0,0,0.18);
 }
+#mediaModalBody {
+  position: relative;
+}
+.media-modal-heart {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(3rem, 8vw, 4.5rem);
+  color: rgba(255, 115, 175, 0.95);
+  opacity: 0;
+  transform: scale(0);
+  z-index: 2;
+}
+.media-modal-heart-active {
+  animation: media-modal-heart-pop 0.65s ease-out;
+}
+@keyframes media-modal-heart-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
 .input-card .btn-danger { background: #ef4444; color: #fff; }
 .group-badge {
   width: 10px;
