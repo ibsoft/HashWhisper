@@ -1911,6 +1911,19 @@ main .container-fluid {
   overscroll-behavior: contain;
 }
 
+#vaultModal .form-select,
+#vaultModal .input-group .form-select {
+  background-color: rgba(10, 15, 25, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+#vaultModal .form-select:focus,
+#vaultModal .form-select:focus-visible {
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 0.2rem rgba(111, 211, 255, 0.25);
+}
+
 @media (max-width: 768px) {
   #vault-file-view {
     max-height: 45vh;
